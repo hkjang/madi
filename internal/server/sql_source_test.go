@@ -37,10 +37,18 @@ func TestPostgresSQLSourceReadonlyMetadataQueryAndRevocation(t *testing.T) {
 		t.Fatal(e)
 	}
 	role := "madi_sql_" + strings.ReplaceAll(newID(), "-", "")
+	password := randomToken()
 	quotedRole := pgx.Identifier{role}.Sanitize()
 	quotedSchema := pgx.Identifier{schema}.Sanitize()
 	table := pgx.Identifier{schema, "source_orders"}.Sanitize()
-	if _, e := s.DB.Exec(ctx, "CREATE ROLE "+quotedRole+" LOGIN"); e != nil {
+	// Utility statements cannot bind PASSWORD directly. Let PostgreSQL quote
+	// both values, and use the same random credential for the actual connection
+	// so the fixture also works with CI's SCRAM authentication (not only trust).
+	var createRole string
+	if e := s.DB.QueryRow(ctx, "SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', $1::text, $2::text)", role, password).Scan(&createRole); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.DB.Exec(ctx, createRole); e != nil {
 		t.Fatal(e)
 	}
 	t.Cleanup(func() {
@@ -54,10 +62,10 @@ func TestPostgresSQLSourceReadonlyMetadataQueryAndRevocation(t *testing.T) {
 	client.request("PUT", "/api/v1/admin/connectors/settings", map[string]any{"enabled": true, "allowed_hosts": []string{cfg.Host}}, 200)
 	service := testJSONObject(t, client.request("POST", "/api/v1/admin/users", map[string]any{"email": "sql-source@example.test", "name": "SQL 연동 계정", "kind": "service", "role": "editor"}, 200))
 	client.request("PUT", "/api/v1/workspaces/"+wid+"/members", map[string]any{"email": "sql-source@example.test", "role": "editor"}, 200)
-	input := map[string]any{"workspace_id": wid, "space_id": "", "service_account_id": service["id"], "name": "실제 PostgreSQL 읽기 전용", "kind": "postgres", "enabled": true, "credentials": map[string]any{"username": role, "password": "test-only-secret"}, "config": map[string]any{"host": cfg.Host, "port": int(cfg.Port), "database": cfg.Database, "allow_plaintext": true, "acknowledge_readonly": true, "acknowledge_acl": true, "timeout_seconds": 10, "max_rows": 50, "tables": []string{schema + ".source_orders"}}}
+	input := map[string]any{"workspace_id": wid, "space_id": "", "service_account_id": service["id"], "name": "실제 PostgreSQL 읽기 전용", "kind": "postgres", "enabled": true, "credentials": map[string]any{"username": role, "password": password}, "config": map[string]any{"host": cfg.Host, "port": int(cfg.Port), "database": cfg.Database, "allow_plaintext": true, "acknowledge_readonly": true, "acknowledge_acl": true, "timeout_seconds": 10, "max_rows": 50, "tables": []string{schema + ".source_orders"}}}
 	source := testJSONObject(t, client.request("POST", "/api/v1/data-sources", input, 200))
 	id := str(source, "id")
-	if strings.Contains(string(jsonValue(source)), "test-only-secret") || strings.Contains(string(jsonValue(source)), role) {
+	if strings.Contains(string(jsonValue(source)), password) || strings.Contains(string(jsonValue(source)), role) {
 		t.Fatal("SQL credentials returned")
 	}
 	inspected := testJSONObject(t, client.request("POST", "/api/v1/data-sources/"+id+"/inspect", map[string]any{}, 200))

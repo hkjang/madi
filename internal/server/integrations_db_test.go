@@ -56,6 +56,12 @@ func integrationTestServer(t *testing.T) (*Server, *httptest.Server) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Keep every fixture's file writes as isolated as its database schema. A
+	// non-root CI runner must never depend on /var/lib/madi being writable, and
+	// tests must not create attachments in a developer's configured service root.
+	if _, err = pool.Exec(ctx, "UPDATE settings SET data=jsonb_set(data,'{storage_path}',to_jsonb($1::text)) WHERE id=1", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(s)
 	t.Cleanup(server.Close)
 	return s, server

@@ -1,5 +1,7 @@
 import { chromium } from '../../../tests/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 // Invoked by the opt-in Go integration test against an isolated PostgreSQL
 // schema and the actual production web/dist assets. Never targets production.
@@ -25,8 +27,23 @@ async function api(context,path,method='GET',data){
 }
 const connected=page=>page.locator('.collaboration-bar[data-state="connected"]').waitFor();
 const editable=page=>page.locator('.tiptap-content[contenteditable="true"]');
+// TipTap inserts awareness cursor widgets between document text nodes. Their
+// user labels are UI, not content: a cursor before 😀 must not turn the actual
+// ALICE_동시_😀 text into ALICE_동시_공동 편집자😀 for assertions. Clone first
+// so reading never removes or changes the real collaboration decorations.
+function editorContent({contains=[]}={}) {
+  const content=document.querySelector('.tiptap-content')?.cloneNode(true);
+  content?.querySelectorAll('.collaboration-carets__caret').forEach(node=>node.remove());
+  const text=content?.textContent||'';
+  return contains.length ? contains.every(value=>text.includes(value)) : text;
+}
 async function append(page,value){await editable(page).click();await page.keyboard.press('Control+End');await page.keyboard.insertText(value)}
 try{
+  // Deterministic reproduction of the CI failure, independent of caret timing.
+  await a.setContent('<div class="tiptap-content">ALICE_동시_<span class="collaboration-carets__caret"><div class="collaboration-carets__label">공동 편집자</div></span>😀 BOB_동시_한글</div>');
+  assert.ok(!(await a.locator('.tiptap-content').textContent()).includes('ALICE_동시_😀'));
+  assert.equal(await a.evaluate(editorContent),'ALICE_동시_😀 BOB_동시_한글');
+  assert.equal(await a.locator('.collaboration-carets__caret').count(),1,'content reader must not mutate live cursor widgets');
   await api(contexts[0],'/auth/login','POST',{email:'admin@example.test',password:'Integration-Test-Password-2026!'});
   await api(contexts[1],'/auth/login','POST',{email:'collaborator@example.test',password:'Collaboration-Password-2026!'});
   const workspaces=await api(contexts[0],'/workspaces');
@@ -36,7 +53,7 @@ try{
   await b.goto(base+'/app/documents/'+doc.id);
   await connected(b);
   await Promise.all([append(a,' ALICE_동시_😀'),append(b,' BOB_동시_한글')]);
-  for(const page of [a,b]) await page.waitForFunction(()=>{const t=document.querySelector('.tiptap-content')?.textContent||'';return t.includes('ALICE_동시_😀')&&t.includes('BOB_동시_한글')});
+  for(const page of [a,b]) await page.waitForFunction(editorContent,{contains:['ALICE_동시_😀','BOB_동시_한글']});
   await a.waitForFunction(()=>document.querySelector('.collaboration-bar')?.textContent.includes('모든 변경 저장됨'));
   const saved=await api(contexts[0],'/documents/'+doc.id);
   assert.ok(saved.markdown.startsWith('---\ntags: [공동편집]\n---\n'));
@@ -49,9 +66,9 @@ try{
   await append(b,' BEFORE_RECONNECT');
   await b.evaluate(()=>window.__madiTestSockets.at(-1).close());
   await connected(b);
-  await a.waitForFunction(()=>document.querySelector('.tiptap-content')?.textContent.includes('BEFORE_RECONNECT'));
+  await a.waitForFunction(editorContent,{contains:['BEFORE_RECONNECT']});
   await b.reload();await connected(b);
-  assert.ok((await editable(b).innerText()).includes('BEFORE_RECONNECT'));
+  assert.ok((await b.evaluate(editorContent)).includes('BEFORE_RECONNECT'));
   console.log('PASS reconnect preserves unacknowledged edit and durable reload');
 
   const beforeRest=await api(contexts[0],'/documents/'+doc.id);
@@ -62,18 +79,20 @@ try{
   console.log('PASS REST epoch replacement offers recovery instead of overwriting');
 
   const users=await api(contexts[0],'/admin/users');const user=users.find(u=>u.email==='collaborator@example.test');
-  const beforeRevocation=await editable(b).innerText();
+  const beforeRevocation=await b.evaluate(editorContent);
   await api(contexts[0],'/admin/users/'+user.id,'PUT',{disabled:true});
   await b.locator('.collaboration-bar[data-state="error"]').waitFor();
   await append(a,' SECRET_AFTER_REVOCATION');
   await a.waitForFunction(()=>document.querySelector('.collaboration-bar')?.textContent.includes('모든 변경 저장됨'));
-  assert.equal(await b.locator('.tiptap-content').innerText(),beforeRevocation);
-  assert.ok(!(await b.locator('.tiptap-content').innerText()).includes('SECRET_AFTER_REVOCATION'));
+  assert.equal(await b.evaluate(editorContent),beforeRevocation);
+  assert.ok(!(await b.evaluate(editorContent)).includes('SECRET_AFTER_REVOCATION'));
   console.log('PASS silent revoked browser receives no future document state');
   assert.deepEqual(issues,[],'browser runtime errors');
 }catch(error){
-  await a.screenshot({path:'/tmp/madi-collaboration-failure-a.png',fullPage:true}).catch(()=>{});
-  await b.screenshot({path:'/tmp/madi-collaboration-failure-b.png',fullPage:true}).catch(()=>{});
+  const diagnostics=new URL('../../../test-results/collaboration/',import.meta.url);
+  await mkdir(diagnostics,{recursive:true});
+  await a.screenshot({path:fileURLToPath(new URL('failure-a.png',diagnostics)),fullPage:true}).catch(()=>{});
+  await b.screenshot({path:fileURLToPath(new URL('failure-b.png',diagnostics)),fullPage:true}).catch(()=>{});
   console.error('Browser issues:',issues);
   console.error('Page A:',await a.locator('body').innerText().catch(()=>''));
   console.error('Page B:',await b.locator('body').innerText().catch(()=>''));
