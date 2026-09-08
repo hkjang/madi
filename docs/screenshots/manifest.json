@@ -1,0 +1,2030 @@
+{
+  "version": "0.1.0",
+  "description": "실제 브라우저 성공 화면 목록. 실패 진단 화면은 제외합니다. 이미지 해시는 마지막 재생성 시점 기준입니다.",
+  "screenshots": [
+    {
+      "file": "workspace.png",
+      "title": "워크스페이스",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1223,
+      "sha256": "1897e00259fe09bc214d8cb12960ec5ec51e19e0bbda8ace973cc07d276b9f54"
+    },
+    {
+      "file": "documents.png",
+      "title": "모든 문서",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "454e5b412973b6d30c1c188ee1acdd3712a55f9cb79486df27883e978184a20b"
+    },
+    {
+      "file": "document.png",
+      "title": "문서",
+      "category": "workspace",
+      "width": 1512,
+      "height": 2097,
+      "sha256": "032f455be503c36e2596edb6424173fb6b7228ece877a14265fa0c7b358e382d"
+    },
+    {
+      "file": "editor-source.png",
+      "title": "편집기 · 원문",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1666,
+      "sha256": "14937f3d17823b9a66d4cde053dfce4ad2f1dc78a5668c0b9452512ce5e34b81"
+    },
+    {
+      "file": "document-summary-list.png",
+      "title": "문서 · 요약 · 목록",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "bfdf0367b05d17580a2ff2cb95aa02b6e17dad4187a6f88b6acb0a240e8a6ad1"
+    },
+    {
+      "file": "admin-audit.png",
+      "title": "관리자 · 감사",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "4d9578c8df9e73c2488649db40637836fd023aa03b32a0b8af69bc6f4a18cea1"
+    },
+    {
+      "file": "admin-backup.png",
+      "title": "관리자 · 백업",
+      "category": "admin",
+      "width": 1512,
+      "height": 1201,
+      "sha256": "2b0e33b72ddbe27da714c82f28544347f1b10ffed4533c8b1cf8273f3aa85f2b"
+    },
+    {
+      "file": "admin-connectors-mobile.png",
+      "title": "관리자 · 커넥터 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1226,
+      "sha256": "b3ebf58950ef883c8a340fe17bb6cff26a4d692b2308eb5e5f32c62cc037b37d"
+    },
+    {
+      "file": "admin-connectors.png",
+      "title": "관리자 · 커넥터",
+      "category": "admin",
+      "width": 1440,
+      "height": 1132,
+      "sha256": "9358abfa00eb819f1fe6ecf895f81a0af684fa32e4ea8c58314560a6c7a0d86e"
+    },
+    {
+      "file": "admin-dashboard.png",
+      "title": "관리자 · 대시보드",
+      "category": "admin",
+      "width": 1512,
+      "height": 1297,
+      "sha256": "ffab106f028b712d497c1b6e25d7646e83d792d09d815f282628bc5597e4861c"
+    },
+    {
+      "file": "admin-export-policy.png",
+      "title": "관리자 · 내보내기 · 정책",
+      "category": "admin",
+      "width": 1480,
+      "height": 1050,
+      "sha256": "fed1937b30aa6482faa5c5a62592dda8a1c918db2b478bc1e67e54959ad28d51"
+    },
+    {
+      "file": "admin-git-sync.png",
+      "title": "관리자 · Git · 동기화",
+      "category": "admin",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "b290781d3a9ecfc8070764270dc75cc4357c655f21c158784e88f0666076e5e3"
+    },
+    {
+      "file": "admin-inbound-capture.png",
+      "title": "관리자 · 수신 · 수집",
+      "category": "admin",
+      "width": 1440,
+      "height": 1126,
+      "sha256": "5e1f1eaa603dbd6530e99e541ea11e7b6138b1fb2f324bfd21488c6f84eead15"
+    },
+    {
+      "file": "admin-information-protection.png",
+      "title": "관리자 · 정보 · 보호",
+      "category": "admin",
+      "width": 1440,
+      "height": 2903,
+      "sha256": "3392f8bfcc6898db3a2728324b2d525c8c72021446ee9975011873f8e970b257"
+    },
+    {
+      "file": "admin-jobs-mobile.png",
+      "title": "관리자 · 작업 큐 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "c64fdab8c75e5fcc1daf78196cfabe5b0a18cb62277563510d6b92cecaf5724e"
+    },
+    {
+      "file": "admin-jobs.png",
+      "title": "관리자 · 작업 큐",
+      "category": "admin",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "35cd82780743f018af7c6b7e04a2b4553558732a3f2e779d9ee486e1e41d3693"
+    },
+    {
+      "file": "admin-migration.png",
+      "title": "관리자 · 가져오기",
+      "category": "admin",
+      "width": 1440,
+      "height": 1064,
+      "sha256": "1c6d825d2566a2506fd2757e3c018b4cc8b976e005ca3a20ac717e3719a959d9"
+    },
+    {
+      "file": "admin-notification-channels.png",
+      "title": "관리자 · 알림 · 채널",
+      "category": "admin",
+      "width": 1440,
+      "height": 1521,
+      "sha256": "8f9070c441c10f18b5232b0210abd68ff0ae1e8743f85658fec5a18f053f9c48"
+    },
+    {
+      "file": "admin-operations.png",
+      "title": "관리자 · 운영 상태",
+      "category": "admin",
+      "width": 1512,
+      "height": 1548,
+      "sha256": "68e823aff2d7432b2a51e4c5e6e83cf5f4dd58baedbf4ae5ca6a41cc6ea656ad"
+    },
+    {
+      "file": "admin-plugins.png",
+      "title": "관리자 · 플러그인",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "9457e708c24c7e799191972b63d8c3e8a123f5efe490db5e09b079c0b17add15"
+    },
+    {
+      "file": "admin-search-ai.png",
+      "title": "관리자 · 검색 · AI",
+      "category": "admin",
+      "width": 1512,
+      "height": 3066,
+      "sha256": "783b4036fdd37a2627c6cbe9698024f3768d68f2f46093fcf3457386a9372ca1"
+    },
+    {
+      "file": "admin-settings-ai.png",
+      "title": "관리자 · 설정 · AI",
+      "category": "admin",
+      "width": 1512,
+      "height": 1377,
+      "sha256": "0a4fa7faad574240a730a8a13a3f7595e7cc4bbf52ba706cc4e3467133545967"
+    },
+    {
+      "file": "admin-settings-history.png",
+      "title": "관리자 · 설정 · 이력",
+      "category": "admin",
+      "width": 1512,
+      "height": 2519,
+      "sha256": "f58a61076e24b44488ab9ed6bf6d62391627e8c6f6a777b32a7d5157c5b9306c"
+    },
+    {
+      "file": "admin-settings-oidc.png",
+      "title": "관리자 · 설정 · OIDC",
+      "category": "admin",
+      "width": 1512,
+      "height": 1232,
+      "sha256": "4277dde8c0a8a0f8526e7f154f52bfbc5c9ebab41c60957d80912d3ff32f7993"
+    },
+    {
+      "file": "admin-settings-security.png",
+      "title": "관리자 · 설정 · 보안",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "d1036925d2671d593506bcc92835fd7130608acc8ca8bce722ee6dad1aa32508"
+    },
+    {
+      "file": "admin-settings-storage.png",
+      "title": "관리자 · 설정 · 저장소",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "55924f8f182f2cf43d835bc7d0f8a6e2f2f682f4e0a1183dfcf7e920c7672588"
+    },
+    {
+      "file": "admin-settings-workflow.png",
+      "title": "관리자 · 설정 · 승인 절차",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "203da0861714e04c8de5823d7c5901437c7a6ca68d658582364a1fcbfcc5cb6e"
+    },
+    {
+      "file": "admin-settings.png",
+      "title": "관리자 · 설정",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "fe14887157acae48673751ccad67cf733ddd8c4af2ab83721b78579b108276c9"
+    },
+    {
+      "file": "admin-storage-mobile.png",
+      "title": "관리자 · 저장소 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 2586,
+      "sha256": "8f12506faac612fa6d834c701b4305cc8cf5885e76569d0e78cfdbae9a8951ed"
+    },
+    {
+      "file": "admin-storage.png",
+      "title": "관리자 · 저장소",
+      "category": "admin",
+      "width": 1440,
+      "height": 1931,
+      "sha256": "fe775ac405f398eb3ba9e22f33860f791cfdd84fa19b15ec06150c7ed62d5ea6"
+    },
+    {
+      "file": "admin-telemetry.png",
+      "title": "관리자 · 텔레메트리",
+      "category": "admin",
+      "width": 1512,
+      "height": 1658,
+      "sha256": "cc3ec1aa8e50f123e08ff63a43064ef30df8096b02d111563dc5946eae19002a"
+    },
+    {
+      "file": "admin-user-features.png",
+      "title": "관리자 · 사용자 · 기능 플래그",
+      "category": "admin",
+      "width": 1512,
+      "height": 1564,
+      "sha256": "d6c3ab09dd45bd683f049a2e18dcfdf34cddd3d7c681c60a0e2b46d72450e175"
+    },
+    {
+      "file": "admin-users.png",
+      "title": "관리자 · 사용자",
+      "category": "admin",
+      "width": 1512,
+      "height": 3885,
+      "sha256": "7e0013bde4f9583253e8735b6ed078741444af41878c9e8e069bb6a43851a5ed"
+    },
+    {
+      "file": "agent-action-confirm.png",
+      "title": "Agent · 작업 · 확인",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "8a211a7722262ef269dc90b2559dd4c38ffe3105666628ac490afee35cb24c89"
+    },
+    {
+      "file": "agent-run.png",
+      "title": "Agent · 실행",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "e5242f5628c23128578b97ba91e96efc0c12937bc36a2a89df68ba9c88c6c4c7"
+    },
+    {
+      "file": "agent-settings.png",
+      "title": "Agent · 설정",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "5bd6a39c26586fdfb398d35bc5cb20e196e34c3b71bfdcd01c4676fe872f26e3"
+    },
+    {
+      "file": "agent-workspace.png",
+      "title": "Agent · 워크스페이스",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "63014ffbb8d6644f0b3c64d5402efdf973baeea49ba6f3cc8dbdc4bcad65833c"
+    },
+    {
+      "file": "ai-citations.png",
+      "title": "AI · 출처",
+      "category": "ai",
+      "width": 1512,
+      "height": 1140,
+      "sha256": "6fa4a2c1034cebb265b31a70183c45c7ab86a69b3bc7818e58d8bad42aca65b0"
+    },
+    {
+      "file": "ai-draft-review.png",
+      "title": "AI · 초안 · 검토",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "87fa5f790c1e3dea832da4c5ea0e34eff5f51f14864458ae694e41525407d771"
+    },
+    {
+      "file": "ai-source-verification.png",
+      "title": "AI · 원문 · 검증",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "bfde48fab01d56d270fdce64d582e8f6446a5bc3dcb0053087a6e90bad0a6274"
+    },
+    {
+      "file": "api-keys.png",
+      "title": "API · 키",
+      "category": "personal",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "ebdd630412bd22bac60f09b3621cdf01ad4bfa78a4e812456915eadc7858d258"
+    },
+    {
+      "file": "approval-admin-mobile.png",
+      "title": "승인 · 관리자 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1116,
+      "sha256": "bf6c953306bf2a9258b96be3c62d94ab00faca8c4f8a71437e4f9b9cb6d37c13"
+    },
+    {
+      "file": "approval-admin.png",
+      "title": "승인 · 관리자",
+      "category": "admin",
+      "width": 1440,
+      "height": 1028,
+      "sha256": "44244f5e3db8d0867c4b684c6bd7f7dfc6095d8792219de75ddd09e38631d76c"
+    },
+    {
+      "file": "approval-inbox.png",
+      "title": "승인 · 수집함",
+      "category": "workspace",
+      "width": 1280,
+      "height": 720,
+      "sha256": "194c476a163f495544d66fcb78ad89585c6065ad39758d5cbc8c33c5dbd1b814"
+    },
+    {
+      "file": "approval-review.png",
+      "title": "승인 · 검토",
+      "category": "workspace",
+      "width": 1280,
+      "height": 720,
+      "sha256": "99a17fc2167b0512c808e892c84f0be377c33832b60c2f789fbe1b5144f682f0"
+    },
+    {
+      "file": "automation-editor.png",
+      "title": "자동화 · 편집기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "02be201803403dc1bf018d9f3871ace5040801ab404c84d12cb4dee11901675c"
+    },
+    {
+      "file": "automations-mobile.png",
+      "title": "자동화 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "06206fd6ce60bbdee3175575f54d752232d4337b71e608cc75c08831c646c903"
+    },
+    {
+      "file": "automations.png",
+      "title": "자동화",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "43ed5c354d0010e7537d31d7272c061440f09765b1d57d8e71b8b7c02b194625"
+    },
+    {
+      "file": "backup-artifacts-mobile.png",
+      "title": "백업 · 보관 파일 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "85d4452c304a15435002aaa36377467ae5928fd19fe7d9a389efbdf27e508e0f"
+    },
+    {
+      "file": "backup-artifacts.png",
+      "title": "백업 · 보관 파일",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1318,
+      "sha256": "d7dd22e676f851bd3e31d7949e0606793b7e460476977b31f71d07564655a551"
+    },
+    {
+      "file": "backup-schedule-mobile.png",
+      "title": "백업 · 예약 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1853,
+      "sha256": "7abd51660226e8ded91914e0507b58a3b27d3f8a5d3c4dcf3ad00304073ecf9e"
+    },
+    {
+      "file": "backup-schedule.png",
+      "title": "백업 · 예약",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1479,
+      "sha256": "2c2af0d12d344594ee6253ac313cb9913a2b166b0680911105d2244ccbca37af"
+    },
+    {
+      "file": "block-organizer.png",
+      "title": "블록 · 구조 편집",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "42f1d2a92804b4151e923f038ea8523216501411dbb487f2fb06c5f466c219d3"
+    },
+    {
+      "file": "canvas-list.png",
+      "title": "캔버스 · 목록",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "5bfa9f497eee0c67013bc5e937813daa2659bbaf045475d233bb0ed87f5889eb"
+    },
+    {
+      "file": "canvas-trash.png",
+      "title": "캔버스 · 휴지통",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "7e85618f0bd5a6146ce8f691dc92f9d9a552930cf73fd0069562935012717fa0"
+    },
+    {
+      "file": "canvas.png",
+      "title": "캔버스",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "0b27fb612a378f87e2efc380cf642354828421842064bc156491f91ca6b5f9c2"
+    },
+    {
+      "file": "captured-private-document.png",
+      "title": "수집 결과 · 비공개 · 문서",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1845,
+      "sha256": "ac8d2eadaca061e6abb9a4b357dc2e70f90597a1ebdf10585ca13d3c3ea24c97"
+    },
+    {
+      "file": "clipper-settings.png",
+      "title": "클리퍼 · 설정",
+      "category": "personal",
+      "width": 1000,
+      "height": 850,
+      "sha256": "b0196d19887a35fa718f63d923d66fee3be2dc42466b0a1eaa509f48ebfd3128"
+    },
+    {
+      "file": "command-palette.png",
+      "title": "명령 · 팔레트",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "c0d75da05085bd49989017e4f8b5acd4ccbf018466b4cf6176f6c1d6bc182010"
+    },
+    {
+      "file": "connector-editor.png",
+      "title": "커넥터 · 편집기",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "5ba728e955a5fd72f5bf8a20ef95414c45637334968d963cb56a104c94efc545"
+    },
+    {
+      "file": "connector-preview.png",
+      "title": "커넥터 · 미리보기",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "c101c3232828c42e84893195ac49264861072455c3dca8883f389d4b618ae343"
+    },
+    {
+      "file": "connector-results-mobile.png",
+      "title": "커넥터 · 결과 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "bf9120c447a83b9b92cb6ae1d0b463cfeddc01a339155b485ceeae269b896b54"
+    },
+    {
+      "file": "connector-results.png",
+      "title": "커넥터 · 결과",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3d9b387e65a0c198965097515d58a53093690509b43da90ea12ce5fe155a1815"
+    },
+    {
+      "file": "connectors.png",
+      "title": "커넥터",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "0005c27a79b3f5ed952b76c93b285ca337739b1259de8dca80e10e2c639ae0ac"
+    },
+    {
+      "file": "data-source-editor.png",
+      "title": "외부 데이터 · 원문 · 편집기",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "398422c1b0a81972805ab905b1e4b97fb821dc96155e6990ad340031d6e4c1bf"
+    },
+    {
+      "file": "data-source-list.png",
+      "title": "외부 데이터 · 원문 · 목록",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "60705936f51c99f9126aead16073925f4cd8b497874a5c64b64490bd55f5e0d9"
+    },
+    {
+      "file": "data-source-query.png",
+      "title": "외부 데이터 · 원문 · 조회",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "df9b254bad35a60fd2aa285c64d0d24ed72aa0af99e3da566b5a1a7dd0f0f24e"
+    },
+    {
+      "file": "data-source-results-mobile.png",
+      "title": "외부 데이터 · 원문 · 결과 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "cf9283856e1d7873a404f2a616f4064d8268334c34337cca31b4795872fd7165"
+    },
+    {
+      "file": "data-source-results.png",
+      "title": "외부 데이터 · 원문 · 결과",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f2b4c3fc1bc229dc9416a2cf48f7a1481a13668d81002cc9dbd75f5742a18873"
+    },
+    {
+      "file": "data-source-table-mobile.png",
+      "title": "외부 데이터 · 원문 · 표 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 2037,
+      "sha256": "e6cca98f12e7bd55a997bbd22bc941ef7ba9dd259de0b6ccfbe8996a00ac3c42"
+    },
+    {
+      "file": "data-source-table.png",
+      "title": "외부 데이터 · 원문 · 표",
+      "category": "data",
+      "width": 1440,
+      "height": 1328,
+      "sha256": "57c094472a09d095883ac32616c332e2b34617059dc5284f9f4a96a2ac307c14"
+    },
+    {
+      "file": "database-advanced.png",
+      "title": "데이터베이스 · 고급 속성",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "1f09e14c355bcf31e9a3f9791da0211f5e2399374d971b831fa0a07555850fa7"
+    },
+    {
+      "file": "database-board.png",
+      "title": "데이터베이스 · 보드",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "e18bd8eaae8e27a020c1b0b8be6e1c5973c2f7d652e6a6540f2a7c5988b73787"
+    },
+    {
+      "file": "database-calendar.png",
+      "title": "데이터베이스 · 달력",
+      "category": "data",
+      "width": 1512,
+      "height": 1194,
+      "sha256": "147afef7210968ac31d1c6e1905551668f200ed8e2eb2630b55dafdae792503f"
+    },
+    {
+      "file": "database-gallery.png",
+      "title": "데이터베이스 · 갤러리",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "95fee30749e83ba6aa21d48570b318c3b22b4bc00b19d97ccfdfafc04f646690"
+    },
+    {
+      "file": "database-list.png",
+      "title": "데이터베이스 · 목록",
+      "category": "data",
+      "width": 1512,
+      "height": 1116,
+      "sha256": "9beda8f0bb3dc172a673a303ed50e2ab19ab6ca9571501d9761bb395a0dbbfae"
+    },
+    {
+      "file": "database-table.png",
+      "title": "데이터베이스 · 표",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "9a55dd927ff0c72dd127e035afe9bab38213224c638393a75563b35da098a7f8"
+    },
+    {
+      "file": "database-timeline.png",
+      "title": "데이터베이스 · 타임라인",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "c091017ea7e05c12bce2b3b6a013e859b3f4626c864b61dd2812f9db08838c3b"
+    },
+    {
+      "file": "databases.png",
+      "title": "데이터베이스 목록",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "2cba865274ac8232a4b07388ce5d5ab21e8e39a9721fe6511a3ddc2ba35a93e2"
+    },
+    {
+      "file": "desktop-offline.png",
+      "title": "데스크톱 · 오프라인",
+      "category": "personal",
+      "width": 1080,
+      "height": 800,
+      "sha256": "ba8e7724b48c4ed2de689f5fba0241c2fb0d0a457a9732f7d0da461da7f3d2f0"
+    },
+    {
+      "file": "desktop.png",
+      "title": "데스크톱",
+      "category": "personal",
+      "width": 1080,
+      "height": 800,
+      "sha256": "6f60f629738751c8206c132806ba3595710dd8caae841999296596152a89b8a9"
+    },
+    {
+      "file": "devices.png",
+      "title": "기기",
+      "category": "personal",
+      "width": 1512,
+      "height": 1193,
+      "sha256": "567b4b8d8b61c37337c3be9e1749a38f347e69947b42034831b934f172fe4792"
+    },
+    {
+      "file": "document-diff.png",
+      "title": "문서 · 변경 비교",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "e022f2b16cf93eff2c72cbee584975ea18858d5075e40e068a504527c083b7f5"
+    },
+    {
+      "file": "document-discussion.png",
+      "title": "문서 · 토론",
+      "category": "workspace",
+      "width": 1512,
+      "height": 2292,
+      "sha256": "c5ca9b810b473dc2d6727f87fd68fa37e45cdbf5915662f8494a4494f10c235e"
+    },
+    {
+      "file": "document-history.png",
+      "title": "문서 · 이력",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "3314b5db4ba9e2aa28e9d521306919d11c780cf9d9bb80680f8cdf2fc525ec25"
+    },
+    {
+      "file": "document-knowledge-history.png",
+      "title": "문서 · 지식 · 이력",
+      "category": "workspace",
+      "width": 1512,
+      "height": 2030,
+      "sha256": "254f30ae18cdb11b4e0a86271e5093afa1965dc778de369cab78a10f2ad4eb5d"
+    },
+    {
+      "file": "document-knowledge-policy.png",
+      "title": "문서 · 지식 · 정책",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1652,
+      "sha256": "a504c6b64176410803aeaa6783595dbae093d162185dcade95ba1c5b4b2c71c0"
+    },
+    {
+      "file": "document-lifecycle.png",
+      "title": "문서 · 생명주기",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1652,
+      "sha256": "75af6191ab2479b6a48326b4cffc2f0bce6abebb23219b45ad5c237aaca9e67c"
+    },
+    {
+      "file": "document-rag-index.png",
+      "title": "문서 · RAG · 색인",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "4ff5178987d8593c7bfbb6627ff2af05b1e5a8c00e65a0859a39bca570b31264"
+    },
+    {
+      "file": "document-watermark.png",
+      "title": "문서 · 워터마크",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1729,
+      "sha256": "b7dc1c9c9c644553ae659cb1abe3429c485fa07f100253f73fc41eeb0ef4efe3"
+    },
+    {
+      "file": "enterprise-mobile.png",
+      "title": "기업 데이터 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1849,
+      "sha256": "2094c47402966210df551d3bb065c6d92bd8735754619577340cce916b47f932"
+    },
+    {
+      "file": "enterprise.png",
+      "title": "기업 데이터",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "21ec2280328d43ec701ec1e1a491ea9b58165e8b6abbf411efb52c560f777ae6"
+    },
+    {
+      "file": "entities.png",
+      "title": "엔터티",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d0055a0e774e6c1d72a696b05e7210850d4dc2d513f00165a0e5ec95dcbd8c1d"
+    },
+    {
+      "file": "entity-create.png",
+      "title": "엔터티 · 생성",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "528c46ad77e70412878a195ab2d893bfb8cc2b3d37b52849cdbc75a921133bcc"
+    },
+    {
+      "file": "entity-profile-mobile.png",
+      "title": "엔터티 · 개인 설정 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1393,
+      "sha256": "6b2814326304bbc8e7e315a58f3d30287703b1534a8dbc2be81fd0ff48caa6ae"
+    },
+    {
+      "file": "entity-profile.png",
+      "title": "엔터티 · 개인 설정",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "e7f2077e07fffd954e36afc219648b6e80a27ca2f268bdf1298325ef249a78ad"
+    },
+    {
+      "file": "export-center.png",
+      "title": "내보내기 · 센터",
+      "category": "workspace",
+      "width": 1480,
+      "height": 1693,
+      "sha256": "897bfe034d1737f83fbd93853f0b22d1c0e3c33bf518509abae2292889ff2c9f"
+    },
+    {
+      "file": "export-results.png",
+      "title": "내보내기 · 결과",
+      "category": "workspace",
+      "width": 1480,
+      "height": 1505,
+      "sha256": "c515252abdef9e0220a10a263c11f35dc1cb4502062adbf91764baf062d8af9b"
+    },
+    {
+      "file": "favorites.png",
+      "title": "즐겨찾기",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "1ec07b6f4385f421977b66bdd8c13869e9d7c3f9b985065e819e2b956ba21a79"
+    },
+    {
+      "file": "git-sync-confirm.png",
+      "title": "Git · 동기화 · 확인",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1459,
+      "sha256": "deb81788dc1a584a5f1b6686a5410dcf64a152b74325bb550cdc28d250bc436d"
+    },
+    {
+      "file": "git-sync-preview.png",
+      "title": "Git · 동기화 · 미리보기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1440,
+      "sha256": "afd9be09bdc275534aeb40ddafc9db195e23744949ecf5b4eb088ed227c27b16"
+    },
+    {
+      "file": "git-sync.png",
+      "title": "Git · 동기화",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1463,
+      "sha256": "2daed744bf295030d777f63aabc0b2e256a12b9d26b31203122f15d4c4535954"
+    },
+    {
+      "file": "graph-ai-confirm.png",
+      "title": "지식 그래프 · AI · 확인",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "5270c0c19e37b248dd8cd9e751ad4b4f2349e2b7ce8f28dbab0188c8eeb242d2"
+    },
+    {
+      "file": "graph-ai-consent.png",
+      "title": "지식 그래프 · AI · 동의",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "32fabe70e2da1e55858513ee01d926406fb8408a221d65ec896b717a7b3ea037"
+    },
+    {
+      "file": "graph-ai-proposals.png",
+      "title": "지식 그래프 · AI · 추천 후보",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "91a1cbae251042b9cb8075683e924cb4c57a65aa055e55d09c42f8755d155c61"
+    },
+    {
+      "file": "graph-ai-topic.png",
+      "title": "지식 그래프 · AI · 주제",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "5ba5dcf85d0fe52e24c9dc1c33ede10cfb8bb6cbcbb908e2b41c2566ec1d7a38"
+    },
+    {
+      "file": "graph-local.png",
+      "title": "지식 그래프 · 현재 문서 중심",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1919,
+      "sha256": "2464ef906db30551be4cfb4c298cec4d501243f3a4631ad513922b6c971a51e2"
+    },
+    {
+      "file": "graph.png",
+      "title": "지식 그래프",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1907,
+      "sha256": "7c997494bfeaac5f91d0cac1eb99beb98eb3e55dacbc4415d76a30925de8aaa7"
+    },
+    {
+      "file": "identity-directory-login.png",
+      "title": "기업 인증 · 디렉터리 · 로그인",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "fcf116ab5f521171511c3590519f8b045add5cd1e8624fde12ee402701b785dc"
+    },
+    {
+      "file": "identity-group-mapping.png",
+      "title": "기업 인증 · 그룹 · 역할 매핑",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "4a4d765b46b72175b3eaddb1810dbdb8474252724be2ec1111ced1f3954cf0dd"
+    },
+    {
+      "file": "identity-ldap.png",
+      "title": "기업 인증 · LDAP",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "928955b680b163cb362315435fa1cdcd20df778f4ecd1afcee0f93f13d9f1aec"
+    },
+    {
+      "file": "identity-saml.png",
+      "title": "기업 인증 · SAML",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "c07d202e36e179584f2de11600c1ae3121c4db81943d10d5f04341d001a8677f"
+    },
+    {
+      "file": "identity-scim.png",
+      "title": "기업 인증 · SCIM",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "8167311945008ee741a3f2ad38434be73f7a2bbd5cd5986e0f8a3d50878505ce"
+    },
+    {
+      "file": "imap-capture-editor.png",
+      "title": "IMAP · 수집 · 편집기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3105715961026989a20f2d43980ca284097afd175e5dbe3da58762a971a32a1b"
+    },
+    {
+      "file": "import.png",
+      "title": "가져오기",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1230,
+      "sha256": "46f454609157081b3c6424662244b08d1b2964c3d238bd29a025bf13b7fdae9d"
+    },
+    {
+      "file": "inbound-capture-history.png",
+      "title": "수신 · 수집 · 이력",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1234,
+      "sha256": "5560ab6a4ed6b97d01d265ca3351ecde3c4cf738ce767d710f781cdd94273b16"
+    },
+    {
+      "file": "inbound-capture-mobile.png",
+      "title": "수신 · 수집 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1646,
+      "sha256": "433c17d416254d14982a107c7c3a1897e46cac20e91cf194ed3393d021d0696e"
+    },
+    {
+      "file": "inbox-classify.png",
+      "title": "수집함 · 분류",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1181,
+      "sha256": "ebf7cc117c0edf9265578ef4c689f8895ec2900098b2639ec5511491eed63153"
+    },
+    {
+      "file": "inbox.png",
+      "title": "수집함",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1181,
+      "sha256": "6f68ce2f73d92aefea201b829666ca413fae5eb50d257d686f623ed3b9442295"
+    },
+    {
+      "file": "information-protection-mobile.png",
+      "title": "정보 · 보호 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 4180,
+      "sha256": "63819b3d9753ca04b6ddd5cdc35c41bee08beddf91df75dbc2e244121457f182"
+    },
+    {
+      "file": "job-detail.png",
+      "title": "작업 · 상세",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "62e4f4199ee7fb0f191c3ea436487518cf2c35dc5a6d8cdcfecac4c7ea5a0751"
+    },
+    {
+      "file": "jobs-mobile-actions.png",
+      "title": "작업 큐 · 모바일 · 작업",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "ae2cd95164b50a0f4bf11a656ef497c4a153ca6b512148948dd106315a14d1a2"
+    },
+    {
+      "file": "jobs-mobile.png",
+      "title": "작업 큐 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "9a533d73481c559cffb74c90f82e5d4c84a0a5fa989e2e9213691ee20fd9edf6"
+    },
+    {
+      "file": "jobs.png",
+      "title": "작업 큐",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "5fd1c41f64f204e206319695e51eed456b5cc08e9ce129a980ab8d52c3bba33c"
+    },
+    {
+      "file": "keyboard-settings.png",
+      "title": "단축키 · 설정",
+      "category": "personal",
+      "width": 1512,
+      "height": 2582,
+      "sha256": "d9d8f34f35875f4ee47113baa6b1ef6f84c23f7589b383a0bbf3a2d566f8d5e4"
+    },
+    {
+      "file": "knowledge-health.png",
+      "title": "지식 · 건강 상태",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1458,
+      "sha256": "e9ab4b76ef089bca135c8d10e831c8cdbe6e630a445ddd0494bdacb326f8b713"
+    },
+    {
+      "file": "knowledge-quality-score.png",
+      "title": "지식 · 품질 · 점수",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1458,
+      "sha256": "04a261fff3e94ad77b9b1134ab06a3a2ce1ad4656ff02999f911fa3f08e0b0fa"
+    },
+    {
+      "file": "login.png",
+      "title": "로그인",
+      "category": "personal",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "2ec3ac444494921b0238596f0b46243785f561da7f8d49953ff639a2e4bc85a9"
+    },
+    {
+      "file": "members.png",
+      "title": "멤버",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "a2a8694c4d7ba0a930751d1211db2f71ff4bebf89ed6a3b81eff358c933597e9"
+    },
+    {
+      "file": "migration-center-mobile.png",
+      "title": "가져오기 · 센터 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1251,
+      "sha256": "c58dc01da2151cab4f3cb87036239218d232c78ed4e7060d38435c347ec0c1c6"
+    },
+    {
+      "file": "migration-center.png",
+      "title": "가져오기 · 센터",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1121,
+      "sha256": "d6f4f556ffb571a69da3053c436416abec7da65f4e47e38c97eeb73e3af830b3"
+    },
+    {
+      "file": "migration-folder-preview.png",
+      "title": "가져오기 · 폴더 · 미리보기",
+      "category": "workspace",
+      "width": 1480,
+      "height": 1113,
+      "sha256": "7c3bac9411f7ef4645b84286a34cb0e56d0c89d7501e946d832b1136f9279c27"
+    },
+    {
+      "file": "migration-folder-result.png",
+      "title": "가져오기 · 폴더 · 결과",
+      "category": "workspace",
+      "width": 1480,
+      "height": 1113,
+      "sha256": "156565160d98952468931dbad868ba6483ad8007dfff4ec404858240b7aff455"
+    },
+    {
+      "file": "migration-history-mobile-actions.png",
+      "title": "가져오기 · 이력 · 모바일 · 작업",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "8c7835ed9675e3586abe6b088e34df3257c1c34479e10b05cdbe2ef20f93001d"
+    },
+    {
+      "file": "migration-preview.png",
+      "title": "가져오기 · 미리보기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "86879480181eeb624c8a2a342039cca7dd0c7aaf5d34e99fec165168626bd451"
+    },
+    {
+      "file": "migration-result-mobile.png",
+      "title": "가져오기 · 결과 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1251,
+      "sha256": "780b09836ae6fbc36b1f0769db5cd28fb4829ace38bd2ea7203a680e83490a8e"
+    },
+    {
+      "file": "migration-result.png",
+      "title": "가져오기 · 결과",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1064,
+      "sha256": "3d98f30667efc7a88ac754507b46166baa87166077f54ef7641401f181b65ea0"
+    },
+    {
+      "file": "mobile-admin.png",
+      "title": "모바일 · 관리자",
+      "category": "mobile",
+      "width": 390,
+      "height": 1959,
+      "sha256": "c42ff95f3674f2a408e183b1fa128bdb7809c7c95efc4c157883d32590f02273"
+    },
+    {
+      "file": "mobile-agent-run.png",
+      "title": "모바일 · Agent · 실행",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "6eac27991f2f09b604079de3cd338b20bb32486810a83e12f9c2024d9e56f730"
+    },
+    {
+      "file": "mobile-ai-draft-review.png",
+      "title": "모바일 · AI · 초안 · 검토",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "9e96dbb58b6040faeee36668a1dcba8842042d7f3586420008ba8871ae68633e"
+    },
+    {
+      "file": "mobile-ai-source-verification.png",
+      "title": "모바일 · AI · 원문 · 검증",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "dd407da01d4155270e76537861872c1e9f979b88e8d61c6d5dbc3aff826974f8"
+    },
+    {
+      "file": "mobile-branding.png",
+      "title": "모바일 · 브랜딩",
+      "category": "mobile",
+      "width": 390,
+      "height": 1987,
+      "sha256": "b74c2d7f5420aebcc49e6267c6764355fea885649b0b76f02835718b8f68b4d8"
+    },
+    {
+      "file": "mobile-canvas.png",
+      "title": "모바일 · 캔버스",
+      "category": "mobile",
+      "width": 390,
+      "height": 1127,
+      "sha256": "5d5420673f4b8171c9d5184a40bc06389972118f0930acf41c5e00f3ceb6761a"
+    },
+    {
+      "file": "mobile-database-gallery.png",
+      "title": "모바일 · 데이터베이스 · 갤러리",
+      "category": "mobile",
+      "width": 390,
+      "height": 1715,
+      "sha256": "2b653800c8335457974cbff5011b3d73d050219de1b5c25471e269f823f54ae6"
+    },
+    {
+      "file": "mobile-devices.png",
+      "title": "모바일 · 기기",
+      "category": "mobile",
+      "width": 390,
+      "height": 2177,
+      "sha256": "c9992c11280ad2685488d5d9327dd48d306eb47cdd1b9f980dc750870ca011f3"
+    },
+    {
+      "file": "mobile-document-discussion.png",
+      "title": "모바일 · 문서 · 토론",
+      "category": "mobile",
+      "width": 390,
+      "height": 2563,
+      "sha256": "148faf0036c9eeaa0cdf340ab3e165849495d671174fdc9ab273a66d31a48dcb"
+    },
+    {
+      "file": "mobile-document-history.png",
+      "title": "모바일 · 문서 · 이력",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "59c22ee5fbe6fe0a09607985f9e0547518299a0361c46c20fa47533c84128809"
+    },
+    {
+      "file": "mobile-document-knowledge.png",
+      "title": "모바일 · 문서 · 지식",
+      "category": "mobile",
+      "width": 390,
+      "height": 2468,
+      "sha256": "bc7504d60ce5d5d882e7bd1f19f821e024f2cecf844a565464de16483f0a70e9"
+    },
+    {
+      "file": "mobile-export-policy.png",
+      "title": "모바일 · 내보내기 · 정책",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "4a28e5d0f7e16481fbff54dd2c1aecfde7dddddb1b39bb1ea84f82c1357eb8b9"
+    },
+    {
+      "file": "mobile-export.png",
+      "title": "모바일 · 내보내기",
+      "category": "mobile",
+      "width": 390,
+      "height": 3145,
+      "sha256": "b4c218e3af6f47d875203cc6b07b699096ca6c74c8893131f7df0b1bcd9f0617"
+    },
+    {
+      "file": "mobile-git-policy.png",
+      "title": "모바일 · Git · 정책",
+      "category": "mobile",
+      "width": 390,
+      "height": 952,
+      "sha256": "ee808520712737bbeb2aeb10a60a764354c570cd21ce057cd4f06a8b3b30b7f6"
+    },
+    {
+      "file": "mobile-git-sync.png",
+      "title": "모바일 · Git · 동기화",
+      "category": "mobile",
+      "width": 390,
+      "height": 1977,
+      "sha256": "d5e760db8df8f75bc6728e389117ce8b312054d970c1e2601c90c62d2ae2e898"
+    },
+    {
+      "file": "mobile-graph-ai.png",
+      "title": "모바일 · 지식 그래프 · AI",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "6809f452a037bc087ee151fec3bcde0e238926554f731cae51e08932927986d0"
+    },
+    {
+      "file": "mobile-graph.png",
+      "title": "모바일 · 지식 그래프",
+      "category": "mobile",
+      "width": 390,
+      "height": 2242,
+      "sha256": "2083595e22b083661bba2f0e8b982bca4c332147f7bd240fa8b237f1da2bf7d9"
+    },
+    {
+      "file": "mobile-identity.png",
+      "title": "모바일 · 기업 인증",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "2ce6342f34017cbc7bbf7719ea4b9db329ebd7136e868eda8ff5574804644759"
+    },
+    {
+      "file": "mobile-import.png",
+      "title": "모바일 · 가져오기",
+      "category": "mobile",
+      "width": 390,
+      "height": 1370,
+      "sha256": "51903e7aef0955abb90a50d68165893be1420e9cc8ef24c1a72e18074d47a368"
+    },
+    {
+      "file": "mobile-inbox-classify.png",
+      "title": "모바일 · 수집함 · 분류",
+      "category": "mobile",
+      "width": 390,
+      "height": 1537,
+      "sha256": "53413211d539d35a60963a910ca8573f7502455df0d0e1649badbdd112d2e112"
+    },
+    {
+      "file": "mobile-inbox.png",
+      "title": "모바일 · 수집함",
+      "category": "mobile",
+      "width": 390,
+      "height": 1537,
+      "sha256": "170085003575a8802ccfdafdeff1250c8459b303950dc33af1c9be50a42c3685"
+    },
+    {
+      "file": "mobile-knowledge-health.png",
+      "title": "모바일 · 지식 · 건강 상태",
+      "category": "mobile",
+      "width": 390,
+      "height": 2259,
+      "sha256": "db4fab9c9c48249b7799d02d064671d2cbcee8f94b9bfa8d90a2e9f01a6c7611"
+    },
+    {
+      "file": "mobile-menu.png",
+      "title": "모바일 · 메뉴",
+      "category": "mobile",
+      "width": 390,
+      "height": 1564,
+      "sha256": "8af5a7336997d784494a5788cd149aeff6f46d236b494dada731dafc977011c1"
+    },
+    {
+      "file": "mobile-natural-search.png",
+      "title": "모바일 · 자연어 · 검색",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "457dcd0e1271364d7c53016b01438f20e9eba69c8051d11bf3fcf5f73db2ff0a"
+    },
+    {
+      "file": "mobile-navigation.png",
+      "title": "모바일 · 탐색",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "58241610333d20fd3e4885f9a09f2341a649c5d313a433c81d896d1a4e81ca87"
+    },
+    {
+      "file": "mobile-operations.png",
+      "title": "모바일 · 운영 상태",
+      "category": "mobile",
+      "width": 390,
+      "height": 2086,
+      "sha256": "731ad1c19820c21392e38a07407ebc4e2f69bb5bbd3810a42cc345a49c2c4aba"
+    },
+    {
+      "file": "mobile-personal-ai-history.png",
+      "title": "모바일 · 개인 · AI · 이력",
+      "category": "mobile",
+      "width": 390,
+      "height": 1429,
+      "sha256": "1a0232772d04a8c1b3bb49753d760ac4662080d217f35d3334a1a6aa1edabab5"
+    },
+    {
+      "file": "mobile-plugins.png",
+      "title": "모바일 · 플러그인",
+      "category": "mobile",
+      "width": 390,
+      "height": 1901,
+      "sha256": "9fda578d9f9f52b7f80306125f083524eb07787c4e3be7ec3bfcd52ddbb93017"
+    },
+    {
+      "file": "mobile-profile-expanded.png",
+      "title": "모바일 · 개인 설정 · 고급 설정",
+      "category": "mobile",
+      "width": 390,
+      "height": 3524,
+      "sha256": "db405d493507f208dd7ab9d307f1457527310940bd9f633647a38f1a23f3b18a"
+    },
+    {
+      "file": "mobile-rag-index.png",
+      "title": "모바일 · RAG · 색인",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "eb2e8e301bfa51e7e4046fccfcd15631fa6c602e34f70cdcbbc00dac0e5485ba"
+    },
+    {
+      "file": "mobile-search-ai.png",
+      "title": "모바일 · 검색 · AI",
+      "category": "mobile",
+      "width": 390,
+      "height": 5576,
+      "sha256": "53aab3b21ffebf19082f57943a2526134ed199affe32cec8c241fb85bdf5d8ea"
+    },
+    {
+      "file": "mobile-search-filters.png",
+      "title": "모바일 · 검색 · 필터",
+      "category": "mobile",
+      "width": 390,
+      "height": 2303,
+      "sha256": "006bfbd1c42710f49e96f2a4d3e7407a310529164e6233b7139cdacf5098d1b7"
+    },
+    {
+      "file": "mobile-search-gap.png",
+      "title": "모바일 · 검색 · 보완 제안",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "9600c2eba5ca940b40f26fe5c5d08f119c9656e4378aed6135633acb4a272ca3"
+    },
+    {
+      "file": "mobile-search-summary.png",
+      "title": "모바일 · 검색 · 요약",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "aaec3e625426d5553c99a7eaad785bfff27cfbae0155240d3934d79af3946732"
+    },
+    {
+      "file": "mobile-spaces.png",
+      "title": "모바일 · 공간",
+      "category": "mobile",
+      "width": 390,
+      "height": 1170,
+      "sha256": "5763401de6516d1861f707e2d445624687a5ce45a224e378806d93fbaa1de7a7"
+    },
+    {
+      "file": "mobile-support.png",
+      "title": "모바일 · 지원 진단",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "e13c0b01d474f9d6c711b82653ed162ab0005e4472e7071c32f406596dca54c7"
+    },
+    {
+      "file": "mobile-tasks-calendar.png",
+      "title": "모바일 · 할 일 · 달력",
+      "category": "mobile",
+      "width": 390,
+      "height": 1902,
+      "sha256": "2e6b591b22aeb900a30d5a1fee17f9955a1a1898013cae754097e5cc64c1cf1f"
+    },
+    {
+      "file": "mobile-tasks-kanban.png",
+      "title": "모바일 · 할 일 · 칸반",
+      "category": "mobile",
+      "width": 390,
+      "height": 1016,
+      "sha256": "6364b3391609f9316930c0ad730832270f9dbf171e3108b3b054e419e416412a"
+    },
+    {
+      "file": "mobile-tasks-list.png",
+      "title": "모바일 · 할 일 · 목록",
+      "category": "mobile",
+      "width": 390,
+      "height": 1031,
+      "sha256": "6b4723aec44938639552af351fecc768fb4a148bc33f6b247026d7a7a63204e4"
+    },
+    {
+      "file": "mobile-teams.png",
+      "title": "모바일 · 팀",
+      "category": "mobile",
+      "width": 390,
+      "height": 1066,
+      "sha256": "ac69038216ced0c7d32ad7047a6ee3f547fa606a55ea1666c2b964ffcca6dd91"
+    },
+    {
+      "file": "mobile-telemetry.png",
+      "title": "모바일 · 텔레메트리",
+      "category": "mobile",
+      "width": 390,
+      "height": 2931,
+      "sha256": "c92d9e2514201ad5cbbd57134a5558b1a170a1eb9dc0af8af5f713bfb338f44e"
+    },
+    {
+      "file": "mobile-templates.png",
+      "title": "모바일 · 템플릿",
+      "category": "mobile",
+      "width": 390,
+      "height": 5127,
+      "sha256": "44167f2e54381d17b2d66427391269b8e81eb5649419eb76154803b3cdb8497e"
+    },
+    {
+      "file": "mobile-universal-search.png",
+      "title": "모바일 · 통합 · 검색",
+      "category": "mobile",
+      "width": 390,
+      "height": 1880,
+      "sha256": "a9c06c599fc27ab6b5e0c40512931e7fdaf1236dd132c0f0f27e6674b8e1a1a9"
+    },
+    {
+      "file": "mobile-workspace-audit.png",
+      "title": "모바일 · 워크스페이스 · 감사",
+      "category": "mobile",
+      "width": 390,
+      "height": 1629,
+      "sha256": "37eefd97c3065588ce3b12cf37e9bce866c3a27b6eb6e7a54dc5a3f3ebaa6564"
+    },
+    {
+      "file": "mobile-workspace-settings.png",
+      "title": "모바일 · 워크스페이스 · 설정",
+      "category": "mobile",
+      "width": 390,
+      "height": 1084,
+      "sha256": "7c7b8ccb70a2b7a631a05f2e6d7d9a77e2974aa7afc9f389f4bfc58599345e4b"
+    },
+    {
+      "file": "mobile-workspace.png",
+      "title": "모바일 · 워크스페이스",
+      "category": "mobile",
+      "width": 390,
+      "height": 1564,
+      "sha256": "e327f009b4db5e8b175d98660b13389d75e1d41213dd0817de82d4cc57326e87"
+    },
+    {
+      "file": "natural-search-review.png",
+      "title": "자연어 · 검색 · 검토",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "fdb9a0e1b349b92a66ad1d2de7f00c2a9bf3fe5847bce2dc6134bacf5d05d936"
+    },
+    {
+      "file": "notification-channel-editor.png",
+      "title": "알림 · 채널 · 편집기",
+      "category": "personal",
+      "width": 1440,
+      "height": 1427,
+      "sha256": "e340853403efd63da0365aeeba94dafc0800e35ec8b371d4a756a80b9e38d4b6"
+    },
+    {
+      "file": "notification-delivery-history.png",
+      "title": "알림 · 전송 이력 · 이력",
+      "category": "personal",
+      "width": 1440,
+      "height": 1434,
+      "sha256": "9278a81772a6d987f20e275bb8b8dba7431761618bfafbc9f5ab2b6db4c79b21"
+    },
+    {
+      "file": "notification-preferences-mobile.png",
+      "title": "알림 · 개인 설정 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1530,
+      "sha256": "31467eecb67da2f589b761ea8d227fe95eb76c6a2d985a270bff60baf4b2a639"
+    },
+    {
+      "file": "notification-preferences.png",
+      "title": "알림 · 개인 설정",
+      "category": "personal",
+      "width": 1440,
+      "height": 1381,
+      "sha256": "8c3ff7260bd8d394c23a3ea36d46c8fec30189982110dd5c6b5f1b75ffb7a6af"
+    },
+    {
+      "file": "offline-vault.png",
+      "title": "오프라인 · 보관함",
+      "category": "personal",
+      "width": 1512,
+      "height": 1101,
+      "sha256": "a4482c69f7d4c8ec7aa0c638607bbc16076c2d123005ae78928a924c08449109"
+    },
+    {
+      "file": "organizations.png",
+      "title": "조직",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "6015a1be6e8f195365c8be230831671c7d6fad69612604a8f30af66af8ff859d"
+    },
+    {
+      "file": "personal-ai-history.png",
+      "title": "개인 · AI · 이력",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "394e548cf09eb0817723052564a045449be65c24f39357c6259ceab487d48867"
+    },
+    {
+      "file": "personal-search-history.png",
+      "title": "개인 · 검색 · 이력",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "7f94129d156010a4e1a65a5e69b2c3e1c5921c000ef51e637151941f2fa4d53c"
+    },
+    {
+      "file": "plugin-block.png",
+      "title": "플러그인 · 블록",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1676,
+      "sha256": "0788f3d79a814861c84ef9f5cade1835d0da3417d981123b5899214f2021eb6b"
+    },
+    {
+      "file": "plugin-list.png",
+      "title": "플러그인 · 목록",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "d5bcbcd2abf6c1c606f5f998cb6a1fc3cb33b82b24822186bb6b59d6f0738c1b"
+    },
+    {
+      "file": "plugin-permissions.png",
+      "title": "플러그인 · 권한",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "2885a68151811d4b1a7f05b9643feb1c57300962dd4b5ec56799aba1e9df64b3"
+    },
+    {
+      "file": "plugins.png",
+      "title": "플러그인",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1208,
+      "sha256": "21d46486aa6024205341c186b67297308eff788f3c4cb4c5ecb445ccb5fdf522"
+    },
+    {
+      "file": "presentation.png",
+      "title": "프레젠테이션",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "64564b708be0783293292a4cbe1551fa840dd19cf48adc87d987739479a54032"
+    },
+    {
+      "file": "profile-dark.png",
+      "title": "개인 설정 · 다크 테마",
+      "category": "personal",
+      "width": 1512,
+      "height": 2705,
+      "sha256": "a1ed1cd2790175b4ef02b42ba4e784da93f48f33c88bdb94f847f7c94ccdc3fa"
+    },
+    {
+      "file": "profile-expanded.png",
+      "title": "개인 설정 · 고급 설정",
+      "category": "personal",
+      "width": 1512,
+      "height": 2690,
+      "sha256": "9a4522fa4197bde1818fca848381934a04f2c2529994f72567ea6aabf642e394"
+    },
+    {
+      "file": "profile-menu.png",
+      "title": "개인 설정 · 메뉴",
+      "category": "personal",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "b6c4a099c2de1b9af5c8a864e5b11c5de5811b4cb209f06c3113a43f4a206e99"
+    },
+    {
+      "file": "profile.png",
+      "title": "개인 설정",
+      "category": "personal",
+      "width": 1512,
+      "height": 2582,
+      "sha256": "5e36bb44e81ab1a73f97e85ba29d571fec6778da7478355faf24211fb79a93e1"
+    },
+    {
+      "file": "public-share-create.png",
+      "title": "공개 · 공유 · 생성",
+      "category": "personal",
+      "width": 1440,
+      "height": 1729,
+      "sha256": "08155811aba3f22d4439fa840245919ea6b3143d147c1dc789bbf130d786bd0d"
+    },
+    {
+      "file": "public-share-document.png",
+      "title": "공개 · 공유 · 문서",
+      "category": "personal",
+      "width": 1280,
+      "height": 900,
+      "sha256": "ff5a6e816bbd9a83a9442bf8281ff989cb2499c6202a949af5d17486cd2fe5d1"
+    },
+    {
+      "file": "public-share-mobile.png",
+      "title": "공개 · 공유 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "7679e59022e163382c502c31c3bbc8e6cd45cab1399f61c0627a9f9af17cf380"
+    },
+    {
+      "file": "public-share-password.png",
+      "title": "공개 · 공유 · 비밀번호",
+      "category": "personal",
+      "width": 1280,
+      "height": 900,
+      "sha256": "68a61941d5173e41388d602772d419ea8a858f49991ba3aa6d672348e6d51c4e"
+    },
+    {
+      "file": "rag-index-consent.png",
+      "title": "RAG · 색인 · 동의",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "5ba1efc768efdd53a493aab309cf9d31afc86765a0384ded91286b2b64708675"
+    },
+    {
+      "file": "runbook-admin.png",
+      "title": "Runbook · 관리자",
+      "category": "data",
+      "width": 1440,
+      "height": 3524,
+      "sha256": "19a19109c154e2b686f6b185756aa4717df69ce6a9e448a3c5f04ee7483a1baf"
+    },
+    {
+      "file": "runbook-document.png",
+      "title": "Runbook · 문서",
+      "category": "data",
+      "width": 1440,
+      "height": 1625,
+      "sha256": "0a1f6e4e0dc029798eab6474428d0f7abd2bab2b89edd81a846e7204bfca036a"
+    },
+    {
+      "file": "runbook-execution.png",
+      "title": "Runbook · 실행",
+      "category": "data",
+      "width": 1440,
+      "height": 1319,
+      "sha256": "4125187d0d2f869477aad7498917767f5e1cdd0112db7c76d2fffa57ac86aa47"
+    },
+    {
+      "file": "runbook-mobile.png",
+      "title": "Runbook · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1309,
+      "sha256": "ec259f89773c204368069a4781632c20a2ec600053105053de52940061c2b650"
+    },
+    {
+      "file": "search-code.png",
+      "title": "검색 · 코드",
+      "category": "ai",
+      "width": 1512,
+      "height": 1118,
+      "sha256": "fd50a485470554cebe3c2c0b714d0afb7859393e7bd27dc6bb005f091d3b3f51"
+    },
+    {
+      "file": "search-filters.png",
+      "title": "검색 · 필터",
+      "category": "ai",
+      "width": 1512,
+      "height": 1861,
+      "sha256": "9bbb629a68eb3b08767c1f4543b3c2ec286bf4406b6f217e1ca2cca536293f39"
+    },
+    {
+      "file": "search-knowledge-gap.png",
+      "title": "검색 · 지식 · 보완 제안",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "6b693e2e65889640e9b2c49bfef1449b68645c67d6604beebfea8415dad4e556"
+    },
+    {
+      "file": "search-personal-ai-history.png",
+      "title": "검색 · 개인 · AI · 이력",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "c2874af9e03679b0ffa8ed186305e6681929154d42837a1dc0d8455620908ee9"
+    },
+    {
+      "file": "search-selected-summary.png",
+      "title": "검색 · 선택 문서 · 요약",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "f176ca0f779eadf64cea0f59553c8cd37a76b18b300dbcc5a3db6e378207c5af"
+    },
+    {
+      "file": "search.png",
+      "title": "검색",
+      "category": "ai",
+      "width": 1512,
+      "height": 3945,
+      "sha256": "c8a33b55d48584cfd8c7559d20b6f3b3702f1208ba5af940309241d04460db56"
+    },
+    {
+      "file": "source-location.png",
+      "title": "원문 · 위치",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1746,
+      "sha256": "bbf4bcafe2045159c5f40ad66586eb83a2078dae0efd513fda11f312741f662e"
+    },
+    {
+      "file": "space-members.png",
+      "title": "공간 · 멤버",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "db6998df21d1802c4baad5ad805ead472001561ca7fec7627e94ab62f3e5bd7c"
+    },
+    {
+      "file": "spaces.png",
+      "title": "공간",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "323425a0646b7e0e10d0917e1510585f1a38c96bf60f32d6c60849332ec97e8b"
+    },
+    {
+      "file": "storage-local-editor.png",
+      "title": "저장소 · 현재 문서 중심 · 편집기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1619,
+      "sha256": "add655a5d296a62664fdaf25df6e62e91d28f747c2f321d254d89abeb36dfc2c"
+    },
+    {
+      "file": "storage-s3-editor.png",
+      "title": "저장소 · S3 · 편집기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "5843a8f0f2daef1e6d73452667ea98c796e6f722a1e3a8d57bca1d677169fdf9"
+    },
+    {
+      "file": "support-document.png",
+      "title": "지원 진단 · 문서",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "0c8ee8f2b202c0eec2fd4934a00dc21647a8e00c31070bcfc33d2558b40a09ea"
+    },
+    {
+      "file": "support-policy.png",
+      "title": "지원 진단 · 정책",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "bec432d6571a36930808f50e41e08a714bc1812f3dca864badb45d0b6afd7e6b"
+    },
+    {
+      "file": "support-start.png",
+      "title": "지원 진단 · 시작",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "241ba137fcbbfdb7a20ba4859778f0b379516405d688e3637905cd16576360e8"
+    },
+    {
+      "file": "task-properties.png",
+      "title": "할 일 · 속성",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "563ecb2ac1c703492fc4a41dc74c03952ed21e4904a2e24212cc64e93d3e4d97"
+    },
+    {
+      "file": "tasks-calendar.png",
+      "title": "할 일 · 달력",
+      "category": "data",
+      "width": 1512,
+      "height": 1870,
+      "sha256": "0add4bdc142517a743fbb92285ab70132b0a5e07a1dc6c426aeee47ade490fab"
+    },
+    {
+      "file": "tasks-html-source.png",
+      "title": "할 일 · HTML · 원문",
+      "category": "data",
+      "width": 1512,
+      "height": 1416,
+      "sha256": "516e8de8a00d9ad4d435d6e5cbe12e3c9438f5a9b90a1ac0698325bb991b0e33"
+    },
+    {
+      "file": "tasks-kanban.png",
+      "title": "할 일 · 칸반",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "9b452f839524b155385bb7b4f9cd6796b4c5b34b7e7b89d3d4311b8e3ed654ac"
+    },
+    {
+      "file": "tasks-list.png",
+      "title": "할 일 · 목록",
+      "category": "data",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "a0d4bab6d38dcdb288abf9e50ddd2033a215cc312a23f2352e3556e47f6a95bb"
+    },
+    {
+      "file": "tasks.png",
+      "title": "할 일",
+      "category": "data",
+      "width": 1512,
+      "height": 1850,
+      "sha256": "9e42eedcf04dd55c8fa3befc004c5505b5dadb9737b6840eb0c4ffeab25f50e3"
+    },
+    {
+      "file": "teams.png",
+      "title": "팀",
+      "category": "admin",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "4c4c7a5d96a51911aa27c7de6aaed95011b117035a3ca33d4a6a703acdd55b24"
+    },
+    {
+      "file": "template-editor.png",
+      "title": "템플릿 · 편집기",
+      "category": "workspace",
+      "width": 390,
+      "height": 5127,
+      "sha256": "23b2cf3926122c2338c8cd4357f38d3fce878f59f015d2dcb03b6403ffb3ef45"
+    },
+    {
+      "file": "template-history.png",
+      "title": "템플릿 · 이력",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1707,
+      "sha256": "85826054aa5d54dc3d4165533fe2600dd28730af26a5aff01748efeb198d95a9"
+    },
+    {
+      "file": "template-library.png",
+      "title": "템플릿 · 라이브러리",
+      "category": "workspace",
+      "width": 1512,
+      "height": 2275,
+      "sha256": "c8f36a6eb351be3f65bf26e95a2ac906e3aeee65151d088541bb2b30e673a72b"
+    },
+    {
+      "file": "templates.png",
+      "title": "템플릿",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1904,
+      "sha256": "a5dedf07570e3110d0bd9733eab78dfe01514c169f23b1bb0c9408e50d0189c8"
+    },
+    {
+      "file": "text2sql-plan-mobile.png",
+      "title": "Text2SQL · 계획 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "96e8fb0cc75d8a9a1c7c899a2bfd2cbb784e1ebc7b26976dadff42ef7755ad96"
+    },
+    {
+      "file": "text2sql-plan.png",
+      "title": "Text2SQL · 계획",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "406393909ce712780fa186682834d090d1e7f35508a2e3863d0f074594b363fb"
+    },
+    {
+      "file": "text2sql-registered-mobile.png",
+      "title": "Text2SQL · 등록 결과 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 2086,
+      "sha256": "bd1c097cb6d5e0b42173fbd4a2a839bd58611e86ff164095a9a1eb74e564a247"
+    },
+    {
+      "file": "text2sql-result-mobile.png",
+      "title": "Text2SQL · 결과 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "d8ca6c3454cef4842cf884496e552100b5508fb9351f35577203468cfbfffc61"
+    },
+    {
+      "file": "text2sql-result.png",
+      "title": "Text2SQL · 결과",
+      "category": "data",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "4c06f0e0ad7c5cbf720465c0e693c92d47e60bff6e6de01765a93e0124cd951c"
+    },
+    {
+      "file": "trash.png",
+      "title": "휴지통",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "daf0dc2924ccc412dcc6284bbe7137c5529a0069b100b3049c9e338bb58a46b6"
+    },
+    {
+      "file": "universal-search.png",
+      "title": "통합 · 검색",
+      "category": "ai",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "06714876ae7124fed6cd32da732ff0ff675cfcc283f9c632dc152509a5a70229"
+    },
+    {
+      "file": "web-clipper.png",
+      "title": "웹 · 클리퍼",
+      "category": "personal",
+      "width": 1000,
+      "height": 850,
+      "sha256": "5a9a437428457170d600795819b040bdb822c1ce208b240f60550c4786aca7f7"
+    },
+    {
+      "file": "webhook-editor.png",
+      "title": "웹훅 · 편집기",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "220576d33f092db0a49bcf85c57754321384588a79d071435f731e1ec871f61c"
+    },
+    {
+      "file": "webhooks-mobile.png",
+      "title": "웹훅 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 1080,
+      "sha256": "5b04190003c66b57f8a9d329320318a03b8157b5f086233bffe7a70f03120ba4"
+    },
+    {
+      "file": "webhooks.png",
+      "title": "웹훅",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "de61f161727e3dfc4d4027b70b17cfffdcfce0d65d1799bbcaacbba2d66992a7"
+    },
+    {
+      "file": "workspace-audit.png",
+      "title": "워크스페이스 · 감사",
+      "category": "workspace",
+      "width": 1512,
+      "height": 1080,
+      "sha256": "ec4cb4a018092a471c2d8ad9282ac129904650c884f5cba7f753a7de0c3b36ba"
+    },
+    {
+      "file": "workspace-branding.png",
+      "title": "워크스페이스 · 브랜딩",
+      "category": "admin",
+      "width": 1512,
+      "height": 1381,
+      "sha256": "eae789e5a23eab62b10099b3d6c19320dd835ae86a6793fe259dab6ffe489060"
+    },
+    {
+      "file": "workspace-features.png",
+      "title": "워크스페이스 · 기능 플래그",
+      "category": "admin",
+      "width": 1512,
+      "height": 1463,
+      "sha256": "dd6024a77a1f78863d32b8c120429271ee8973dbb57c0634e73aab8d29fbbcc7"
+    },
+    {
+      "file": "workspace-search-ai.png",
+      "title": "워크스페이스 · 검색 · AI",
+      "category": "ai",
+      "width": 1512,
+      "height": 4172,
+      "sha256": "eb3aa06a1da5819049ee8dd0d2596ad741031be42299e130dafe39ba73f81282"
+    },
+    {
+      "file": "workspace-settings.png",
+      "title": "워크스페이스 · 설정",
+      "category": "admin",
+      "width": 1512,
+      "height": 1118,
+      "sha256": "139036b17d11ad32e122fa6827e210b310012417ff943c14db0003c1ee44a2ad"
+    },
+    {
+      "file": "workspace-storage-mobile.png",
+      "title": "워크스페이스 · 저장소 · 모바일",
+      "category": "mobile",
+      "width": 390,
+      "height": 844,
+      "sha256": "5e9ec67fd1f5043e8f96d23dc2228020f615c5fdf1ddc67fb7874e24a6da98c3"
+    },
+    {
+      "file": "workspace-storage.png",
+      "title": "워크스페이스 · 저장소",
+      "category": "workspace",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "afe712e0af8bc131a5e82b1652cb57bd875f48c6145ef894af9d786515e060b4"
+    }
+  ]
+}

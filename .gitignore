@@ -1,0 +1,16 @@
+node_modules/
+web/dist/
+bin/
+dist/
+.env
+.env.*
+!.env.example
+*.tar.gz
+*.test
+playwright-report/
+test-results/
+.local/
+coverage.out
+*.tsbuildinfo
+docs/screenshots/*-failure.png
+docs/screenshots/failure-*.png
