@@ -429,6 +429,7 @@ export function DocumentList({ mode = "all" }: { mode?: string }) {
                     await api(
                       `/documents/${d.id}/${mode === "trash" ? "restore" : "favorite"}`,
                       "POST",
+                      mode === "trash" ? {expected_version:d.version} : undefined,
                     );
                     await reload();
                     notify(

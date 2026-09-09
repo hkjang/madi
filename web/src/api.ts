@@ -1,3 +1,20 @@
+export type UserPreferences = Record<string, any> & {
+  density?: "comfortable" | "compact" | "relaxed";
+  mobile_table_view?: "cards" | "table";
+  nav_preset?: "personal" | "wiki" | "database" | "operations";
+  navigation_advanced?: boolean;
+  navigation_pins?: string[];
+  document_panel?: "backlinks" | "properties" | "comments" | "ai" | "versions";
+  document_panel_open?: boolean;
+};
+export const navigationPreferenceDefaults = {
+  density: "comfortable",
+  mobile_table_view: "cards",
+  nav_preset: "wiki",
+  navigation_advanced: false,
+  document_panel: "backlinks",
+  document_panel_open: true,
+} as const;
 export type User = {
   id: string;
   email: string;
@@ -5,7 +22,7 @@ export type User = {
   role: string;
   kind: string;
   disabled: boolean;
-  preferences: Record<string, any>;
+  preferences: UserPreferences;
   created_at: string;
 };
 export type Workspace = {
@@ -18,6 +35,7 @@ export type Doc = {
   id: string;
   workspace_id: string;
   parent_id: string | null;
+  space_id?: string | null;
   title: string;
   markdown: string;
   excerpt?: string;
@@ -58,6 +76,7 @@ export type Database = {
 };
 export type Row = {
   id: string;
+  version: number;
   database_id: string;
   values: Record<string, any>;
   created_at: string;
@@ -73,10 +92,12 @@ export async function api<T = any>(
   path: string,
   method = "GET",
   data?: unknown,
+  options?: { signal?: AbortSignal },
 ): Promise<T> {
   const res = await fetch("/api/v1" + path, {
     method,
     credentials: "same-origin",
+    signal: options?.signal,
     headers: {
       "X-Madi-Request": "1",
       ...(data instanceof FormData

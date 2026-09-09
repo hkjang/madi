@@ -13,7 +13,7 @@ export type GraphNode = {
 export type GraphEdge = {
   source: string;
   target: string;
-  type: "reference" | "related" | "parent";
+  type: "reference" | "related" | "parent" | "policy" | "execution" | "data";
   origin: "wiki" | "manual" | "tree";
 };
 export type GraphData = {

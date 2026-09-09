@@ -69,16 +69,19 @@ const names: Record<Index["status"], string> = {
 
 export default function DocumentRAGIndex({
   documentID,
+  generationID,
   onClose,
 }: {
   documentID: string;
+  generationID?: string;
   onClose: () => void;
 }) {
   const { user } = useApp();
   return (
     <IndexConsent
-      key={`${user.id}:${documentID}`}
+      key={`${user.id}:${documentID}:${generationID || "active"}`}
       documentID={documentID}
+      generationID={generationID}
       onClose={onClose}
     />
   );
@@ -86,9 +89,11 @@ export default function DocumentRAGIndex({
 
 function IndexConsent({
   documentID,
+  generationID,
   onClose,
 }: {
   documentID: string;
+  generationID?: string;
   onClose: () => void;
 }) {
   const { workspace, user, notify } = useApp();
@@ -103,7 +108,11 @@ function IndexConsent({
   const mounted = useRef(true),
     sequence = useRef(0),
     busyRef = useRef(false);
-  const path = `/documents/${documentID}/rag-index`;
+  const generationQuery = generationID
+    ? `?generation_id=${encodeURIComponent(generationID)}`
+    : "";
+  const basePath = `/documents/${documentID}/rag-index`;
+  const path = basePath + generationQuery;
   const identity = status
     ? `${status.document_version}:${status.can_index}:${status.enabled}:${status.provider?.fingerprint}:${status.provider?.rerank?.fingerprint}:${status.grant?.revision}:${status.grant?.active}`
     : "";
@@ -182,7 +191,9 @@ function IndexConsent({
       else if (action === "revoke" && current.grant)
         await api(path, "DELETE", { grant_revision: current.grant.revision });
       else if (action === "cancel" && current.index)
-        await api(path + "/cancel", "POST", { job_id: current.index.job_id });
+        await api(basePath + "/cancel" + generationQuery, "POST", {
+          job_id: current.index.job_id,
+        });
       else return;
       if (!mounted.current) return;
       setConsent(false);
@@ -236,6 +247,13 @@ function IndexConsent({
       >
         <div className="rag-index-panel">
           <ErrorBox error={error} />
+          {generationID && (
+            <p className="notice subtle">
+              선택한 색인 세대의 동의와 파생 벡터만 관리합니다. 다른 세대는
+              영향을 받지 않습니다. 자동 재색인은 이 세대가 활성 검색 세대가 된
+              이후의 문서 변경부터 적용됩니다.
+            </p>
+          )}
           {loading && <Loading />}
           {!status && !loading && (
             <Button

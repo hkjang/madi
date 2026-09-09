@@ -407,7 +407,10 @@ kbd {
   align-items: center;
   gap: 20px;
   margin-bottom: 30px;
+  min-width: 0;
 }
+.page-heading > div { min-width: 0; }
+.page-heading h1, .page-heading p { overflow-wrap: anywhere; }
 .page-heading p {
   color: var(--muted);
   font-size: 0.86rem;
@@ -4263,6 +4266,9 @@ kbd {
   .topbar-actions {
     gap: 11px;
   }
+  .topbar { gap: 8px; }
+  .topbar-actions { min-width: 0; gap: 5px; }
+  .topbar-actions > .icon-button, .topbar-actions > .top-avatar { flex-shrink: 0; }
   .breadcrumbs > span {
     max-width: 105px;
     font-size: 0.66rem;

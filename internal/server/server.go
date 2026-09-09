@@ -32,23 +32,26 @@ import (
 var schema embed.FS
 
 type Server struct {
-	DB               *pgxpool.Pool
-	EncryptionKey    []byte
-	Version          string
-	mux              *http.ServeMux
-	apiRoutes        []string // Immutable after New; used by the complete OpenAPI catalogue.
-	requests         atomic.Uint64
-	errors           atomic.Uint64
-	responseClasses  [6]atomic.Uint64
-	operations       atomic.Pointer[operationsRuntime]
-	limiterMu        sync.Mutex
-	pluginLimiterMu  sync.Mutex
-	pluginRequests   map[string]attempt
-	limiterSweep     time.Time
-	attempts         map[string]attempt
-	jobsMu           sync.Mutex
-	jobs             *jobRuntime
-	approvalAdapters map[string]ApprovalAdapter // Registered at startup, immutable while serving.
+	DB                 *pgxpool.Pool
+	EncryptionKey      []byte
+	Version            string
+	mux                *http.ServeMux
+	apiRoutes          []string // Immutable after New; used by the complete OpenAPI catalogue.
+	requests           atomic.Uint64
+	errors             atomic.Uint64
+	responseClasses    [6]atomic.Uint64
+	operations         atomic.Pointer[operationsRuntime]
+	limiterMu          sync.Mutex
+	pluginLimiterMu    sync.Mutex
+	pluginRequests     map[string]attempt
+	limiterSweep       time.Time
+	attempts           map[string]attempt
+	jobsMu             sync.Mutex
+	jobs               *jobRuntime
+	approvalAdapters   map[string]ApprovalAdapter // Registered at startup, immutable while serving.
+	collaborationMu    sync.Mutex
+	collaboration      *collaborationRuntime
+	documentQuerySlots chan struct{}
 }
 type attempt struct {
 	count int
@@ -200,6 +203,9 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if err = s.migrateTasks(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateTaskReadIndexes(ctx); err != nil {
+		return nil, err
+	}
 	if err = s.migrateNotificationDelivery(ctx); err != nil {
 		return nil, err
 	}
@@ -230,10 +236,40 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if err = s.migrateAIHistory(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateKnowledgeEvidence(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgePackages(ctx); err != nil {
+		return nil, err
+	}
 	if err = s.migrateSearchHistory(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.migrateWorkspaceAgent(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeImpact(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeProposals(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeConflicts(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateDocumentAccessRequests(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeValidity(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeQuestions(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgeStructured(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateDocumentSplit(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.migrateOperations(ctx); err != nil {
@@ -248,10 +284,31 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if err = s.migrateExports(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateKnowledgeDistribution(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateDatabaseEditing(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateAttachmentExtraction(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateSystemStatus(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateWorksets(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.migrateKnowledgePaths(ctx); err != nil {
+		return nil, err
+	}
 	if err = s.migrateGraphAI(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.migrateWorkspaceAudit(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.installCollaborationNotifications(ctx); err != nil {
 		return nil, err
 	}
 	var count int
@@ -330,6 +387,26 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	s.registerPublicShares()
 	s.registerTemplates()
 	s.registerAIHistory()
+	s.registerKnowledgeEvidence()
+	s.registerKnowledgePackages()
+	s.registerKnowledgePolicyHistory()
+	s.registerKnowledgeImpact()
+	s.registerKnowledgeProposals()
+	s.registerKnowledgeConflicts()
+	s.registerAISelection()
+	s.registerDocumentAccessRequests()
+	s.registerDocumentAccessPreview()
+	s.registerKnowledgeValidity()
+	s.registerKnowledgeQuestions()
+	s.registerKnowledgeStructured()
+	s.registerDocumentQueries()
+	s.registerKnowledgePaths()
+	s.registerKnowledgeDistribution()
+	s.registerAttachmentExtraction()
+	s.registerSystemStatus()
+	s.registerWorksets()
+	s.registerDatabaseEditing()
+	s.registerDocumentSplit()
 	s.registerSearchAI()
 	s.registerSearchHistory()
 	s.registerWorkspaceAgent()
@@ -392,6 +469,12 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 			}
 			if strings.HasPrefix(name, "assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				assetBase := strings.TrimPrefix(name, "assets/")
+				if !strings.Contains(assetBase, "/") && strings.HasPrefix(assetBase, "pdf.worker.min-") && strings.HasSuffix(assetBase, ".mjs") {
+					// Trusted bundled PDF worker only: image decoders need WASM,
+					// not JavaScript eval or a weaker page/plugin policy.
+					w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'")
+				}
 			}
 			files.ServeHTTP(w, r)
 			return
@@ -715,6 +798,10 @@ func (s *Server) one(ctx context.Context, q string, args ...any) (map[string]any
 func respond(w http.ResponseWriter, v any, e error) {
 	if errors.Is(e, errQueryResultTooLarge) {
 		apiError(w, http.StatusRequestEntityTooLarge, errQueryResultTooLarge.Error())
+	} else if errors.Is(e, context.Canceled) {
+		// A disconnected/cancelled caller is not a database failure. Do not
+		// inflate the service error log or expose a driver cancellation string.
+		apiError(w, http.StatusRequestTimeout, "요청이 취소되었습니다")
 	} else if errors.Is(e, context.DeadlineExceeded) {
 		w.Header().Set("Retry-After", "1")
 		apiError(w, http.StatusServiceUnavailable, "처리 시간이 초과되었습니다. 검색 범위를 줄이거나 잠시 후 다시 시도하세요")

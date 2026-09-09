@@ -32,7 +32,7 @@ type scaleQueryTrace struct {
 
 func (s *scaleQueryTrace) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
 	label := ""
-	if strings.HasPrefix(data.SQL, universalSearchSQL) {
+	if strings.HasPrefix(data.SQL, "WITH active_workspace AS MATERIALIZED (") && strings.Contains(data.SQL, "FROM hits h") {
 		label = "search"
 	} else if strings.Contains(data.SQL, docSummaryJSON) && strings.Contains(data.SQL, "ORDER BY") && strings.Contains(data.SQL, "LIMIT") {
 		label = "list"

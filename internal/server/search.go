@@ -2,15 +2,34 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var universalSearchKinds = []string{"document", "block", "code", "task", "file", "comment", "tag", "database", "row", "user", "ai_conversation"}
+
+func searchAPIError(w http.ResponseWriter, status int, message string) {
+	outcome := "invalid_query"
+	if status == 403 {
+		outcome = "scope_unavailable"
+	}
+	jsonResponse(w, status, map[string]any{"error": message, "outcome": outcome})
+}
+func searchFailure(w http.ResponseWriter, ctx context.Context, e error) {
+	var pgerr *pgconn.PgError
+	if errors.Is(e, context.DeadlineExceeded) || ctx.Err() != nil || (errors.As(e, &pgerr) && pgerr.Code == "57014") {
+		jsonResponse(w, 504, map[string]any{"error": "검색 제한시간을 초과했습니다. 조건을 좁히거나 다시 시도하세요", "outcome": "timeout"})
+		return
+	}
+	respond(w, nil, e)
+}
 
 // Search is a read model, not a new permission system. All document-backed
 // branches join the current ancestor ACL; database branches independently need
@@ -22,21 +41,25 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 	term := strings.TrimSpace(q.Get("q"))
 	kind := q.Get("type")
 	if !s.canWorkspace(r.Context(), p, wid, false) {
-		apiError(w, 403, "검색할 워크스페이스에 접근할 수 없습니다")
+		searchAPIError(w, 403, "검색할 워크스페이스에 접근할 수 없습니다")
 		return
 	}
 	if !utf8.ValidString(term) || len(term) > 500 || (kind != "" && !oneOf(kind, universalSearchKinds...)) {
-		apiError(w, 400, "검색어는 500바이트 이내이며 올바른 검색 종류가 필요합니다")
+		searchAPIError(w, 400, "검색어는 500바이트 이내이며 올바른 검색 종류가 필요합니다")
+		return
+	}
+	if !oneOf(q.Get("group"), "", "document") {
+		searchAPIError(w, 400, "검색 결과 묶기 방식을 확인하세요")
 		return
 	}
 	for _, name := range []string{"space_id", "author_id"} {
 		if q.Get(name) != "" && !validID(q.Get(name)) {
-			apiError(w, 400, "검색 필터의 식별자를 확인하세요")
+			searchAPIError(w, 400, "검색 필터의 식별자를 확인하세요")
 			return
 		}
 	}
 	if len(q.Get("tag")) > 200 || !oneOf(q.Get("status"), "", "draft", "review", "published", "rejected", "stale", "archived") || !oneOf(q.Get("has_attachment"), "", "1") {
-		apiError(w, 400, "문서 상태·태그·첨부 필터를 확인하세요")
+		searchAPIError(w, 400, "문서 상태·태그·첨부 필터를 확인하세요")
 		return
 	}
 	var from, to *time.Time
@@ -44,7 +67,7 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 		if q.Get(name) != "" {
 			t, e := time.Parse("2006-01-02", q.Get(name))
 			if e != nil {
-				apiError(w, 400, "검색 날짜는 YYYY-MM-DD 형식입니다")
+				searchAPIError(w, 400, "검색 날짜는 YYYY-MM-DD 형식입니다")
 				return
 			}
 			if name == "from" {
@@ -56,7 +79,7 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if from != nil && to != nil && !from.Before(*to) {
-		apiError(w, 400, "검색 시작일은 종료일 이후일 수 없습니다")
+		searchAPIError(w, 400, "검색 시작일은 종료일 이후일 수 없습니다")
 		return
 	}
 	limit, offset := 40, 0
@@ -64,7 +87,7 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 		if q.Get(name) != "" {
 			n, e := strconv.Atoi(q.Get(name))
 			if e != nil || n < 0 || (name == "limit" && (n < 1 || n > 100)) || (name == "offset" && n > 10000) {
-				apiError(w, 400, "검색 페이지 범위를 확인하세요")
+				searchAPIError(w, 400, "검색 페이지 범위를 확인하세요")
 				return
 			}
 			if name == "limit" {
@@ -84,7 +107,7 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 	case "title":
 		sortSQL = "title,kind,id"
 	default:
-		apiError(w, 400, "검색 정렬을 확인하세요")
+		searchAPIError(w, 400, "검색 정렬을 확인하세요")
 		return
 	}
 	canDocs := hasIntegrationScope(p, "document:read") || hasIntegrationScope(p, "search:read")
@@ -93,14 +116,50 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 	pattern := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term) + "%"
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
-	rows, e := s.rows(ctx, universalSearchSQL+" ORDER BY "+sortSQL+" LIMIT $17 OFFSET $18", p.ID, wid, term, pattern, kind, q.Get("space_id"), q.Get("author_id"), q.Get("tag"), q.Get("status"), from, to, q.Get("has_attachment") == "1", canDocs, canDB, canUsers, q.Get("space_id") == "" && q.Get("author_id") == "" && q.Get("tag") == "" && q.Get("status") == "" && from == nil && to == nil && q.Get("has_attachment") == "", limit+1, offset)
+	revision, dictionary, e := searchDictionary(ctx, s.DB, wid)
 	if e != nil {
-		respond(w, nil, e)
+		searchFailure(w, ctx, e)
+		return
+	}
+	interpretation := interpretSearch(term, revision, dictionary)
+	cursor, e := s.readSearchCursor(q.Get("cursor"), p, wid, q, revision)
+	if e != nil {
+		jsonResponse(w, 409, map[string]any{"error": e.Error(), "outcome": "search_changed"})
+		return
+	}
+	if q.Get("cursor") != "" && offset != 0 {
+		searchAPIError(w, 400, "커서와 offset 페이지를 동시에 지정할 수 없습니다")
+		return
+	}
+	querySQL := interpretedSearchSQL(term, kind)
+	if q.Get("group") == "document" {
+		querySQL = groupedSearchSQL(querySQL)
+	}
+	querySQL = strings.ReplaceAll(querySQL, "now()", "$23::timestamptz") + searchCursorPredicate(q.Get("sort")) + " ORDER BY " + sortSQL + " LIMIT $17 OFFSET $18"
+	arguments := []any{p.ID, wid, term, pattern, kind, q.Get("space_id"), q.Get("author_id"), q.Get("tag"), q.Get("status"), from, to, q.Get("has_attachment") == "1", canDocs, canDB, canUsers, q.Get("space_id") == "" && q.Get("author_id") == "" && q.Get("tag") == "" && q.Get("status") == "" && from == nil && to == nil && q.Get("has_attachment") == "", limit + 1, offset, jsonValue(interpretation.Parts), jsonValue(interpretation.FoldedParts), interpretation.GramQuery, jsonValue(cursor.After), cursor.AsOf}
+	started := time.Now()
+	rows, e := s.rows(ctx, querySQL, arguments...)
+	observation, _ := r.Context().Value(searchObservationKey).(*searchObservation)
+	if observation != nil {
+		observation.SQL = querySQL
+		observation.Arguments = arguments
+		observation.Elapsed = time.Since(started)
+	}
+	if e != nil {
+		searchFailure(w, ctx, e)
 		return
 	}
 	more := len(rows) > limit
 	if more {
 		rows = rows[:limit]
+	}
+	nextCursor := ""
+	if more && len(rows) > 0 {
+		nextCursor, e = s.nextSearchCursor(cursor, rows[len(rows)-1])
+		if e != nil {
+			respond(w, nil, e)
+			return
+		}
 	}
 	for _, row := range rows {
 		if str(row, "kind") == "tag" {
@@ -115,9 +174,26 @@ func (s *Server) universalSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	// Do not write raw queries to the shared audit log: they can contain private
 	// facts. Query-history consent and AI gap analysis use a separate owner store.
-	s.audit(r, "SEARCH", wid, map[string]any{"result_count": len(rows), "empty": len(rows) == 0, "type": kind, "offset": offset})
-	historyStatus := s.recordPersonalSearch(r, wid, term, len(rows))
-	respond(w, map[string]any{"results": rows, "has_more": more, "next_offset": offset + len(rows), "available_types": available, "mode": "keyword", "history_status": historyStatus, "ranking": "제목·태그·본문의 가중치 + 최근 수정 + 내 즐겨찾기 + 최근 30일 열람 인기도(최근 256회 내 서로 다른 열람자, 소폭 가중). 문서 조각은 현재 원문 버전만 검색합니다."}, nil)
+	historyStatus := "not_recorded"
+	if observation == nil {
+		s.audit(r, "SEARCH", wid, map[string]any{"result_count": len(rows), "empty": len(rows) == 0, "type": kind, "offset": offset})
+		historyStatus = s.recordPersonalSearch(r, wid, term, len(rows))
+	}
+	outcome := "matched"
+	if len(rows) == 0 {
+		outcome = "no_match_in_current_scope"
+		if canDocs && len(interpretation.FoldedParts) > 0 {
+			var pending bool
+			if e = s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM documents d LEFT JOIN search_folded_documents z ON z.document_id=d.id WHERE d.workspace_id=$1 AND d.deleted_at IS NULL AND z.document_version IS DISTINCT FROM d.version AND madi_document_allowed($2,d.id,false))`, wid, p.ID).Scan(&pending); e != nil {
+				searchFailure(w, ctx, e)
+				return
+			}
+			if pending {
+				outcome = "index_pending"
+			}
+		}
+	}
+	respond(w, map[string]any{"results": rows, "has_more": more, "next_offset": offset + len(rows), "next_cursor": nextCursor, "pagination": "current_acl_keyset", "outcome": outcome, "group": q.Get("group"), "available_types": available, "mode": "keyword", "history_status": historyStatus, "interpretation": interpretation, "ranking": "제목·태그·본문의 가중치 + 최근 수정 + 내 즐겨찾기 + 최근 30일 열람 인기도(최근 256회 내 서로 다른 열람자, 소폭 가중). 문서 조각과 공백 정규화 색인은 현재 원문 버전만 검색합니다."}, nil)
 }
 
 const universalSearchSQL = `WITH active_workspace AS MATERIALIZED (

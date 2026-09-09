@@ -27,6 +27,7 @@ export default function AI({
   conversationId,
   conversationVersion,
   selectedDocuments,
+  embedded = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,6 +35,7 @@ export default function AI({
   conversationId?: string;
   conversationVersion?: number;
   selectedDocuments?: { id: string; version: number }[];
+  embedded?: boolean;
 }) {
   const { workspace, documents, user } = useApp();
   const [prompt, setPrompt] = useState(""),
@@ -183,8 +185,11 @@ export default function AI({
   if (!open) return null;
   return (
     <>
-      <div className="ai-backdrop" onClick={onClose} />
-      <aside className="ai-panel" aria-label="AI 지식 도우미">
+      {!embedded && <div className="ai-backdrop" onClick={onClose} />}
+      <aside
+        className={`ai-panel ${embedded ? "ai-embedded" : ""}`}
+        aria-label="AI 지식 도우미"
+      >
         <header>
           <span className="ai-icon">
             <Sparkles size={23} />

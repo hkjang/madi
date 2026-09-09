@@ -13,6 +13,10 @@ func validateProfilePreferences(v map[string]any) error {
 		return fmt.Errorf("개인 설정은 32KB 이하여야 합니다")
 	}
 	enums := map[string][]string{"theme": {"light", "dark"}, "font_family": {"sans", "system", "serif"}, "page_width": {"standard", "wide", "full"}, "code_theme": {"auto", "light", "dark"}, "date_format": {"ko", "iso", "long"}, "editor_mode": {"edit", "source", "preview"}, "timezone": {"Asia/Seoul", "UTC", "Asia/Tokyo", "America/New_York"}, "language": {"ko"}, "document_filter": {"all", "private", "shared"}}
+	enums["nav_preset"] = []string{"personal", "wiki", "database", "operations"}
+	enums["document_panel"] = []string{"backlinks", "properties", "comments", "ai", "versions"}
+	enums["density"] = []string{"comfortable", "compact", "relaxed"}
+	enums["mobile_table_view"] = []string{"cards", "table"}
 	for key, allowed := range enums {
 		if value, ok := v[key]; ok {
 			word, valid := value.(string)
@@ -29,12 +33,38 @@ func validateProfilePreferences(v map[string]any) error {
 			}
 		}
 	}
-	for _, key := range []string{"spell_check", "sidebar_collapsed"} {
+	for _, key := range []string{"spell_check", "sidebar_collapsed", "navigation_advanced", "document_panel_open"} {
 		if value, ok := v[key]; ok {
 			if _, valid := value.(bool); !valid {
 				return fmt.Errorf("개인 설정 %s는 켜기 또는 끄기여야 합니다", key)
 			}
 		}
+	}
+	if raw, ok := v["navigation_pins"]; ok {
+		pins, valid := raw.([]any)
+		if !valid || len(pins) > 12 {
+			return fmt.Errorf("고정 도구는 최대 12개 경로의 배열이어야 합니다")
+		}
+		seen := map[string]bool{}
+		unique := []any{}
+		for _, pin := range pins {
+			path, ok := pin.(string)
+			if ok && oneOf(path, "/app/worksets", "/app/system-status", "/app/knowledge-packages", "/app/knowledge-impact", "/app/knowledge-proposals", "/app/knowledge-time", "/app/knowledge-distribution", "/app/knowledge-questions", "/app/knowledge-conflicts", "/app/knowledge-paths", "/app/structured-drafts", "/app/access-requests") {
+				if !seen[path] {
+					unique = append(unique, path)
+					seen[path] = true
+				}
+				continue
+			}
+			if !ok || !oneOf(path, "/app", "/app/documents", "/app/search", "/app/inbox", "/app/my-work", "/app/favorites", "/app/graph", "/app/databases", "/app/tasks", "/app/spaces", "/app/canvases", "/app/templates", "/app/trash", "/app/ai-history", "/app/search-history", "/app/evidence", "/app/agents", "/app/graph-ai", "/app/knowledge-health", "/app/enterprise", "/app/entities", "/app/import", "/app/export", "/app/migrations", "/app/git-sync", "/app/plugins", "/app/connectors", "/app/data-sources", "/app/automations", "/app/jobs", "/app/approvals", "/app/members", "/app/teams", "/app/organizations", "/app/webhooks", "/app/workspace-settings", "/app/workspace-audit", "/app/workspace-operations", "/app/search-ai-settings", "/app/storage") {
+				return fmt.Errorf("고정할 수 없는 도구 경로입니다")
+			}
+			if !seen[path] {
+				unique = append(unique, path)
+				seen[path] = true
+			}
+		}
+		v["navigation_pins"] = unique
 	}
 	if raw, ok := v["keyboard_shortcuts"]; ok {
 		entries, valid := raw.(map[string]any)

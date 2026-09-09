@@ -31,7 +31,8 @@ func TestBrowserCollaboration(t *testing.T) {
 	}
 	server := httptest.NewServer(app)
 	defer server.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer app.CloseCollaboration()
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "node", "../../web/src/collaboration/browser-test.mjs")
 	command.Env = append(os.Environ(), "MADI_BASE_URL="+server.URL)

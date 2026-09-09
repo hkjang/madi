@@ -14,7 +14,7 @@ import (
 // A structured proposal is untrusted output, not a tool invocation. The caller
 // validates its closed schema and only then sends a reviewable result. No model
 // output reaches a write handler here. Quiet streams are also revoked promptly.
-func (s *Server) streamAIProposal(w http.ResponseWriter, r *http.Request, wid, system, input string, sources []aiSource, guard func() error, finish func(string) (any, error)) {
+func (s *Server) streamAIProposal(w http.ResponseWriter, r *http.Request, wid, system, input string, sources []aiSource, guard func() error, finish func(string) (any, error), validatedOutputOnly ...bool) {
 	p := current(r)
 	cfg, err := s.effectiveSettings(r.Context(), wid)
 	if err != nil {
@@ -126,6 +126,12 @@ func (s *Server) streamAIProposal(w http.ResponseWriter, r *http.Request, wid, s
 			return e
 		}
 		output.WriteString(delta)
+		// Structured extraction may create new sensitive values spanning several
+		// deltas. Keep provider streaming/cancellation, but do not disclose its
+		// raw JSON before the caller validates the complete schema and PII policy.
+		if len(validatedOutputOnly) > 0 && validatedOutputOnly[0] {
+			return send(map[string]any{"phase": "generating", "automatic_apply": false})
+		}
 		return send(map[string]any{"text": delta})
 	})
 	select {

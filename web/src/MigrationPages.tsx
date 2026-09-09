@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { api, bytes, datetime } from "./api";
 import { useApp } from "./context";
-import {archiveFolder} from './transfer-folder';
-import './transfer.css';
+import { archiveFolder } from "./transfer-folder";
+import "./transfer.css";
+import ResumableMigration from "./migration/ResumableMigration";
+import MigrationPolicy from "./migration/MigrationPolicy";
 import {
   Badge,
   Button,
@@ -39,11 +41,106 @@ function stateLabel(row: Row) {
   return row.status === "running" ? "가져오는 중" : "미리보기 처리 중";
 }
 export function MigrationPage() {
+  const [params, setParams] = useSearchParams();
+  const entry = params.get("source") || "file";
+  const importID = params.get("import");
+  const [legacyOpen, setLegacyOpen] = useState(!!importID);
+  useEffect(() => {
+    if (importID) setLegacyOpen(true);
+  }, [importID]);
+  return (
+    <>
+      <PageHeading
+        eyebrow="PREPARE · REVIEW · COMMIT"
+        title="가져오기"
+        description="파일, 폴더 또는 다른 서비스의 지식을 한곳에서 가져옵니다."
+        actions={
+          <Link className="button migration-export-link" to="/app/export">
+            내보내기
+          </Link>
+        }
+      />
+      <nav className="migration-entry-tabs" aria-label="가져오기 원본">
+        <Button
+          variant={entry === "file" ? "primary" : ""}
+          onClick={() =>
+            setParams((p) => {
+              const n = new URLSearchParams(p);
+              n.set("source", "file");
+              return n;
+            })
+          }
+        >
+          파일에서 가져오기
+        </Button>
+        <Button
+          variant={entry === "folder" ? "primary" : ""}
+          onClick={() =>
+            setParams((p) => {
+              const n = new URLSearchParams(p);
+              n.set("source", "folder");
+              return n;
+            })
+          }
+        >
+          폴더에서 가져오기
+        </Button>
+        <Button
+          variant={entry === "service" ? "primary" : ""}
+          onClick={() => setParams({ source: "service" })}
+        >
+          다른 서비스에서 가져오기
+        </Button>
+      </nav>
+      {entry === "service" ? (
+        <section className="panel padded">
+          <h2>다른 서비스의 지식 연결</h2>
+          <p>
+            관리자가 허용한 연결을 선택하고 대상 공간과 전송 범위를 확인하세요.
+          </p>
+          <div className="button-row">
+            <Link className="button" to="/app/connectors">
+              서비스 커넥터
+            </Link>
+            <Link className="button" to="/app/git-sync">
+              Git 동기화
+            </Link>
+            <Button onClick={() => setParams({ source: "file" })}>
+              Notion · Obsidian 내보낸 파일
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <>
+          <ResumableMigration
+            inputMode={entry === "folder" ? "folder" : "file"}
+          />
+          <details
+            className="migration-legacy"
+            open={legacyOpen}
+            onToggle={(event) => setLegacyOpen(event.currentTarget.open)}
+          >
+            <summary>ZIP · 기존 JSON 형식 호환 가져오기</summary>
+            <LegacyMigrationPage />
+          </details>
+          <MigrationPolicy />
+        </>
+      )}
+    </>
+  );
+}
+function LegacyMigrationPage() {
   const { workspace, notify, reload } = useApp();
   const [params, setParams] = useSearchParams();
-  const [folderFiles,setFolderFiles]=useState<File[]>([]),[inputMode,setInputMode]=useState('file');
-  const scope=workspace?.id||'',scopeRef=useRef(scope),operation=useRef(0),controller=useRef<AbortController|null>(null);scopeRef.current=scope;
-  const alive=(op:number,start:string)=>operation.current===op&&scopeRef.current===start;
+  const [folderFiles, setFolderFiles] = useState<File[]>([]),
+    [inputMode, setInputMode] = useState("file");
+  const scope = workspace?.id || "",
+    scopeRef = useRef(scope),
+    operation = useRef(0),
+    controller = useRef<AbortController | null>(null);
+  scopeRef.current = scope;
+  const alive = (op: number, start: string) =>
+    operation.current === op && scopeRef.current === start;
   const [rows, setRows] = useState<Row[]>([]),
     [spaces, setSpaces] = useState<Row[]>([]),
     [space, setSpace] = useState(""),
@@ -53,7 +150,7 @@ export function MigrationPage() {
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [confirmation, setConfirmation] = useState("");
-  const folderInput=useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const input = useRef<HTMLInputElement>(null),
     generation = useRef(0);
   const selected = rows.find((x) => x.id === params.get("import"));
@@ -84,11 +181,18 @@ export function MigrationPage() {
     setLoading(true);
     setRows([]);
     setSpace("");
-    operation.current++;controller.current?.abort();setFile(null);setFolderFiles([]);setConfirmation('');setBusy(false);setError('');
+    operation.current++;
+    controller.current?.abort();
+    setFile(null);
+    setFolderFiles([]);
+    setConfirmation("");
+    setBusy(false);
+    setError("");
     void load();
     return () => {
       generation.current++;
-      operation.current++;controller.current?.abort();
+      operation.current++;
+      controller.current?.abort();
     };
   }, [load]);
   useEffect(() => {
@@ -106,7 +210,9 @@ export function MigrationPage() {
         description="파일을 먼저 검토하고, 확인한 데이터만 작업 큐에서 안전하게 가져옵니다."
         actions={
           <>
-            <Link className="button" to="/app/export">내보내기 센터</Link>
+            <Link className="button" to="/app/export">
+              내보내기 센터
+            </Link>
             <Link className="button" to="/app/jobs">
               작업 이력
             </Link>
@@ -137,109 +243,189 @@ export function MigrationPage() {
             className="panel padded"
             onSubmit={async (e) => {
               e.preventDefault();
-              if ((!file&&!folderFiles.length) || !workspace) return;
-              const op=++operation.current,start=scope;controller.current?.abort();const abort=new AbortController();controller.current=abort;
+              if ((!file && !folderFiles.length) || !workspace) return;
+              const op = ++operation.current,
+                start = scope;
+              controller.current?.abort();
+              const abort = new AbortController();
+              controller.current = abort;
               setBusy(true);
               setError("");
               try {
                 const form = new FormData();
-                const selectedFile=inputMode==='folder'?await archiveFolder(folderFiles,abort.signal):file;
-                if(!alive(op,start)||!selectedFile)return;
+                const selectedFile =
+                  inputMode === "folder"
+                    ? await archiveFolder(folderFiles, abort.signal)
+                    : file;
+                if (!alive(op, start) || !selectedFile) return;
                 form.append("file", selectedFile);
                 const stage = await api<Row>(
                   `/migrations?workspace_id=${workspace.id}&space_id=${space}&format=${format}`,
                   "POST",
                   form,
                 );
-                if(!alive(op,start))return;
+                if (!alive(op, start)) return;
                 await load();
-                if(!alive(op,start))return;
+                if (!alive(op, start)) return;
                 setParams({ import: stage.id });
                 setFile(null);
                 setFolderFiles([]);
-                if(folderInput.current)folderInput.current.value='';
+                if (folderInput.current) folderInput.current.value = "";
                 if (input.current) input.current.value = "";
                 notify(
                   "미리보기 작업을 등록했습니다. 아래 이력에서 결과를 확인하세요.",
                 );
               } catch (e) {
-                if(alive(op,start))setError((e as Error).message);
+                if (alive(op, start)) setError((e as Error).message);
               } finally {
-                if(alive(op,start))setBusy(false);
+                if (alive(op, start)) setBusy(false);
               }
             }}
           >
-            <fieldset disabled={busy} style={{border:0,padding:0,minWidth:0}}>
-            <h2>
-              <FileUp size={21} /> 가져올 파일
-            </h2>
-            <div className="form-grid">
-              <Field label="원본 형식">
-                <select
-                  value={format}
-                  onChange={(e) => {setFormat(e.target.value);setFile(null);setFolderFiles([]);if(['csv','json'].includes(e.target.value))setInputMode('file')}}
-                >
-                  {formats.map(([id, name]) => (
-                    <option value={id} key={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="대상 공간">
-                <select
-                  value={space}
-                  onChange={(e) => setSpace(e.target.value)}
-                >
-                  <option value="">워크스페이스 기본 영역</option>
-                  {spaces.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            {!['csv','json'].includes(format)&&<Field label="파일 선택 방식"><select value={inputMode} onChange={e=>{setInputMode(e.target.value);setFile(null);setFolderFiles([])}}><option value="file">파일 또는 ZIP 선택</option><option value="folder">폴더 선택</option></select></Field>}
-            {inputMode==='folder'?<Field label="가져오기 폴더" hint="원본 합계 48MB · 파일 5,000개 · 브라우저 별도 작업에서 ZIP 준비"><div className="transfer-file-picker"><input ref={folderInput} className="sr-only" type="file" {...{webkitdirectory:'',directory:''} as Record<string,string>} multiple onChange={e=>setFolderFiles(Array.from(e.target.files||[]))}/><Button type="button" onClick={()=>folderInput.current?.click()}>폴더 선택</Button><span>{folderFiles.length?`선택한 파일 ${folderFiles.length}개`:'선택한 폴더 없음'}</span></div></Field>:<Field
-              label="가져오기 파일"
-              hint="최대 50MB · CSV 5,000행/100열 · ZIP 5,000개 항목/해제 100MB · 문서 트리 20단계"
+            <fieldset
+              disabled={busy}
+              style={{ border: 0, padding: 0, minWidth: 0 }}
             >
-              <div className="transfer-file-picker"><input
-                ref={input}
-                className="sr-only"
-                type="file"
-                required
-                accept={
-                  format === "html"
-                    ? ".html,.htm,.zip"
-                    : format === "csv"
-                      ? ".csv"
-                      : format === "json"
-                        ? ".json"
-                        : ".md,.markdown,.zip"
+              <h2>
+                <FileUp size={21} /> 가져올 파일
+              </h2>
+              <div className="form-grid">
+                <Field label="원본 형식">
+                  <select
+                    value={format}
+                    onChange={(e) => {
+                      setFormat(e.target.value);
+                      setFile(null);
+                      setFolderFiles([]);
+                      if (["csv", "json"].includes(e.target.value))
+                        setInputMode("file");
+                    }}
+                  >
+                    {formats.map(([id, name]) => (
+                      <option value={id} key={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="대상 공간">
+                  <select
+                    value={space}
+                    onChange={(e) => setSpace(e.target.value)}
+                  >
+                    <option value="">워크스페이스 기본 영역</option>
+                    {spaces.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              {!["csv", "json"].includes(format) && (
+                <Field label="파일 선택 방식">
+                  <select
+                    value={inputMode}
+                    onChange={(e) => {
+                      setInputMode(e.target.value);
+                      setFile(null);
+                      setFolderFiles([]);
+                    }}
+                  >
+                    <option value="file">파일 또는 ZIP 선택</option>
+                    <option value="folder">폴더 선택</option>
+                  </select>
+                </Field>
+              )}
+              {inputMode === "folder" ? (
+                <Field
+                  label="가져오기 폴더"
+                  hint="원본 합계 48MB · 파일 5,000개 · 브라우저 별도 작업에서 ZIP 준비"
+                >
+                  <div className="transfer-file-picker">
+                    <input
+                      ref={folderInput}
+                      className="sr-only"
+                      type="file"
+                      {...({ webkitdirectory: "", directory: "" } as Record<
+                        string,
+                        string
+                      >)}
+                      multiple
+                      onChange={(e) =>
+                        setFolderFiles(Array.from(e.target.files || []))
+                      }
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => folderInput.current?.click()}
+                    >
+                      폴더 선택
+                    </Button>
+                    <span>
+                      {folderFiles.length
+                        ? `선택한 파일 ${folderFiles.length}개`
+                        : "선택한 폴더 없음"}
+                    </span>
+                  </div>
+                </Field>
+              ) : (
+                <Field
+                  label="가져오기 파일"
+                  hint="최대 50MB · CSV 5,000행/100열 · ZIP 5,000개 항목/해제 100MB · 문서 트리 20단계"
+                >
+                  <div className="transfer-file-picker">
+                    <input
+                      ref={input}
+                      className="sr-only"
+                      type="file"
+                      required
+                      accept={
+                        format === "html"
+                          ? ".html,.htm,.zip"
+                          : format === "csv"
+                            ? ".csv"
+                            : format === "json"
+                              ? ".json"
+                              : ".md,.markdown,.zip"
+                      }
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => input.current?.click()}
+                    >
+                      파일 선택
+                    </Button>
+                    <span>{file?.name || "선택한 파일 없음"}</span>
+                  </div>
+                </Field>
+              )}
+              {format === "json" && (
+                <p className="muted">
+                  JSON 문서 목록은 title, markdown, tags, aliases 속성의 배열
+                  또는 {"{documents: [...]}"} 객체를 사용합니다. 또는 내보내기
+                  센터의 madi-json-vault 버전 1 파일을 사용하면 폴더·첨부·링크도
+                  새 비공개 초안으로 복원합니다.
+                </p>
+              )}
+              {format === "notion" && (
+                <p className="muted">
+                  Notion에서 내보낸 Markdown ZIP 또는 HTML ZIP을 선택하세요.
+                  HTML은 안전한 Markdown으로 변환하며 외부 이미지를 다운로드하지
+                  않습니다. 로컬 이미지와 문서 링크를 복원하며, CSV는 원본
+                  첨부와 텍스트 속성 데이터베이스로 함께 가져옵니다(최대 20개).
+                </p>
+              )}
+              <Button
+                variant="primary"
+                disabled={
+                  busy || (inputMode === "folder" ? !folderFiles.length : !file)
                 }
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              /><Button type="button" onClick={()=>input.current?.click()}>파일 선택</Button><span>{file?.name||'선택한 파일 없음'}</span></div>
-            </Field>}
-            {format === "json" && (
-              <p className="muted">
-                JSON 문서 목록은 title, markdown, tags, aliases 속성의 배열 또는{" "}
-                {"{documents: [...]}"} 객체를 사용합니다. 또는 내보내기 센터의 madi-json-vault 버전 1 파일을 사용하면 폴더·첨부·링크도 새 비공개 초안으로 복원합니다.
-              </p>
-            )}
-            {format === "notion" && (
-              <p className="muted">
-                Notion에서 내보낸 Markdown ZIP 또는 HTML ZIP을 선택하세요.
-                HTML은 안전한 Markdown으로 변환하며 외부 이미지를 다운로드하지
-                않습니다.
-                로컬 이미지와 문서 링크를 복원하며, CSV는 원본 첨부와 텍스트 속성 데이터베이스로 함께 가져옵니다(최대 20개).
-              </p>
-            )}
-            <Button variant="primary" disabled={busy || (inputMode==='folder'?!folderFiles.length:!file)}>
-              {busy ? "파일 준비 중…" : "미리보기 만들기"}
-              <ArrowRight size={17} />
-            </Button>
+              >
+                {busy ? "파일 준비 중…" : "미리보기 만들기"}
+                <ArrowRight size={17} />
+              </Button>
             </fieldset>
           </form>
           <section style={{ marginTop: 28 }}>
@@ -392,21 +578,22 @@ export function MigrationPage() {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const op=++operation.current,start=scope;
+                    const op = ++operation.current,
+                      start = scope;
                     setBusy(true);
                     setError("");
                     try {
                       await api(`/migrations/${selected.id}/run`, "POST", {
                         confirmation,
                       });
-                      if(!alive(op,start))return;
+                      if (!alive(op, start)) return;
                       notify("가져오기 작업을 시작했습니다.");
                       await load();
-                      if(alive(op,start))await reload();
+                      if (alive(op, start)) await reload();
                     } catch (e) {
-                      if(alive(op,start))setError((e as Error).message);
+                      if (alive(op, start)) setError((e as Error).message);
                     } finally {
-                      if(alive(op,start))setBusy(false);
+                      if (alive(op, start)) setBusy(false);
                     }
                   }}
                 >
@@ -441,16 +628,17 @@ export function MigrationPage() {
                   )
                     return;
                   setBusy(true);
-                  const op=++operation.current,start=scope;
+                  const op = ++operation.current,
+                    start = scope;
                   try {
                     await api(`/migrations/${selected.id}`, "DELETE");
-                    if(!alive(op,start))return;
+                    if (!alive(op, start)) return;
                     await load();
-                    if(alive(op,start))notify("작업을 취소했습니다.");
+                    if (alive(op, start)) notify("작업을 취소했습니다.");
                   } catch (e) {
-                    if(alive(op,start))setError((e as Error).message);
+                    if (alive(op, start)) setError((e as Error).message);
                   } finally {
-                    if(alive(op,start))setBusy(false);
+                    if (alive(op, start)) setBusy(false);
                   }
                 }}
               >

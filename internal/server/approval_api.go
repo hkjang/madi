@@ -187,6 +187,9 @@ func (s *Server) approvalAdvanced(w http.ResponseWriter, r *http.Request) {
 		e = approvalProblem(400, "submit/approve/reject/cancel 작업을 선택하세요")
 	}
 	if e == nil {
+		e = s.approvalActorTx(r, tx, request.WorkspaceID, "document")
+	}
+	if e == nil {
 		e = tx.Commit(r.Context())
 	}
 	if e != nil {
@@ -349,6 +352,27 @@ func (s *Server) approvalResourceStatus(w http.ResponseWriter, r *http.Request) 
 	if e == nil {
 		out, e = s.approvalStatusTx(r.Context(), tx, current(r), resource, false)
 	}
+	if e == nil && resource.Kind == "impact_exception" {
+		var review map[string]any
+		review, e = s.impactExceptionApprovalContextTx(r.Context(), tx, current(r), resource.ID)
+		if e == nil {
+			out["review_context"] = review
+			if !boolean(review, "current") {
+				out["stale"] = true
+				out["reason"] = review["notice"]
+				out["eligible_gates"] = []int{}
+			}
+		}
+	}
+	if e == nil {
+		e = s.approvalActorTx(r, tx, resource.WorkspaceID, resource.Kind)
+		if e == nil && resource.Kind == "impact_exception" {
+			var allowed bool
+			if e = tx.QueryRow(r.Context(), `SELECT madi_impact_allowed($1,$2)`, current(r).ID, str(resource.Snapshot, "review_id")).Scan(&allowed); e == nil && !allowed {
+				e = approvalProblem(403, "현재 변경 원문·대상 접근 권한이 변경되었습니다")
+			}
+		}
+	}
 	if e == nil {
 		e = tx.Commit(r.Context())
 	}
@@ -399,6 +423,11 @@ func (s *Server) approvalRequestAction(w http.ResponseWriter, r *http.Request, w
 	}
 	defer tx.Rollback(r.Context())
 	resource, e := adapter.Lock(r.Context(), tx, current(r), resourceID, false)
+	if e == nil && write && oneOf(kind, "impact_exception", "learning_step") {
+		if err := s.checkEvidenceProtection(r.Context(), tx, current(r), resource.WorkspaceID, in.Comment); err != nil {
+			e = approvalProblem(422, err.Error())
+		}
+	}
 	var request ApprovalRequest
 	var out map[string]any
 	if e == nil {
@@ -416,8 +445,20 @@ func (s *Server) approvalRequestAction(w http.ResponseWriter, r *http.Request, w
 			if e == nil {
 				out = approvalSummary(request)
 				out["snapshot"] = request.Snapshot
+				if kind == "impact_exception" {
+					out["review_context"], e = s.impactExceptionApprovalContextTx(r.Context(), tx, current(r), resourceID)
+					if e != nil {
+						approvalRespondError(w, e)
+						return
+					}
+				}
 				details, err := approvalDetailsTx(r.Context(), tx, id)
 				e = err
+				if e == nil && oneOf(kind, "impact_exception", "learning_step") {
+					if err = s.checkEvidenceProtection(r.Context(), tx, current(r), resource.WorkspaceID, details); err != nil {
+						e = approvalProblem(422, "현재 보호 정책으로 예외 결정 의견을 표시할 수 없습니다")
+					}
+				}
 				out["assignments"] = details["assignments"]
 				out["decisions"] = details["decisions"]
 				if e == nil && request.Status == "pending" {
@@ -436,6 +477,15 @@ func (s *Server) approvalRequestAction(w http.ResponseWriter, r *http.Request, w
 		}
 	}
 	if e == nil {
+		e = s.approvalActorTx(r, tx, resource.WorkspaceID, resource.Kind)
+		if e == nil && resource.Kind == "impact_exception" {
+			var allowed bool
+			if e = tx.QueryRow(r.Context(), `SELECT madi_impact_allowed($1,$2)`, current(r).ID, str(resource.Snapshot, "review_id")).Scan(&allowed); e == nil && !allowed {
+				e = approvalProblem(403, "현재 변경 원문·대상 접근 권한이 변경되었습니다")
+			}
+		}
+	}
+	if e == nil {
 		e = tx.Commit(r.Context())
 	}
 	if e != nil {
@@ -444,8 +494,27 @@ func (s *Server) approvalRequestAction(w http.ResponseWriter, r *http.Request, w
 	}
 	if write {
 		s.audit(r, "APPROVAL_"+strings.ToUpper(in.Action), id, map[string]any{"resource_kind": kind, "resource_id": resourceID, "status": request.Status})
+	} else if kind == "impact_exception" {
+		if review, ok := out["review_context"].(map[string]any); ok && !boolean(review, "current") {
+			out["stale"] = true
+			out["reason"] = review["notice"]
+			out["eligible_gates"] = []int{}
+		}
 	}
 	jsonResponse(w, 200, out)
+}
+
+// Resource adapters authorize their own ACL; this final guard additionally
+// rejects a session/key that expired while any resource or decision lock waited.
+func (s *Server) approvalActorTx(r *http.Request, tx pgx.Tx, wid, kind string) error {
+	scope := "document:read"
+	if kind == "sql_query_plan" {
+		scope = "database:read"
+	}
+	if err := s.knowledgeActorTx(r, tx, wid, scope); err != nil {
+		return approvalProblem(403, err.Error())
+	}
+	return nil
 }
 
 func (s *Server) approvalInbox(w http.ResponseWriter, r *http.Request) {

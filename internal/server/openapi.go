@@ -259,6 +259,7 @@ func (s *Server) openAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		if entry.path == "/tasks/calendar" {
 			parameters = append(parameters, map[string]any{"name": "month", "in": "query", "required": true, "schema": textType, "description": "YYYY-MM"})
+			parameters = append(parameters, map[string]any{"name": "document_id", "in": "query", "schema": map[string]any{"type": "string", "format": "uuid"}, "description": "선택 문서의 현재 권한을 적용하여 해당 문서 날짜·할 일·실제 연결 일정을 조회합니다. 독립 일정과 문서 관계가 없는 DB 행은 포함하지 않으며, 잘못된 ID를 전체 범위로 대체하지 않습니다."})
 		}
 		if entry.path == "/tasks/board" {
 			for _, name := range []string{"document_id", "task"} {
@@ -278,6 +279,13 @@ func (s *Server) openAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		responses := map[string]any{"200": map[string]any{"description": "성공. JSON 객체/배열 또는 명시된 스트림/파일을 반환합니다."}, "400": map[string]any{"description": "입력값 검증 오류"}, "401": map[string]any{"description": "인증 필요 또는 키/세션 만료"}, "403": map[string]any{"description": "권한, 키 scope, 워크스페이스 또는 CSRF 정책 위반"}, "404": map[string]any{"description": "리소스 없음 또는 접근 불가"}, "409": map[string]any{"description": "문서 버전 충돌 또는 중복 데이터"}, "429": map[string]any{"description": "호출량 제한 (Retry-After 헤더)"}}
 		op := map[string]any{"summary": entry.summary, "tags": []string{entry.tag}, "operationId": entry.method + strings.NewReplacer("/", "_", "{", "", "}", "").Replace(entry.path), "responses": responses}
+		if entry.path == "/tasks/board" {
+			responses["200"] = map[string]any{"description": "현재 권한을 통과한 최신 문서 최대 2,000개·본문 16MiB·할 일 10,000개 범위. total_documents_exact=true일 때만 total_documents가 정확한 수입니다. 2,001개 도달 시 total_documents_is_lower_bound=true로 하한을 반환하며 워크스페이스 전체 문서 수가 아닙니다. truncated와 limits를 함께 확인하세요.", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"type": "object", "properties": map[string]any{
+				"items": map[string]any{"type": "array", "items": map[string]any{"type": "object"}}, "documents_scanned": map[string]any{"type": "integer", "minimum": 0, "maximum": 2000},
+				"total_documents": map[string]any{"type": "integer", "minimum": 0, "maximum": 2001}, "total_documents_exact": map[string]any{"type": "boolean"}, "total_documents_is_lower_bound": map[string]any{"type": "boolean"},
+				"truncated": map[string]any{"type": "boolean"}, "notice": textType, "limits": map[string]any{"type": "object"},
+			}}}}}
+		}
 		if len(parameters) > 0 {
 			op["parameters"] = parameters
 		}
@@ -381,12 +389,25 @@ func (s *Server) openAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		protectionOpenAPI(entry.path, entry.method, op)
 		transferOpenAPI(entry.path, entry.method, op)
+		migrationResumeOpenAPI(entry.path, entry.method, op)
+		attachmentExtractionOpenAPI(entry.path, entry.method, op)
+		knowledgePathsOpenAPI(entry.path, entry.method, op)
+		structuredDraftOpenAPI(entry.path, entry.method, op)
 		paths[entry.path].(map[string]any)[entry.method] = op
 	}
 	workspaceAgentOpenAPI(paths, schemas)
 	supportOpenAPI(paths, schemas)
 	graphAIOpenAPI(paths, schemas)
 	documentSummaryOpenAPI(paths, schemas)
+	searchOperationsOpenAPI(paths, schemas)
+	uxReviewOpenAPI(paths, schemas)
+	knowledgeOperationsOpenAPI(paths, schemas)
+	distributionOpenAPI(paths, schemas)
+	systemStatusOpenAPI(paths, schemas)
+	impactExceptionOpenAPI(paths, schemas)
+	knowledgeQuestionsOpenAPI(paths, schemas)
+	knowledgeConflictsOpenAPI(paths)
+	documentQueryOpenAPI(paths, schemas)
 	schemas["SearchHistorySettings"] = object(map[string]any{"enabled": booleanType, "retention_days": map[string]any{"type": "integer", "minimum": 7, "maximum": 365}, "revision": integerType, "consent": booleanType}, "enabled", "retention_days", "revision")
 	schemas["SearchHistoryDelete"] = object(map[string]any{"workspace_id": textType, "confirmation": map[string]any{"const": "DELETE_ALL"}}, "confirmation")
 	schemas["SearchHistoryGaps"] = object(map[string]any{"workspace_id": textType, "entries": map[string]any{"type": "array", "minItems": 1, "maxItems": 30, "items": object(map[string]any{"id": textType, "revision": integerType}, "id", "revision")}, "consent": map[string]any{"const": true}}, "workspace_id", "entries", "consent")

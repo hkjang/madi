@@ -154,8 +154,12 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		Name              string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
 	}
-	if err := idToken.Claims(&claims); err != nil || !claims.EmailVerified || !strings.Contains(claims.Email, "@") || idToken.Subject == "" {
-		apiError(w, 403, "SSO 계정에 검증된 이메일 주소가 필요합니다.")
+	if err := idToken.Claims(&claims); err != nil || !strings.Contains(claims.Email, "@") || idToken.Subject == "" {
+		apiError(w, 403, "SSO 계정의 이메일 주소와 고유 ID를 확인하세요.")
+		return
+	}
+	if boolean(settings, "oidc_require_verified_email") && !claims.EmailVerified {
+		apiError(w, 403, "관리자 SSO 설정에서 이메일 검증을 필수로 지정했습니다. Keycloak에서 이메일을 검증하거나 관리자에게 설정 변경을 요청하세요.")
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(claims.Email))
@@ -182,7 +186,7 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	userID, err := s.identityUser(ctx, tx, settings, externalIdentity{Provider: "oidc", Issuer: issuer, Subject: idToken.Subject, Email: email, Name: name, Groups: groups, VerifiedEmail: true, AutoRegister: boolean(settings, "oidc_auto_register"), ConfigurationHash: identityConfigurationHash(settings, "oidc")})
+	userID, err := s.identityUser(ctx, tx, settings, externalIdentity{Provider: "oidc", Issuer: issuer, Subject: idToken.Subject, Email: email, Name: name, Groups: groups, VerifiedEmail: claims.EmailVerified, AutoRegister: boolean(settings, "oidc_auto_register"), ConfigurationHash: identityConfigurationHash(settings, "oidc")})
 	if err != nil {
 		identityLoginError(w, err)
 		return
@@ -195,7 +199,7 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 500, "로그인 세션을 생성할 수 없습니다.")
 		return
 	}
-	s.audit(r, "LOGIN", userID, map[string]any{"provider": "oidc", "issuer": issuer})
+	s.audit(r, "LOGIN", userID, map[string]any{"provider": "oidc", "issuer": issuer, "email_verified": claims.EmailVerified})
 	http.Redirect(w, r, "/app", http.StatusFound)
 }
 

@@ -2,8 +2,8 @@
   "inputs": {
     "go.mod": "fd3a3e0103c3d56355b7ebc0c757061a81231de5cf373a0221376501f3d9f08d",
     "go.sum": "2453e1cb2adbd56693fd7e972e3f9543497da7f6ee42cd73b290c2018b93ff44",
-    "web/package.json": "d75385a82b662831c4736325f7a235e862ebc1fe41131f01c7f4b18db1ed8b75",
-    "web/package-lock.json": "134feb2dfc5a32ca2c63cd5913a0facba239bc49e49c52aaf9da42a269eadc8b"
+    "web/package.json": "01d6009e1a4ac7ddbef78092d8fbf2e768eacbecc105b7e82261068e7b5c9609",
+    "web/package-lock.json": "67d5f070dbac2e7ae1565305228d8ecaf3dbf23be384a212b46389ac7f14e4fd"
   },
   "components": [
     {
@@ -1119,6 +1119,42 @@
         {
           "file": "LICENSE",
           "sha256": "d374061c40bfb6f99c5033290caefda97a9b3e7e477e5ee02f487143ef2177e8"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "version": "1.0.8",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "@napi-rs/canvas@1.0.8/LICENSE (same-version platform distribution)",
+          "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@napi-rs/canvas",
+      "version": "1.0.8",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "LICENSE",
+          "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@noble/hashes",
+      "version": "2.4.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "LICENSE",
+          "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
         }
       ]
     },
@@ -4316,6 +4352,54 @@
     },
     {
       "ecosystem": "npm",
+      "name": "pdfjs-dist",
+      "version": "6.3.289",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "LICENSE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        {
+          "file": "cmaps/LICENSE",
+          "sha256": "aa92ab5a472974865a96fd4a4e9c13bb41bf6fe1b309cb6b8da48bc9e19839a2"
+        },
+        {
+          "file": "standard_fonts/LICENSE_FOXIT",
+          "sha256": "b578cdd2345840ada550bd12519533812320d5f1d21cf4c1c7e1b1b0a31c98b7"
+        },
+        {
+          "file": "standard_fonts/LICENSE_LIBERATION",
+          "sha256": "d2c4d5b3e115a519cb58eb691aa64538397e2611f9ebe801392cf9667997e7dc"
+        },
+        {
+          "file": "wasm/LICENSE_JBIG2",
+          "sha256": "9e66b7f1b934a28b37f3bc4dac97915de1674271e79a0a88182a18ed9731b4d1"
+        },
+        {
+          "file": "wasm/LICENSE_OPENJPEG",
+          "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+        },
+        {
+          "file": "wasm/LICENSE_PDFJS_JBIG2",
+          "sha256": "aad3cce09842e00e9e11ad5e8fef8cc02fbc3a3768fe2f007443b9cee37aaee5"
+        },
+        {
+          "file": "wasm/LICENSE_PDFJS_OPENJPEG",
+          "sha256": "717fc62da03292dbb4dd0c8280bd4ce7bb8550dcf31d772bc93455fb50313425"
+        },
+        {
+          "file": "wasm/LICENSE_PDFJS_QCMS",
+          "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+        },
+        {
+          "file": "wasm/LICENSE_QCMS",
+          "sha256": "36d847ae882f6574ebc72f56a4f354e4f104fde4a584373496482e97d52d31bc"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
       "name": "points-on-curve",
       "version": "0.2.0",
       "license": "MIT",
@@ -5083,5 +5167,5 @@
       ]
     }
   ],
-  "text_sha256": "7fd781608d38900a4f061dff111ba947f481c341c1ce0867f8186fe5a1ef129b"
+  "text_sha256": "b78bf6484d28ade6a12d1b884b1b522279c66646e11a3af29fe2fa50fc06690a"
 }

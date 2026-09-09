@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FilePlus2 } from "lucide-react";
-import { api } from "./api";
+import { api, downloadText } from "./api";
+import { ChangeReview, RecoveryNotice } from "./review/ChangeReview";
 import { useApp } from "./context";
 import { Button, ErrorBox, Field, Modal } from "./ui";
 import { MarkdownContent } from "./editor/MarkdownContent";
@@ -87,6 +88,7 @@ export function AISaveDraft({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const generation = useRef(0);
+  const [errorStatus, setErrorStatus] = useState(0);
   const draft =
     answer +
     (sources.length
@@ -140,7 +142,10 @@ export function AISaveDraft({
       onSaved();
       navigate(`/app/documents/${doc.id}?mode=preview`);
     } catch (e) {
-      if (request === generation.current) setError((e as Error).message);
+      if (request === generation.current) {
+        setError((e as Error).message);
+        setErrorStatus(Number((e as { status?: number }).status) || 0);
+      }
     } finally {
       if (request === generation.current) setBusy(false);
     }
@@ -176,17 +181,30 @@ export function AISaveDraft({
         title="AI 초안 검토"
         wide
       >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
+        <ChangeReview
+          title="새 개인 초안 생성"
+          description="AI 제안과 참조 구간을 확인한 뒤 저장하세요."
+          changes={[
+            {
+              label: "저장 대상",
+              before: "기존 문서 유지",
+              after: "현재 워크스페이스의 새 비공개 초안",
+            },
+            {
+              label: "참조 문서",
+              before: "",
+              after: `${sources.length}개 · 저장 직전 현재 권한과 버전 재검사`,
+            },
+          ]}
+          warnings={[
+            "AI가 만든 제안입니다. 민감정보와 문서 저장 정책이 동일하게 적용되며, 기존 문서는 변경하거나 게시하지 않습니다.",
+          ]}
+          busy={busy}
+          disabled={!title.trim()}
+          confirmLabel="검토한 내용을 개인 초안으로 저장"
+          onConfirm={() => void save()}
+          onCancel={() => setOpen(false)}
         >
-          <p className="notice">
-            AI가 만든 제안을 검토해 주세요. 기존 문서는 변경하지 않으며, 새
-            문서는 비공개 초안으로 저장됩니다. 민감정보·문서 저장 정책도
-            동일하게 적용됩니다.
-          </p>
           <Field label="새 문서 제목">
             <input
               value={title}
@@ -208,22 +226,16 @@ export function AISaveDraft({
           >
             <MarkdownContent markdown={draft} documents={documents} />
           </div>
-          <ErrorBox error={error} />
-          <div className="modal-actions">
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => setOpen(false)}
-            >
-              취소
-            </Button>
-            <Button variant="primary" disabled={busy || !title.trim()}>
-              {busy
-                ? "현재 권한 확인·저장 중…"
-                : "검토한 내용을 개인 초안으로 저장"}
-            </Button>
-          </div>
-        </form>
+
+          <RecoveryNotice
+            error={error}
+            status={errorStatus}
+            dirty
+            busy={busy}
+            onCopy={() => downloadText("madi-AI-초안.md", draft)}
+            onReauthenticate={() => navigate("/login")}
+          />
+        </ChangeReview>
       </Modal>
     </>
   );

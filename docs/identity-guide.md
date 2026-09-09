@@ -1,6 +1,6 @@
 # madi 기업 계정 연동 가이드
 
-서비스 관리자 메뉴의 **기업 계정 연동**(`/admin/identity`)에서 설정합니다. 추가 환경변수는 필요하지 않습니다. 모든 제공자는 기본 비활성화이며 Bootstrap 관리자 로컬 로그인은 유지됩니다.
+서비스 관리자 메뉴의 **기업 계정 연동**(`/admin/identity`)에서 계정 연결·그룹 매핑·LDAP·SAML·SCIM을 설정합니다. OIDC 연결과 이메일 검증 요구 여부는 **시스템 설정의 SSO 탭**(`/admin/settings?tab=auth`)에서 관리합니다. 추가 환경변수는 필요하지 않습니다. 모든 제공자는 기본 비활성화이며 Bootstrap 관리자 로컬 로그인은 유지됩니다.
 
 ## 계정 연결과 그룹 권한
 
@@ -18,7 +18,7 @@
 
 ## Keycloak OIDC
 
-서비스 설정에서 OIDC issuer, client ID, 필요 시 client secret을 입력합니다. OIDC discovery로 인증·토큰·서명키 주소를 확인합니다. 표준 Authorization Code + PKCE S256을 사용하고 state, nonce, issuer, audience, 토큰 서명, 이메일 검증 상태를 검사합니다.
+서비스 설정에서 OIDC issuer, client ID, 필요 시 client secret을 입력합니다. OIDC discovery로 인증·토큰·서명키 주소를 확인합니다. 표준 Authorization Code + PKCE S256을 사용하고 state, nonce, issuer, audience, 토큰 서명과 만료를 검사합니다. ID token의 유효한 `email`과 비어 있지 않은 `sub`도 필요합니다. `email_verified`를 로그인 필수 조건으로 요구할지는 아래 별도 설정으로 선택합니다.
 
 | 항목 | 값 |
 | --- | --- |
@@ -27,8 +27,29 @@
 | 중첩 claim 예시 | `realm_access.roles` |
 | 명시적 연결 고유 ID | 검증된 ID token의 `sub` |
 | 명시적 연결 issuer | realm issuer URL |
+| SSO 이메일 검증 필수 | `oidc_require_verified_email`, 기본 `false` |
 
 Keycloak에서 그룹 mapper를 ID token에 포함하도록 구성하세요. 신규 계정을 자동 생성하려면 OIDC 자동 등록을 켭니다. 공개 인터넷은 필요하지 않지만 madi 서버와 브라우저에서 사내 Keycloak에 접근할 수 있어야 합니다.
+
+### 이메일 검증 요구와 기존 계정 보호
+
+v0.2.0 업데이트 적용 후 **SSO 이메일 검증 필수**(`oidc_require_verified_email`)는 기본 `false`입니다. 업그레이드한 기존 설정에 이 항목이 없어도 `false`로 해석합니다. 관리자 SSO 설정에서 이를 켜면 ID token의 `email_verified`가 `true`여야 로그인할 수 있습니다. 조직에서 이메일 검증을 로그인 필수 요건으로 운영한다면 업그레이드 시 이 항목을 명시적으로 켜고 확인하세요. 설정을 변경한 경우 저장한 뒤 회사 계정 로그인을 다시 시작합니다.
+
+| 설정 | `email_verified` | 처리 |
+| --- | --- | --- |
+| 꺼짐 (`false`, 기본) | `false` 또는 누락 | 이 사유만으로 로그인 절차를 차단하지 않음. 계정 연결·등록 정책은 별도 적용 |
+| 켜짐 (`true`) | `false` 또는 누락 | 이메일 검증 필수 조건으로 로그인 거부 |
+| 꺼짐 또는 켜짐 | `true` | 나머지 토큰 검증과 계정 연결·등록 정책을 계속 적용 |
+
+이 설정을 꺼도 토큰 서명·issuer·audience·nonce·state·PKCE·만료 검증을 생략하지 않습니다. 잘못된 이메일이나 빈 subject도 허용하지 않습니다. 이메일이 검증되었다고 간주하는 설정이 아니라, **로그인 단계에서 검증된 이메일을 필수로 요구할지** 정하는 설정입니다.
+
+계정 연결층에는 실제 `email_verified` 값이 전달됩니다. 따라서 꺼짐 상태에서도 미검증 이메일을 이용해 기존 로컬 일반 사용자나 관리자를 자동 연결하지 않습니다. 별도의 ‘검증된 이메일로 일반 사용자만 자동 연결’ 정책을 켜도 미검증 이메일에는 적용되지 않으며 관리자·서비스 계정·비활성 계정의 자동 연결 금지도 유지됩니다.
+
+신규 계정 생성은 기존 **OIDC 자동 등록** 설정(`oidc_auto_register`)에 따릅니다. 이메일 검증 요구를 끈 것만으로 자동 등록이 켜지거나 권한이 추가되지 않습니다. 이미 관리자에 의해 정확한 제공자·issuer·`sub`로 연결된 계정은 그 연결을 사용하며, 같은 이메일이 있다는 이유로 새 외부 subject로 교체하지 않습니다.
+
+‘같은 이메일의 계정이 있습니다’ 오류가 나오면 이메일 검증 설정을 더 완화하거나 토큰을 임의 변경하지 마세요. 관리자가 `/admin/identity`에서 해당 사용자와 OIDC 제공자, 실제 realm issuer, ID token의 불변 `sub`를 확인해 **명시적으로 연결**해야 합니다. 계정이 없는 상태에서 자동 등록도 꺼져 있다면 먼저 관리자가 계정을 준비하고 연결합니다. 기존 계정 보호를 위한 이 오류는 이메일 검증 요구를 끈 후에도 남을 수 있습니다.
+
+이 안내는 madi의 설정과 업그레이드 후 동작을 설명합니다. 현재 운영 중인 Keycloak 서버의 설정·사용자·이메일 검증 상태를 자동 변경하거나, 해당 운영 서버에 이 업데이트를 배포했다는 뜻이 아닙니다.
 
 ## LDAP · Active Directory
 

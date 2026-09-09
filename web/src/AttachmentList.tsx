@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Download, Paperclip } from "lucide-react";
 import { api, bytes } from "./api";
 import { Button, ErrorBox } from "./ui";
+import { useApp } from "./context";
 import "./attachments.css";
 export default function AttachmentList({
   documentID,
@@ -10,6 +12,10 @@ export default function AttachmentList({
   documentID: string;
   revision: number;
 }) {
+  const { user } = useApp();
+  const scope = `${user.id}:${documentID}:${revision}`;
+  const current = useRef(scope);
+  current.current = scope;
   const [files, setFiles] = useState<Record<string, any>[]>([]),
     [error, setError] = useState<unknown>(null),
     [more, setMore] = useState(false),
@@ -18,6 +24,7 @@ export default function AttachmentList({
     let active = true;
     setFiles([]);
     setError(null);
+    setBusy(false);
     api<Record<string, any>[]>(`/documents/${documentID}/attachments`)
       .then((rows) => {
         if (active) {
@@ -31,7 +38,7 @@ export default function AttachmentList({
     return () => {
       active = false;
     };
-  }, [documentID, revision]);
+  }, [documentID, revision, user.id]);
   if (!files.length && !error) return null;
   return (
     <section className="attachment-index">
@@ -49,6 +56,9 @@ export default function AttachmentList({
               <span>{f.name}</span>
               <small>{bytes(f.size)}</small>
             </a>
+            <Link className="button small" to={`/app/attachments/${f.id}`}>
+              본문·위치 보기
+            </Link>
           </li>
         ))}
       </ul>
@@ -56,17 +66,19 @@ export default function AttachmentList({
         <Button
           disabled={busy}
           onClick={async () => {
+            const captured = scope;
             setBusy(true);
             try {
               const rows = await api<Record<string, any>[]>(
                 `/documents/${documentID}/attachments?after=${files.at(-1)?.id}`,
               );
+              if (current.current !== captured) return;
               setFiles((prev) => [...prev, ...rows]);
               setMore(rows.length === 200);
             } catch (e) {
-              setError(e);
+              if (current.current === captured) setError(e);
             } finally {
-              setBusy(false);
+              if (current.current === captured) setBusy(false);
             }
           }}
         >

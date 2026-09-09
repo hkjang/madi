@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { api } from "../api";
+import { useApp } from "../context";
+import { RecoveryNotice } from "../review/ChangeReview";
 import "./style.css";
 const classes: Record<string, string> = {
   public: "공개",
@@ -40,43 +42,50 @@ export default function DocumentProtection({
   documentID: string;
   version?: number;
 }) {
-  const [data, setData] = useState<Record<string, any> | null>(null),
-    [error, setError] = useState("");
+  const { user, workspace } = useApp();
+  const scope = `${user.id}:${workspace?.id}:${documentID}:${version}`;
+  const [data, setData] = useState<{ scope: string; value: Record<string, any> } | null>(null),
+    [error, setError] = useState<{ scope: string; value: unknown } | null>(null),
+    [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let active = true;
-    const load = () =>
-      api<Record<string, any>>(`/documents/${documentID}/protection`)
+    let active = true, running = false;
+    const controller = new AbortController();
+    const load = () => {
+      if (running) return;
+      running = true;
+      return api<Record<string, any>>(`/documents/${documentID}/protection`, "GET", undefined, { signal: controller.signal })
         .then((v) => {
           if (active) {
-            setData(v);
-            setError("");
+            setData({ scope, value: v });
+            setError(null);
           }
         })
         .catch((e) => {
           if (active) {
             setData(null);
-            setError(e.message);
+            setError({ scope, value: e instanceof TypeError ? new Error("네트워크 연결을 확인한 뒤 정보보호 정책을 다시 확인하세요. 확인 실패를 보호 정책 해제로 취급하지 않습니다.") : e });
           }
-        });
+        }).finally(() => { running = false; });
+    };
     void load();
     const timer = setInterval(() => void load(), 10000);
     return () => {
       active = false;
+      controller.abort();
       clearInterval(timer);
     };
-  }, [documentID, version]);
-  if (error)
-    return (
-      <div className="notice">정보보호 정책을 확인하지 못했습니다: {error}</div>
-    );
-  if (!data) return null;
+  }, [scope, documentID, attempt]);
+  if (error?.scope === scope)
+    return <RecoveryNotice error={error.value} onRetry={() => setAttempt((n) => n + 1)} onReview={() => setAttempt((n) => n + 1)} />;
+  if (data?.scope !== scope) return null;
+  const policy = data.value;
   return (
     <>
       <div className="protection-summary">
         <ShieldCheck size={16} />
-        <span>상속 적용 등급: {classes[data.classification]}</span>
-        {data.watermark && <span>화면·인쇄 워터마크</span>}
-        {data.enabled && (
+        <span>상속 적용 등급: {classes[policy.classification]}</span>
+        {policy.watermark && <span>화면·인쇄 워터마크</span>}
+        {policy.enabled && (
           <span>
             민감정보{" "}
             {
@@ -87,15 +96,15 @@ export default function DocumentProtection({
                   mask: "마스킹",
                   audit: "감사",
                 } as Record<string, string>
-              )[data.mode]
+              )[policy.mode]
             }
           </span>
         )}
       </div>
-      {data.watermark && (
+      {policy.watermark && (
         <DocumentWatermark
-          viewer={data.viewer}
-          classification={data.classification}
+          viewer={policy.viewer}
+          classification={policy.classification}
         />
       )}
     </>

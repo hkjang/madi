@@ -157,7 +157,13 @@ func (s *Server) saveAIConversation(w http.ResponseWriter, r *http.Request) {
 			apiError(w, 409, "참조 조각 범위가 올바르지 않습니다")
 			return
 		}
-		e = tx.QueryRow(ctx, `SELECT version,substring(convert_to(markdown,'UTF8') from $4 for $5) FROM documents WHERE id=$1 AND workspace_id=$2 AND deleted_at IS NULL AND madi_document_allowed($3,id,false) FOR SHARE`, src.ID, t.WorkspaceID, p.ID, src.StartByte+1, src.EndByte-src.StartByte).Scan(&version, &fragment)
+		if src.AttachmentID != "" {
+			var value attachmentCitationCurrent
+			value, e = s.attachmentCitationTx(ctx, tx, p, src, true)
+			version, fragment = value.Version, []byte(value.Text)
+		} else {
+			e = tx.QueryRow(ctx, `SELECT version,substring(convert_to(markdown,'UTF8') from $4 for $5) FROM documents WHERE id=$1 AND workspace_id=$2 AND deleted_at IS NULL AND madi_document_allowed($3,id,false) FOR SHARE`, src.ID, t.WorkspaceID, p.ID, src.StartByte+1, src.EndByte-src.StartByte).Scan(&version, &fragment)
+		}
 		if e != nil || version != src.Version || (src.ContentHash != "" && digest(string(fragment)) != src.ContentHash) || ragActorTx(ctx, tx, p, src.ID, t.WorkspaceID, false) != nil {
 			apiError(w, 409, "참조 문서 또는 권한이 변경되어 저장하지 않았습니다")
 			return

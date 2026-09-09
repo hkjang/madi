@@ -29,12 +29,15 @@ const (
 )
 
 func (s *Server) migrateCollaboration(ctx context.Context) error {
-	_, err := s.DB.Exec(ctx, collaborationSchema)
+	_, err := s.DB.Exec(ctx, collaborationSchema+"\n"+collaborationJournalSchema)
 	return err
 }
 
 func (s *Server) registerCollaboration() {
 	s.handle("GET /api/v1/documents/{id}/collaboration", s.collaborationSocket)
+	s.handle("GET /api/v1/documents/{id}/collaboration/diagnostics", s.collaborationDiagnostics)
+	s.handle("POST /api/v1/documents/{id}/collaboration/compact", s.compactCollaboration)
+	s.handle("GET /api/v1/documents/{id}/collaboration/history", s.collaborationHistory)
 }
 
 type collaborationMessage struct {
@@ -58,6 +61,10 @@ type collaborationMessage struct {
 	Error        string           `json:"error,omitempty"`
 	Presence     []map[string]any `json:"presence,omitempty"`
 	User         map[string]any   `json:"user,omitempty"`
+	Committed    bool             `json:"committed,omitempty"`
+	ResetReason  string           `json:"reset_reason,omitempty"`
+	StateMode    string           `json:"state_mode,omitempty"`
+	FromSequence int64            `json:"from_sequence,omitempty"`
 }
 
 type collaborationFault struct{ code, message string }
@@ -76,7 +83,7 @@ func collaborationAccess(ctx context.Context, q collaborationQuery, docID, sessi
 	query := `SELECT u.id,u.email,u.name,u.role,u.kind,madi_document_allowed(u.id,d.id,true),d.workspace_id::text
 	 FROM documents d JOIN workspace_members m ON m.workspace_id=d.workspace_id
 	 JOIN users u ON u.id=m.user_id JOIN sessions t ON t.user_id=u.id
-	 WHERE d.id=$1 AND t.token_hash=$2 AND t.expires_at>now()
+	 WHERE d.id=$1 AND t.token_hash=$2 AND t.expires_at>clock_timestamp()
 	 AND NOT u.disabled AND u.kind='user' AND d.deleted_at IS NULL
 	 AND madi_document_allowed(u.id,d.id,false)`
 	if lock {
@@ -108,6 +115,28 @@ func collaborationAccess(ctx context.Context, q collaborationQuery, docID, sessi
 	return p, write, nil
 }
 
+// The document/journal lock and CRDT projection may outlive a session. now()
+// would use transaction start time, so both the current ACL/policy pass and the
+// final expiry check use wall time immediately before commit. The caller already
+// holds the actor/session rows FOR SHARE; logout/revocation cannot race that lock.
+func collaborationCommitTx(ctx context.Context, tx pgx.Tx, docID, session string, writing bool) error {
+	_, writable, err := collaborationAccess(ctx, tx, docID, session, false)
+	if err != nil {
+		return err
+	}
+	if writing && !writable {
+		return collaborationError("read_only", "이 문서는 읽기 전용입니다")
+	}
+	var active bool
+	if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash=$1 AND expires_at>clock_timestamp())", session).Scan(&active); err != nil {
+		return err
+	}
+	if !active {
+		return collaborationError("forbidden", "세션 또는 문서 접근 권한이 만료되었습니다")
+	}
+	return tx.Commit(ctx)
+}
+
 func collaborationPolicyError(ctx context.Context, c *websocket.Conn, err error) bool {
 	var fault *collaborationFault
 	if !errors.As(err, &fault) || !oneOf(fault.code, "protection_policy", "feature_disabled") {
@@ -127,9 +156,13 @@ func collaborationUser(p *Principal) map[string]any {
 }
 
 // A single database row lock serializes writers across service replicas. We
-// decode into a fresh disposable CRDT document: malformed operations/panics can
-// never poison an in-memory shared document or escape a rolled-back transaction.
+// hold a private cache entry only after that lock. Failed/rolled-back operations
+// discard it entirely; cache misses replay a disposable checkpoint and tail.
 func (s *Server) collaborationState(ctx context.Context, docID, session string, in *collaborationMessage) (out collaborationMessage, err error) {
+	return s.collaborationStateSince(ctx, docID, session, in, "", 0)
+}
+
+func (s *Server) collaborationStateSince(ctx context.Context, docID, session string, in *collaborationMessage, sinceEpoch string, sinceSequence int64) (out collaborationMessage, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			slog.Warn("collaboration parser rejected input", "panic_type", fmt.Sprintf("%T", recovered))
@@ -164,18 +197,59 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 		return out, err
 	}
 	var projection string
-	if err = tx.QueryRow(ctx, "SELECT epoch,sequence,state,projected_markdown FROM document_collaboration WHERE document_id=$1", docID).Scan(&out.Epoch, &out.Sequence, &out.State, &projection); err != nil {
+	var snapshotSequence int64
+	var snapshotAt time.Time
+	var headHash string
+	if err = tx.QueryRow(ctx, "SELECT epoch,sequence,state,projected_markdown,snapshot_sequence,snapshot_at,reset_reason,head_hash FROM document_collaboration WHERE document_id=$1", docID).Scan(&out.Epoch, &out.Sequence, &out.State, &projection, &snapshotSequence, &snapshotAt, &out.ResetReason, &headHash); err != nil {
 		return out, err
+	}
+	var runtime *collaborationRuntime
+	var cached *collaborationCachedDocument
+	cacheHit, cacheCommitted := false, false
+	if in != nil {
+		runtime, cached = s.collaborationCached(docID)
+		if cached != nil {
+			cacheHit = projection == markdown && cached.doc != nil && cached.epoch == out.Epoch && cached.sequence == out.Sequence && headHash != "" && cached.hash == headHash
+			if cacheHit {
+				runtime.cacheHits.Add(1)
+			} else {
+				runtime.cacheMisses.Add(1)
+			}
+			if !cacheHit {
+				runtime.discardCached(cached)
+			}
+			defer func() {
+				if !cacheCommitted {
+					runtime.discardCached(cached)
+				}
+				cached.mu.Unlock()
+			}()
+		}
 	}
 	if projection != markdown {
 		out.Type, out.Epoch, out.Sequence, out.State = "reset", newID(), 0, nil
-		_, err = tx.Exec(ctx, `UPDATE document_collaboration SET epoch=$2,sequence=0,state='',projected_markdown=$3,document_version=$4,updated_at=now() WHERE document_id=$1`, docID, out.Epoch, markdown, version)
+		out.ResetReason = "source_replaced"
+		snapshotSequence = 0
+		err = collaborationResetTx(ctx, tx, docID, out.Epoch, markdown, version, out.ResetReason)
+		if err != nil {
+			return out, err
+		}
+	} else {
+		out.StateMode = "full"
+		if in == nil && sinceEpoch == out.Epoch && sinceSequence >= snapshotSequence && sinceSequence <= out.Sequence && len(out.State) > 0 {
+			out.StateMode, out.FromSequence = "delta", sinceSequence
+			out.State, err = collaborationReplay(ctx, tx, docID, out.Epoch, []byte{0, 0}, sinceSequence, out.Sequence)
+		} else if cacheHit {
+			out.State = cached.raw
+		} else {
+			out.State, err = collaborationReplay(ctx, tx, docID, out.Epoch, out.State, snapshotSequence, out.Sequence)
+		}
 		if err != nil {
 			return out, err
 		}
 	}
 	if in == nil {
-		return out, tx.Commit(ctx)
+		return out, collaborationCommitTx(ctx, tx, docID, session, false)
 	}
 	out.ID = in.ID
 	if !writable {
@@ -196,7 +270,7 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 	}
 	if in.Epoch != out.Epoch || (in.Type == "seed" && (len(out.State) != 0 || in.Version != version)) {
 		out.Type = "reset"
-		return out, tx.Commit(ctx)
+		return out, collaborationCommitTx(ctx, tx, docID, session, true)
 	}
 	if len(in.State) == 0 || len(in.State) > collaborationMaxUpdate || in.Schema != collaborationSchemaID {
 		return out, collaborationError("invalid_update", "편집 스키마 또는 업데이트 크기를 확인하세요")
@@ -204,12 +278,24 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 	if len(out.State) == 0 && in.Type != "seed" {
 		return out, collaborationError("seed_required", "현재 Markdown으로 공동 편집을 초기화하세요")
 	}
-	doc := crdt.New(crdt.WithMaxPendingItems(1024))
-	defer doc.Destroy()
+	var doc *crdt.Doc
+	if cacheHit {
+		doc = cached.doc
+	} else {
+		doc = crdt.New(crdt.WithMaxPendingItems(1024))
+		if cached != nil {
+			cached.doc = doc
+		}
+	}
+	if cached == nil {
+		defer doc.Destroy()
+	}
 	// Materialise the XML root before decoding to prevent ambiguous root types.
 	doc.GetXmlFragment("content")
 	previousBody := ""
-	if len(out.State) != 0 {
+	if cacheHit {
+		previousBody = cached.body
+	} else if len(out.State) != 0 {
 		if err = crdt.ApplyUpdateV1(doc, out.State, nil); err != nil {
 			return out, err
 		}
@@ -218,6 +304,13 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 			return out, err
 		}
 	}
+	priorVector := doc.StateVector()
+	var priorState []byte
+	if cacheHit {
+		priorState = cached.raw
+	} else {
+		priorState = doc.EncodeStateAsUpdate()
+	}
 	if err = crdt.ApplyUpdateV1(doc, in.State, nil); err != nil {
 		return out, collaborationError("invalid_update", "유효하지 않은 공동 편집 업데이트입니다")
 	}
@@ -225,7 +318,7 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 		return out, collaborationError("missing_state", "업데이트의 선행 상태가 없습니다. 전체 편집 상태로 다시 동기화하세요")
 	}
 	state := doc.EncodeStateAsUpdate()
-	if len(state) > collaborationMaxState {
+	if len(state) > collaborationMaxState+collaborationMaxUpdate {
 		return out, collaborationError("state_limit", "공동 편집 이력이 16MB 한도에 도달했습니다. Markdown을 보관한 뒤 문서 복제로 새 편집 이력을 시작하세요")
 	}
 	body, metadata, err := collaborationMarkdown(doc.GetXmlFragment("content"))
@@ -264,7 +357,7 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 	if metadataProtection.Changed {
 		return out, collaborationError("protection_policy", "블록 메타데이터 정제가 필요합니다. Markdown 원문 모드에서 내용을 확인하고 저장하세요.")
 	}
-	if !bytes.Equal(state, out.State) {
+	if !bytes.Equal(state, priorState) {
 		out.Sequence++
 		if projected != markdown {
 			// This small, non-secret setting is read in the transaction and locked
@@ -291,6 +384,9 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 			if err != nil {
 				return out, err
 			}
+			if err = collaborationGroupHistoryTx(ctx, tx, docID, out.Epoch, p.ID, version); err != nil {
+				return out, err
+			}
 			before := map[string]any{"id": docID, "title": title, "status": status, "version": version - 1, "tags": tags}
 			after := map[string]any{"id": docID, "title": title, "status": out.Status, "version": version, "tags": tags}
 			if err = s.enqueueEvent(ctx, tx, Event{Type: "document.updated", WorkspaceID: workspaceID, ResourceID: docID, ActorID: p.ID, Before: before, After: after}); err != nil {
@@ -311,13 +407,40 @@ func (s *Server) collaborationState(ctx context.Context, docID, session string, 
 				return out, err
 			}
 		}
-		_, err = tx.Exec(ctx, `UPDATE document_collaboration SET state=$2,sequence=$3,projected_markdown=$4,document_version=$5,updated_at=now() WHERE document_id=$1`, docID, state, out.Sequence, projected, version)
+		if len(state) >= collaborationCompactBytes {
+			out.Type, out.Epoch, out.Sequence, out.State = "reset", newID(), 0, nil
+			out.ResetReason = "history_compacted"
+			out.Markdown, out.Version, out.Committed = projected, version, true
+			err = collaborationResetTx(ctx, tx, docID, out.Epoch, projected, version, out.ResetReason)
+			if err != nil {
+				return out, err
+			}
+			return out, collaborationCommitTx(ctx, tx, docID, session, true)
+		}
+		delta := crdt.EncodeStateAsUpdateV1(doc, priorVector)
+		if len(delta) > collaborationMaxUpdate {
+			return out, collaborationError("state_limit", "증분 저장 한도를 초과했습니다. 현재 초안을 보관하고 편집 이력을 압축하세요")
+		}
+		err = collaborationPersistTx(ctx, tx, docID, out.Epoch, out.Sequence, snapshotSequence, snapshotAt, version, p.ID, delta, state, projected)
 		if err != nil {
 			return out, err
 		}
 	}
-	out.Type, out.State, out.Markdown, out.Version = "ack", state, projected, version
-	return out, tx.Commit(ctx)
+	out.Type, out.State, out.Markdown, out.Version, out.Committed = "ack", state, projected, version, true
+	err = collaborationCommitTx(ctx, tx, docID, session, true)
+	if err == nil && cached != nil && runtime.ctx.Err() == nil {
+		// Weighted admission is conservative, not an RSS guarantee: native CRDT
+		// allocations can be much larger than their encoded wire representation.
+		weight := int64(len(state)*8 + len(projected)*2)
+		if runtime.cacheBytes.Add(weight-cached.weight) <= collaborationCacheBudget {
+			cached.weight = weight
+			cached.epoch, cached.sequence, cached.hash, cached.body, cached.raw = out.Epoch, out.Sequence, digest(string(state)), body, state
+			cacheCommitted = true
+		} else {
+			runtime.cacheBytes.Add(cached.weight - weight)
+		}
+	}
+	return out, err
 }
 
 func collaborationFrontMatter(markdown string) (string, string) {
@@ -416,8 +539,46 @@ func (s *Server) collaborationSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.CloseNow()
 	c.SetReadLimit(12 << 20)
-	ctx, cancel := context.WithCancel(context.Background())
+	runtime, changedEvents, authorityEvents, unsubscribe := s.subscribeCollaboration(id)
+	defer unsubscribe()
+	ctx, cancel := context.WithCancel(runtime.ctx)
 	defer cancel()
+	// Authority checks are not blocked by a slow update/parser or a slow reader.
+	// Notifications wake this independently; the timer is a fallback, not a SLA.
+	watchDone := make(chan struct{})
+	go func() {
+		defer close(watchDone)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		previousWritable := initial.CanWrite
+		for {
+			select {
+			case <-ctx.Done():
+				c.CloseNow()
+				return
+			case <-authorityEvents:
+			case <-ticker.C:
+			}
+			checkCtx, done := context.WithTimeout(ctx, 2*time.Second)
+			_, writable, e := collaborationAccess(checkCtx, s.DB, id, session, false)
+			done()
+			if e != nil {
+				noticeCtx, stop := context.WithTimeout(ctx, 250*time.Millisecond)
+				collaborationPolicyError(noticeCtx, c, e)
+				stop()
+				forceClose := time.AfterFunc(250*time.Millisecond, func() { _ = c.CloseNow() })
+				_ = c.Close(websocket.StatusPolicyViolation, "접근 권한 또는 편집 정책이 변경되었습니다")
+				forceClose.Stop()
+				cancel()
+				return
+			}
+			if writable != previousWritable {
+				previousWritable = writable
+				runtime.wake(id)
+			}
+		}
+	}()
+	defer func() { cancel(); <-watchDone }()
 	send := func(message collaborationMessage) error {
 		writeCtx, done := context.WithTimeout(ctx, 10*time.Second)
 		defer done()
@@ -451,8 +612,6 @@ func (s *Server) collaborationSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 	lastSeq, lastEpoch, lastVersion := initial.Sequence, initial.Epoch, initial.Version
 	lastWritable := initial.CanWrite
 	window, operations, awarenessOps := time.Now(), 0, 0
@@ -539,7 +698,7 @@ func (s *Server) collaborationSocket(w http.ResponseWriter, r *http.Request) {
 				_ = c.Close(websocket.StatusPolicyViolation, "문서의 편집 기준이 변경되었습니다")
 				return
 			}
-		case <-ticker.C:
+		case <-changedEvents:
 			pollCtx, done := context.WithTimeout(ctx, 10*time.Second)
 			// The cheap check returns no document body or CRDT state unless changed.
 			_, writable, e := collaborationAccess(pollCtx, s.DB, id, session, false)
@@ -556,7 +715,7 @@ func (s *Server) collaborationSocket(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if changed || writable != lastWritable {
-				state, e := s.collaborationState(pollCtx, id, session, nil)
+				state, e := s.collaborationStateSince(pollCtx, id, session, nil, lastEpoch, lastSeq)
 				if e != nil {
 					done()
 					return

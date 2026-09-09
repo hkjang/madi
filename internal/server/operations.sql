@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS operations_http_errors (
 CREATE INDEX IF NOT EXISTS operations_http_errors_created_idx ON operations_http_errors(created_at DESC);
 CREATE OR REPLACE FUNCTION madi_feature_allowed(actor uuid,wid uuid,feature text)
 RETURNS boolean LANGUAGE sql STABLE AS $$
- SELECT feature IN ('canvas','plugins','collaboration','database-formula','ai-graph','workspace-agents') AND coalesce((
+ SELECT feature IN ('canvas','plugins','collaboration','database-formula','ai-graph','workspace-agents','document-queries') AND coalesce((
  SELECT coalesce((s.data->'feature_flags'->>feature)::boolean,true)
  AND coalesce((ws.data->'feature_flags'->>feature)::boolean,true)
  AND coalesce((uf.data->>feature)::boolean,true)

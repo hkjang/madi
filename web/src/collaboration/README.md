@@ -39,3 +39,23 @@ Schema: `madi-tiptap-v1`, root `Y.XmlFragment('content')`. The Go schema-aware
 serializer rejects unknown nodes/marks rather than discarding their content.
 Add a browser Markdown parser and Go round-trip fixture for each future custom
 block before enabling it. YAML front matter stays exact outside the XML body.
+
+`SaveStatus` renders `provider.saveState` with `data-save-state` values
+`local`, `committing`, `confirmed`, `reconnecting`, and `recovery`. The existing
+`change` listener must still trigger a React render. Confirmation follows the
+database commit acknowledgement, including `committed` automatic-epoch resets.
+Editing is frozen while disconnected; the previous in-memory unsent draft is
+retained, not a persistent browser offline database.
+
+`CollaborationDiagnostics` takes `{documentId, open, onOpenChange}`. Place its
+button in the document inspector's properties tab. A read-only user can inspect
+the current document's checkpoint and history groups, but only a currently
+authorized owner/workspace administrator with an ordinary session can confirm
+compaction. Content versions and immutable restore snapshots remain intact.
+
+The service now persists deltas with periodic checkpoints and uses one PostgreSQL
+LISTEN connection per active service instance. `state_mode:'delta'` requires the
+same epoch and exact `from_sequence`; otherwise the provider reconnects for full
+durable catchup without discarding its local Y.Doc. Notifications are hints, not
+the source of truth. See [운영·복구 가이드](../../../docs/collaboration-operations-guide.md)
+for revalidation, backup restoration, bounds, cache memory and performance limits.

@@ -68,7 +68,7 @@
         <a class="crumb" href="./">madi / 가이드</a>
         <h1>첫 문서에서,<br />우리 조직의 운영까지.</h1>
         <p>
-          사용자와 관리자를 위한 madi v0.1.0 가이드입니다. 설치, 문서 작성, 조직
+          사용자와 관리자를 위한 madi v0.2.0 가이드입니다. 설치, 문서 작성, 조직
           연결과 백업을 차근차근 안내합니다.
         </p>
         <div class="doc-links">
@@ -338,8 +338,8 @@ aliases:
             <h2>폐쇄망에 이미지를 반입하세요.</h2>
             <p>
               Docker와 외부 PostgreSQL을 먼저 준비합니다. 서비스 릴리즈는
-              <code>madi:v0.1.0</code> 이미지를 담은
-              <code>madi-v0.1.0.tar.gz</code> 하나입니다. 웹 자산은 이미지에
+              <code>madi:v0.2.0</code> 이미지를 담은
+              <code>madi-v0.2.0.tar.gz</code> 하나입니다. 웹 자산은 이미지에
               포함되며 실행 시 패키지나 CDN을 내려받지 않습니다. 기본 릴리즈
               플랫폼은 Linux amd64입니다.
             </p>
@@ -352,8 +352,8 @@ aliases:
               <li>네 환경변수를 설정한 뒤 Compose를 실행합니다.</li>
               <li>준비 상태와 로그인, 문서 저장, 첨부파일을 확인합니다.</li>
             </ol>
-            <pre><code>gzip -t madi-v0.1.0.tar.gz
-gzip -dc madi-v0.1.0.tar.gz | docker load
+            <pre><code>gzip -t madi-v0.2.0.tar.gz
+gzip -dc madi-v0.2.0.tar.gz | docker load
 cp .env.example .env
 # .env 값을 실제 운영 정보로 편집합니다.
 docker compose up -d
@@ -564,7 +564,7 @@ docker compose start madi</code></pre>
           </div>
         </div>
         <div class="footer-bottom">
-          madi v0.1.0 · 운영 환경에 맞는 연결과 복원 시험을 함께 진행하세요.
+          madi v0.2.0 · 운영 환경에 맞는 연결과 복원 시험을 함께 진행하세요.
         </div>
       </div>
     </footer>

@@ -12,6 +12,7 @@ func defaultRAGSettings() map[string]any {
 	return map[string]any{
 		"rag_enabled": false, "rag_embedding_base_url": "", "rag_embedding_model": "", "rag_embedding_api_key": "", "rag_embedding_dimensions": 0, "rag_allow_http": false, "rag_ca_pem": "",
 		"rag_backend": "array", "rag_top_k": 8, "rag_candidates": 60, "rag_scan_limit": 5000, "rag_search_mode": "hybrid",
+		"rag_vector_mode": "exact", "rag_ann_ef_search": 100,
 		"rag_rerank_enabled": false, "rag_rerank_base_url": "", "rag_rerank_model": "", "rag_rerank_api_key": "",
 	}
 }
@@ -31,7 +32,7 @@ func validateRAGSettings(cfg map[string]any) error {
 			return fmt.Errorf("%s 값은 true/false여야 합니다", key)
 		}
 	}
-	for key, bounds := range map[string][2]int{"rag_embedding_dimensions": {0, 8192}, "rag_top_k": {1, 20}, "rag_candidates": {10, 200}, "rag_scan_limit": {100, 50000}} {
+	for key, bounds := range map[string][2]int{"rag_embedding_dimensions": {0, 8192}, "rag_top_k": {1, 20}, "rag_candidates": {10, 200}, "rag_scan_limit": {100, 50000}, "rag_ann_ef_search": {40, 1000}} {
 		n := number(cfg, key, -1)
 		if n < bounds[0] || n > bounds[1] {
 			return fmt.Errorf("%s 범위는 %d~%d입니다", key, bounds[0], bounds[1])
@@ -48,6 +49,9 @@ func validateRAGSettings(cfg map[string]any) error {
 	}
 	if !oneOf(str(cfg, "rag_backend"), "array", "pgvector") || !oneOf(str(cfg, "rag_search_mode"), "keyword", "semantic", "hybrid") {
 		return errors.New("검색 방식 또는 벡터 저장 방식을 확인하세요")
+	}
+	if !oneOf(str(cfg, "rag_vector_mode"), "exact", "ann", "verify") {
+		return errors.New("벡터 실행 모드는 exact/ann/verify 중 하나입니다")
 	}
 	if number(cfg, "rag_candidates", 60) < number(cfg, "rag_top_k", 8) {
 		return errors.New("검색 후보 수는 최종 출처 수 이상이어야 합니다")

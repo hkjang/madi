@@ -15,12 +15,17 @@ import (
 )
 
 type ragDiagnostics struct {
-	Mode      string   `json:"mode"`
-	Backend   string   `json:"backend"`
-	Scanned   int      `json:"scanned"`
-	Truncated bool     `json:"truncated"`
-	Reranked  bool     `json:"reranked"`
-	Warnings  []string `json:"warnings"`
+	Mode             string   `json:"mode"`
+	Backend          string   `json:"backend"`
+	Scanned          int      `json:"scanned"`
+	Truncated        bool     `json:"truncated"`
+	Reranked         bool     `json:"reranked"`
+	Warnings         []string `json:"warnings"`
+	VectorMode       string   `json:"vector_mode,omitempty"`
+	GenerationID     string   `json:"generation_id,omitempty"`
+	IndexName        string   `json:"index_name,omitempty"`
+	PlannedIndexUsed bool     `json:"planned_index_used,omitempty"`
+	RecallAtK        *float64 `json:"recall_at_k,omitempty"`
 }
 type ragVectorCandidate struct {
 	DocumentID string
@@ -48,21 +53,23 @@ func (h *ragVectorHeap) Pop() any     { old := *h; v := old[len(old)-1]; *h = ol
 // The array path streams one vector at a time; it never loads 50k*8192 vectors.
 const ragVectorEligible = ` FROM rag_vector_chunks c JOIN rag_vector_indexes i ON i.id=c.index_id JOIN rag_index_grants g ON g.id=i.grant_id JOIN documents d ON d.id=i.document_id JOIN users owner ON owner.id=g.actor_id
  WHERE g.active AND NOT owner.disabled AND madi_document_allowed(owner.id,d.id,true)
+ AND g.generation_id IS NOT DISTINCT FROM NULLIF($7,'')::uuid
+ AND (coalesce(cardinality($8::uuid[]),0)=0 OR d.id=ANY($8::uuid[]))
  AND i.status='ready' AND i.grant_revision=g.revision AND i.document_version=d.version AND i.provider_fingerprint=g.provider_fingerprint AND g.provider_fingerprint=$1
  AND d.deleted_at IS NULL AND d.workspace_id=$2 AND ($3='' OR d.id::text=$3) AND madi_document_allowed($4,d.id,false)
  AND i.dimensions=$5 AND cardinality(c.embedding)=$5
  AND (g.token_id IS NULL OR EXISTS(SELECT 1 FROM api_keys k WHERE k.id=g.token_id AND k.user_id=g.actor_id AND k.workspace_id=g.workspace_id AND k.revoked_at IS NULL AND k.expires_at>now() AND k.scopes @> ARRAY['document:write','ai:execute']::text[]))
  ORDER BY i.updated_at DESC,d.id,c.ordinal LIMIT $6`
 
-func (s *Server) ragVectorCandidates(ctx context.Context, p *Principal, wid, docID string, cfg map[string]any, query []float32) ([]ragVectorCandidate, ragDiagnostics, error) {
+func (s *Server) ragExactVectorCandidates(ctx context.Context, p *Principal, wid, docID string, cfg map[string]any, query []float32, generation string, cohort []string) ([]ragVectorCandidate, ragDiagnostics, error) {
 	limit := number(cfg, "rag_scan_limit", 5000)
 	top := number(cfg, "rag_candidates", 60)
-	diagnostic := ragDiagnostics{Mode: str(cfg, "rag_search_mode"), Backend: str(cfg, "rag_backend"), Warnings: []string{}}
+	diagnostic := ragDiagnostics{Mode: str(cfg, "rag_search_mode"), Backend: str(cfg, "rag_backend"), VectorMode: "exact", GenerationID: generation, Warnings: []string{}}
 	if limit < 100 || limit > 50000 || top < 1 || top > 200 {
 		return nil, diagnostic, errors.New("검색 후보·조회 한도 설정을 확인하세요")
 	}
 	cols := `d.id::text,d.version,c.ordinal,c.content_hash,c.start_byte,c.end_byte,c.start_line,c.end_line,c.heading,c.embedding`
-	args := []any{ragProviderFingerprint(cfg), wid, docID, p.ID, len(query), limit + 1}
+	args := []any{ragProviderFingerprint(cfg), wid, docID, p.ID, len(query), limit + 1, generation, cohort}
 	backend := str(cfg, "rag_backend")
 	sql := "SELECT " + cols + ragVectorEligible
 	if backend == "pgvector" {
@@ -71,7 +78,7 @@ func (s *Server) ragVectorCandidates(ctx context.Context, p *Principal, wid, doc
 			return nil, diagnostic, errors.New("pgvector 확장이 설치되어 있지 않습니다. 운영자가 확장을 설치하거나 배열 검색을 선택하세요")
 		}
 		qualified := pgx.Identifier{namespace}.Sanitize()
-		sql = `WITH eligible AS MATERIALIZED (SELECT d.id::text AS document_id,d.version,c.ordinal,c.content_hash,c.start_byte,c.end_byte,c.start_line,c.end_line,c.heading,c.embedding,row_number() OVER(ORDER BY i.updated_at DESC,d.id,c.ordinal) AS scan_ordinal` + ragVectorEligible + `) SELECT document_id,version,ordinal,content_hash,start_byte,end_byte,start_line,end_line,heading,1-(embedding::` + qualified + `.vector OPERATOR(` + qualified + `.<=>) $7::real[]::` + qualified + `.vector) AS score,(SELECT count(*) FROM eligible) FROM eligible WHERE scan_ordinal<$6 ORDER BY score DESC,document_id,ordinal LIMIT $8`
+		sql = `WITH eligible AS MATERIALIZED (SELECT d.id::text AS document_id,d.version,c.ordinal,c.content_hash,start_byte,end_byte,start_line,end_line,c.heading,c.embedding,row_number() OVER(ORDER BY i.updated_at DESC,d.id,c.ordinal) AS scan_ordinal` + ragVectorEligible + `) SELECT document_id,version,ordinal,content_hash,start_byte,end_byte,start_line,end_line,heading,1-(embedding::` + qualified + `.vector OPERATOR(` + qualified + `.<=>) $9::real[]::` + qualified + `.vector) AS score,(SELECT count(*) FROM eligible) FROM eligible WHERE scan_ordinal<$6 ORDER BY score DESC,document_id,ordinal LIMIT $10`
 		args = append(args, query, top)
 	} else if backend != "array" {
 		return nil, diagnostic, errors.New("벡터 검색 방식을 확인하세요")

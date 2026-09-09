@@ -347,6 +347,10 @@ func (s *Server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, e)
 		return
 	}
+	if _, e = tx.Exec(r.Context(), `DO $$ BEGIN IF to_regclass('rag_generations') IS NOT NULL THEN UPDATE rag_generations SET status='disabled',revision=revision+1,index_job_id=NULL; UPDATE rag_generation_state SET active_id=NULL,revision=revision+1,mode='exact'; UPDATE rag_generation_validations SET session_hash='',expires_at=now(),consumed_at=coalesce(consumed_at,now()); END IF; END $$;`); e != nil {
+		respond(w, nil, e)
+		return
+	}
 	if _, e = tx.Exec(r.Context(), `DO $$ BEGIN IF to_regclass('git_sync_settings') IS NOT NULL THEN UPDATE git_sync_settings SET data=jsonb_set(data,'{enabled}','false'::jsonb,true),revision=revision+1; UPDATE git_sync_connections SET enabled=false,revision=revision+1; UPDATE git_sync_runs SET status=CASE WHEN status='running' THEN 'unknown' ELSE 'cancelled' END,snapshot_cipher=NULL,snapshot_size=0,revision=revision+1 WHERE status IN ('preparing','preview','queued','running'); END IF; END $$;`); e != nil {
 		respond(w, nil, e)
 		return
@@ -363,7 +367,44 @@ func (s *Server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, e)
 		return
 	}
-	if _, e = tx.Exec(r.Context(), `UPDATE export_settings SET enabled=false,revision=revision+1; UPDATE export_runs SET status=CASE WHEN status='ready' THEN 'expired' ELSE 'cancelled' END,session_hash='',updated_at=now() WHERE status IN ('queued','running','ready'); DELETE FROM export_artifact_blobs;`); e != nil {
+	if _, e = tx.Exec(r.Context(), `UPDATE attachment_extraction_settings SET data=data||'{"enabled":false,"ocr_enabled":false}'::jsonb,revision=revision+1; INSERT INTO attachment_extraction_policy_history(revision,data) SELECT revision,data FROM attachment_extraction_settings WHERE id=1;
+UPDATE attachment_extractions SET status=CASE WHEN status IN ('queued','running','ready') THEN 'obsolete' ELSE status END,session_hash='',token_hash='',temp_path='',revision=revision+1; DELETE FROM attachment_extraction_heads; DELETE FROM attachment_extraction_fragments;
+UPDATE export_settings SET enabled=false,revision=revision+1; UPDATE export_runs SET status=CASE WHEN status='ready' THEN 'expired' ELSE 'cancelled' END,session_hash='',updated_at=now() WHERE status IN ('queued','running','ready'); DELETE FROM export_artifact_blobs;
+UPDATE knowledge_distribution_policy SET enabled=false,revision=revision+1; INSERT INTO knowledge_distribution_policy_history(revision,enabled,max_valid_days) SELECT revision,enabled,max_valid_days FROM knowledge_distribution_policy WHERE id=1;
+UPDATE knowledge_distribution_keys SET revoked_at=coalesce(revoked_at,now()),revision=revision+1;
+UPDATE knowledge_distribution_exports SET status='expired' WHERE status IN ('queued','awaiting_review','ready'); DELETE FROM knowledge_distribution_artifacts;`); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if e = invalidateCollaborationRestoreTx(r.Context(), tx); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if e = s.invalidateSystemStatusRestoreTx(r.Context(), tx); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if e = invalidateImpactExceptionsRestoreTx(r.Context(), tx); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `UPDATE knowledge_questions SET state='proposed',revision=revision+1,confirmed_by=NULL,confirmed_at=NULL,updated_at=now() WHERE state='confirmed'`); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `UPDATE knowledge_structured_drafts SET state='expired',revision=revision+1,expires_at=now() WHERE state='draft'`); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `UPDATE knowledge_path_progress SET state='needs_recheck',revision=revision+1,updated_at=now(),approval_id=NULL WHERE state IN ('confirmed','pending_review','approved')`); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `UPDATE knowledge_evidence_policy SET enabled=false,version=version+1; UPDATE knowledge_package_policy SET enabled=false,version=version+1; INSERT INTO knowledge_evidence_policy_history(version,enabled,retention_days) SELECT version,enabled,retention_days FROM knowledge_evidence_policy WHERE id=1; INSERT INTO knowledge_package_policy_history(version,enabled,retention_hours,token_counter,allow_http) SELECT version,enabled,retention_hours,token_counter,allow_http FROM knowledge_package_policy WHERE id=1`); e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if _, e = tx.Exec(r.Context(), `UPDATE migration_sessions SET status=CASE WHEN status IN ('uploading','preparing','ready','committing') THEN 'cancelled' ELSE status END,request_session_hash='',request_token_hash='',revision=revision+1,updated_at=now(),purged_at=now(); DELETE FROM migration_session_chunks; UPDATE migration_session_items SET prepared_data=NULL,staged_object='{}',storage_fingerprint=''; UPDATE migration_session_objects SET status='discarded';`); e != nil {
 		respond(w, nil, e)
 		return
 	}

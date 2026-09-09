@@ -16,7 +16,7 @@ CREATE TRIGGER settings_approval_policy_clock AFTER UPDATE ON settings FOR EACH 
 CREATE TABLE IF NOT EXISTS approval_policies (
  id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
  space_id uuid REFERENCES spaces(id) ON DELETE CASCADE,
- resource_kind text NOT NULL CHECK(resource_kind IN ('document','runbook','sql_query_plan')),
+ resource_kind text NOT NULL CHECK(resource_kind IN ('document','runbook','sql_query_plan','impact_exception','knowledge_distribution','learning_step')),
  name text NOT NULL,enabled boolean NOT NULL DEFAULT true,stages jsonb NOT NULL,
  version bigint NOT NULL DEFAULT 1,created_by uuid NOT NULL REFERENCES users(id),
  created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
@@ -25,7 +25,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS approval_policy_scope_idx ON approval_policies
 CREATE TABLE IF NOT EXISTS approval_requests (
  id uuid PRIMARY KEY,workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
  document_id uuid REFERENCES documents(id) ON DELETE CASCADE,
- resource_kind text NOT NULL CHECK(resource_kind IN ('document','runbook','sql_query_plan')),resource_id uuid NOT NULL,
+ resource_kind text NOT NULL CHECK(resource_kind IN ('document','runbook','sql_query_plan','impact_exception','knowledge_distribution','learning_step')),resource_id uuid NOT NULL,
  resource_version bigint NOT NULL,resource_hash text NOT NULL,snapshot jsonb NOT NULL,
  policy_id uuid REFERENCES approval_policies(id) ON DELETE SET NULL,policy_version bigint NOT NULL,policy_revision bigint NOT NULL,
  policy_snapshot jsonb NOT NULL,requester_id uuid NOT NULL REFERENCES users(id),owner_id uuid NOT NULL REFERENCES users(id),
@@ -35,6 +35,16 @@ CREATE TABLE IF NOT EXISTS approval_requests (
 );
 ALTER TABLE approval_requests DROP CONSTRAINT IF EXISTS approval_requests_policy_id_fkey;
 ALTER TABLE approval_requests ADD CONSTRAINT approval_requests_policy_id_fkey FOREIGN KEY(policy_id) REFERENCES approval_policies(id) ON DELETE SET NULL;
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='approval_policies'::regclass AND conname='approval_policies_resource_kind_check' AND pg_get_constraintdef(oid) LIKE '%impact_exception%' AND pg_get_constraintdef(oid) LIKE '%knowledge_distribution%' AND pg_get_constraintdef(oid) LIKE '%learning_step%') THEN
+  ALTER TABLE approval_policies DROP CONSTRAINT IF EXISTS approval_policies_resource_kind_check;
+  ALTER TABLE approval_policies ADD CONSTRAINT approval_policies_resource_kind_check CHECK(resource_kind IN ('document','runbook','sql_query_plan','impact_exception','knowledge_distribution','learning_step'));
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='approval_requests'::regclass AND conname='approval_requests_resource_kind_check' AND pg_get_constraintdef(oid) LIKE '%impact_exception%' AND pg_get_constraintdef(oid) LIKE '%knowledge_distribution%' AND pg_get_constraintdef(oid) LIKE '%learning_step%') THEN
+  ALTER TABLE approval_requests DROP CONSTRAINT IF EXISTS approval_requests_resource_kind_check;
+  ALTER TABLE approval_requests ADD CONSTRAINT approval_requests_resource_kind_check CHECK(resource_kind IN ('document','runbook','sql_query_plan','impact_exception','knowledge_distribution','learning_step'));
+ END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS approval_pending_resource_idx ON approval_requests(resource_kind,resource_id) WHERE status='pending';
 CREATE INDEX IF NOT EXISTS approval_requests_document_idx ON approval_requests(document_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS approval_assignments (

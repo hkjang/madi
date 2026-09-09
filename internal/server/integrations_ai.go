@@ -16,20 +16,27 @@ import (
 )
 
 type aiSource struct {
-	ID               string `json:"id"`
-	Title            string `json:"title"`
-	Version          int    `json:"version"`
-	Markdown         string `json:"-"`
-	CitationID       string `json:"citation_id,omitempty"`
-	StartByte        int    `json:"start_byte"`
-	EndByte          int    `json:"end_byte"`
-	StartLine        int    `json:"start_line"`
-	EndLine          int    `json:"end_line"`
-	ContentHash      string `json:"content_hash,omitempty"`
-	URL              string `json:"url,omitempty"`
-	CitationURL      string `json:"citation_url,omitempty"`
-	RAGGrantID       string `json:"-"`
-	RAGGrantRevision int64  `json:"-"`
+	ID                 string         `json:"id"`
+	Title              string         `json:"title"`
+	Version            int            `json:"version"`
+	Markdown           string         `json:"-"`
+	CitationID         string         `json:"citation_id,omitempty"`
+	StartByte          int            `json:"start_byte"`
+	EndByte            int            `json:"end_byte"`
+	StartLine          int            `json:"start_line"`
+	EndLine            int            `json:"end_line"`
+	ContentHash        string         `json:"content_hash,omitempty"`
+	URL                string         `json:"url,omitempty"`
+	CitationURL        string         `json:"citation_url,omitempty"`
+	RAGGrantID         string         `json:"-"`
+	RAGGrantRevision   int64          `json:"-"`
+	AttachmentID       string         `json:"attachment_id,omitempty"`
+	AttachmentChecksum string         `json:"attachment_checksum,omitempty"`
+	ExtractionID       string         `json:"extraction_id,omitempty"`
+	ExtractionRevision int64          `json:"extraction_revision,omitempty"`
+	FragmentID         string         `json:"fragment_id,omitempty"`
+	FragmentHash       string         `json:"fragment_hash,omitempty"`
+	AttachmentPosition map[string]any `json:"attachment_position,omitempty"`
 }
 
 var aiQueryWord = regexp.MustCompile(`[\p{L}\p{N}_-]{2,}`)

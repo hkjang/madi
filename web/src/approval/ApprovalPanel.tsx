@@ -59,7 +59,11 @@ export function ApprovalReview({
       api<Request>(`/approvals/requests/${requestID}`)
         .then((latest) => {
           if (!active) return;
-          if (latest.version !== request.version || latest.stale) {
+          if (
+            latest.version !== request.version ||
+            latest.stale ||
+            latest.review_context?.current === false
+          ) {
             setReviewed(false);
             setRequest((old) =>
               old
@@ -68,6 +72,7 @@ export function ApprovalReview({
                     stale: true,
                     reason:
                       latest.reason ||
+                      latest.review_context?.notice ||
                       "요청 상태가 변경되었습니다. 창을 닫고 다시 확인하세요.",
                   }
                 : old,
@@ -116,6 +121,8 @@ export function ApprovalReview({
     !!request &&
     request.status === "pending" &&
     !request.stale &&
+    (request.resource_kind !== "impact_exception" ||
+      request.review_context?.current === true) &&
     !!request.eligible_gates?.length;
   return (
     <Modal
@@ -146,6 +153,51 @@ export function ApprovalReview({
           )}
           <h3>{request.snapshot?.title || request.policy.name}</h3>
           {request.comment && <p>요청 의견: {request.comment}</p>}
+          {request.resource_kind === "learning_step" &&
+            typeof request.snapshot?.review_url === "string" &&
+            /^\/app\/knowledge-paths\?path=[0-9a-f-]{36}&review=[0-9a-f-]{36}$/i.test(
+              request.snapshot.review_url,
+            ) && (
+              <Link to={request.snapshot.review_url}>
+                제출한 실습 원문과 근거 확인
+              </Link>
+            )}
+          {request.resource_kind === "knowledge_distribution" &&
+            /^[0-9a-f-]{36}$/i.test(request.resource_id) && (
+              <Link
+                to={`/app/knowledge-distribution?review=${request.resource_id}`}
+              >
+                수신망·파일·원문 묶음 검토
+              </Link>
+            )}
+          {request.resource_kind === "impact_exception" &&
+            request.review_context && (
+              <section
+                className="notice impact-exception-context"
+                aria-label="예외 승인 근거"
+              >
+                <p>
+                  {request.review_context.source_title} v
+                  {request.review_context.source_version} →{" "}
+                  {request.review_context.target_title} v
+                  {request.review_context.target_version}
+                </p>
+                <p>유효 기한: {datetime(request.review_context.valid_until)}</p>
+                <pre className="evidence-text">
+                  {request.review_context.reason}
+                </pre>
+                <p>{request.review_context.notice}</p>
+                <p>
+                  예외 승인은 문서 게시·실행 승인이 아니며 원문을 변경하지
+                  않습니다.
+                </p>
+                <Link
+                  to={`/app/knowledge-impact?document_id=${request.review_context.source_id}`}
+                >
+                  변경 영향과 연결 문서 확인
+                </Link>
+              </section>
+            )}
           <p className="muted">
             동적 참조·플러그인은 실행하지 않습니다. 문서의 경우 아래 Markdown
             원문이 정확한 검토 대상입니다.

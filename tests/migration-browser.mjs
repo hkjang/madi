@@ -12,8 +12,8 @@ async function shot(name){await page.evaluate(()=>document.fonts.ready);await pa
 try{
  await page.goto(base+'/login');await api('/auth/login','POST',{email:process.env.MADI_TEST_EMAIL||'admin@example.test',password:process.env.MADI_TEST_PASSWORD||'Browser-Test-Password-2026!'});
  const workspace=await api('/workspaces','POST',{name:'가져오기 UI 검증 '+Date.now()});await page.evaluate(id=>localStorage.setItem('madi.workspace',id),workspace.id);
- await page.goto(base+'/app/migrations');await page.getByRole('heading',{name:'가져오기 센터',exact:true}).waitFor();
- await page.getByLabel('원본 형식',{exact:true}).selectOption('csv');await page.getByLabel('대상 공간',{exact:true}).selectOption('');
+ await page.goto(base+'/app/migrations');await page.locator('details.migration-legacy').first().locator('summary').click();await page.getByRole('heading',{name:'가져오기 센터',exact:true}).waitFor();
+ await page.getByLabel('원본 형식',{exact:true}).selectOption('csv');await page.getByLabel('대상 공간',{exact:true}).last().selectOption('');
  await page.getByLabel('가져오기 파일',{exact:true}).setInputFiles({name:'업무 목록.csv',mimeType:'text/csv',buffer:Buffer.from('제목,담당 부서,상태\n운영 정책 정리,플랫폼팀,진행 중\n복구 훈련,보안팀,완료\n')});
  await shot('migration-center');await page.getByRole('button',{name:'미리보기 만들기',exact:true}).click();
  await page.getByRole('dialog').waitFor();await page.getByLabel('가져오기 확인',{exact:true}).waitFor({timeout:45000});
@@ -21,7 +21,7 @@ try{
  await page.getByLabel('가져오기 확인',{exact:true}).fill('IMPORT');await page.getByRole('button',{name:'확인한 데이터 가져오기',exact:true}).click();
  await page.getByRole('link',{name:'데이터베이스 열기',exact:true}).waitFor({timeout:45000});await shot('migration-result');
  await page.getByRole('link',{name:'데이터베이스 열기',exact:true}).click();await page.getByText('운영 정책 정리',{exact:true}).waitFor();
- await page.goto(base+'/admin/migration');await page.getByRole('heading',{name:'가져오기 센터',exact:true}).waitFor();await shot('admin-migration');
+ await page.goto(base+'/admin/migration');await page.locator('details.migration-legacy').first().locator('summary').click();await page.getByRole('heading',{name:'가져오기 센터',exact:true}).waitFor();await shot('admin-migration');
  await page.setViewportSize({width:390,height:844});await page.goto(previewURL);await page.getByRole('dialog').waitFor();await page.getByRole('link',{name:'데이터베이스 열기',exact:true}).waitFor();await shot('migration-result-mobile');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile overflow');await page.getByRole('button',{name:'닫기',exact:true}).click();
  const historyAction=page.locator('.migration-history-table').getByRole('button',{name:'미리보기 · 결과',exact:true}).first();

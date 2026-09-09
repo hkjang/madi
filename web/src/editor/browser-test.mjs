@@ -1,5 +1,6 @@
 import {chromium} from '../../../tests/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
+import {expect} from '../../../tests/node_modules/playwright/test.mjs';
 const base=process.env.MADI_BASE_URL;
 assert.ok(base,'isolated Go test server required');
 const browser=await chromium.launch({headless:true});
@@ -10,10 +11,10 @@ page.on('pageerror',e=>issues.push(e.message));
 page.on('response',r=>{if(r.status()>=500)issues.push(`${r.status()} ${r.url()}`)});
 await context.route('**/*',route=>{if(!route.request().url().startsWith(base)&&!route.request().url().startsWith('data:')){external.push(route.request().url());return route.abort()};return route.continue()});
 async function api(path,method='GET',data){const response=await context.request.fetch(base+'/api/v1'+path,{method,data,headers:{'X-Madi-Request':'1'}});assert.ok(response.ok(),`${method} ${path} ${response.status()} ${await response.text()}`);return response.json()}
-async function waitForSaved(){await page.waitForFunction(()=>document.querySelector('.collaboration-bar[data-state="connected"]')?.textContent.includes('모든 변경 저장됨'))}
+async function waitForSaved(){await page.locator('.collaboration-bar[data-state="connected"] [data-save-state="confirmed"]').waitFor()}
 async function open(id){await page.goto(base+'/app/documents/'+id);await waitForSaved()}
 async function end(){await page.locator('.tiptap-content').focus();await page.keyboard.press('Control+End')}
-async function added(id,type,expected){await end();await page.getByLabel('고급 블록 추가',{exact:true}).selectOption(type);await page.waitForFunction(async({id,expected})=>{const r=await fetch('/api/v1/documents/'+id);const d=await r.json();return d.markdown.includes(expected)},{id,expected});await waitForSaved()}
+async function added(id,type,expected){await end();await page.getByLabel('고급 블록 추가',{exact:true}).selectOption(type);await expect.poll(async()=> (await api('/documents/'+id)).markdown.includes(expected)).toBe(true);await waitForSaved()}
 try {
  await api('/auth/login','POST',{email:'admin@example.test',password:'Integration-Test-Password-2026!'});
  const wid=(await api('/workspaces'))[0].id;
@@ -45,7 +46,7 @@ try {
  assert.equal(await page.locator('.tiptap-content th[colspan="2"]').count(),1);
  await page.locator('.tiptap-content td').first().click();
  await page.getByLabel('문단 정렬',{exact:true}).selectOption('right');
- await page.waitForFunction(async id=>(await(await fetch('/api/v1/documents/'+id)).json()).markdown.includes('text-align:right'),table.id);
+ await expect.poll(async()=> (await api('/documents/'+table.id)).markdown.includes('text-align:right')).toBe(true);
  console.log('PASS merged/resized/aligned table source survives CRDT projection');
 
  const unknown=await create('<custom-company-diagram secret="keep">보존할 원문</custom-company-diagram>');

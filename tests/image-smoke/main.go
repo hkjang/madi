@@ -132,6 +132,7 @@ func main() {
 	if os.Getenv("MADI_IMAGE_SMOKE") != "disposable-internal-network" {
 		fail("explicit disposable image test acknowledgement required")
 	}
+	verifyRuntimeSources()
 	base = "http://madi:8080"
 	if os.Getenv("MADI_IMAGE_PASSWORD") == "" {
 		fail("test password missing")
@@ -208,6 +209,7 @@ func main() {
 		fail("raw Markdown bytes not preserved")
 	}
 	fmt.Println("PASS bootstrap, document CRUD, attachment bytes and durable raw export")
+	extractionID := verifyExtractionImage(wid)
 	backup := request("GET", "/api/v1/admin/backup", "", nil, 200)
 	sessionURL, _ := url.Parse(base)
 	oldCookies := client.Jar.Cookies(sessionURL)
@@ -231,5 +233,6 @@ func main() {
 	if object("GET", "/admin/exports/settings", nil)["enabled"] != false {
 		fail("restore did not disable asynchronous export policy")
 	}
+	verifyExtractionRestored(extractionID)
 	fmt.Println("PASS logical backup/restore, attachment recovery, session invalidation and paused external workflows")
 }

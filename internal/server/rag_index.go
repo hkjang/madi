@@ -18,6 +18,7 @@ var ragIndexSchema string
 
 type ragIndexGrant struct {
 	ID, DocumentID, WorkspaceID, ActorID, TokenID string
+	GenerationID                                  string
 	Constraints                                   actorConstraints
 	Revision                                      int64
 	Active, Auto                                  bool
@@ -28,9 +29,13 @@ type ragIndexGrant struct {
 
 func (s *Server) migrateRAGIndex(ctx context.Context) error {
 	_, e := s.DB.Exec(ctx, ragIndexSchema)
+	if e == nil {
+		_, e = s.DB.Exec(ctx, ragGenerationSchema)
+	}
 	return e
 }
 func (s *Server) registerRAGIndex() {
+	s.registerRAGGenerations()
 	s.handle("GET /api/v1/documents/{id}/rag-index", s.getRAGIndex)
 	s.handle("POST /api/v1/documents/{id}/rag-index", s.createRAGIndex)
 	s.handle("DELETE /api/v1/documents/{id}/rag-index", s.revokeRAGIndex)
@@ -100,13 +105,22 @@ func (s *Server) ragSettingsTx(ctx context.Context, tx pgx.Tx, wid string) (map[
 }
 
 func ragGrantTx(ctx context.Context, q collaborationQuery, id string, lock bool) (ragIndexGrant, error) {
+	return ragLoadGrant(ctx, q, `document_id=$1 AND generation_id IS NOT DISTINCT FROM (SELECT active_id FROM rag_generation_state WHERE workspace_id=g.workspace_id)`, []any{id}, lock)
+}
+func ragGrantByIDTx(ctx context.Context, q collaborationQuery, id string, lock bool) (ragIndexGrant, error) {
+	return ragLoadGrant(ctx, q, `id=$1`, []any{id}, lock)
+}
+func ragGrantForGenerationTx(ctx context.Context, q collaborationQuery, id, generation string, lock bool) (ragIndexGrant, error) {
+	return ragLoadGrant(ctx, q, `document_id=$1 AND generation_id IS NOT DISTINCT FROM NULLIF($2,'')::uuid`, []any{id, generation}, lock)
+}
+func ragLoadGrant(ctx context.Context, q collaborationQuery, predicate string, args []any, lock bool) (ragIndexGrant, error) {
 	var g ragIndexGrant
 	var raw []byte
-	sql := `SELECT id::text,document_id::text,workspace_id::text,actor_id::text,COALESCE(token_id::text,''),actor_constraints,revision,active,auto_reindex,provider_fingerprint,rerank_fingerprint,expected_version,COALESCE(last_job_id::text,'') FROM rag_index_grants WHERE document_id=$1`
+	sql := `SELECT id::text,document_id::text,workspace_id::text,actor_id::text,COALESCE(token_id::text,''),actor_constraints,revision,active,auto_reindex,provider_fingerprint,rerank_fingerprint,expected_version,COALESCE(last_job_id::text,''),COALESCE(generation_id::text,'') FROM rag_index_grants g WHERE ` + predicate
 	if lock {
 		sql += " FOR UPDATE"
 	}
-	e := q.QueryRow(ctx, sql, id).Scan(&g.ID, &g.DocumentID, &g.WorkspaceID, &g.ActorID, &g.TokenID, &raw, &g.Revision, &g.Active, &g.Auto, &g.Provider, &g.Rerank, &g.Version, &g.JobID)
+	e := q.QueryRow(ctx, sql, args...).Scan(&g.ID, &g.DocumentID, &g.WorkspaceID, &g.ActorID, &g.TokenID, &raw, &g.Revision, &g.Active, &g.Auto, &g.Provider, &g.Rerank, &g.Version, &g.JobID, &g.GenerationID)
 	if e == nil {
 		e = json.Unmarshal(raw, &g.Constraints)
 	}
@@ -178,6 +192,11 @@ func (s *Server) ragCurrentActor(ctx context.Context, g ragIndexGrant) (*Princip
 }
 
 func ragIndexError(w http.ResponseWriter, e error) {
+	var unavailable ragGenerationUnavailable
+	if errors.As(e, &unavailable) {
+		apiError(w, 409, unavailable.Error())
+		return
+	}
 	if errors.Is(e, errRAGChanged) || errors.Is(e, pgx.ErrNoRows) {
 		apiError(w, 409, errRAGChanged.Error())
 		return

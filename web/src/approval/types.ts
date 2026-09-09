@@ -23,6 +23,7 @@ export type Request = {
   version: number;
   comment: string;
   snapshot?: Record<string, any>;
+  review_context?: Record<string, any>;
   stale?: boolean;
   reason?: string;
   eligible_gates?: number[];
@@ -56,4 +57,7 @@ export const kindNames: Record<string, string> = {
   document: "문서 게시",
   runbook: "격리 실행",
   sql_query_plan: "SQL 계획",
+  impact_exception: "변경 영향 예외",
+  knowledge_distribution: "망간 지식 배포",
+  learning_step: "지식 경로 실습 검토",
 };

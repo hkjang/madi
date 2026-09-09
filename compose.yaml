@@ -1,6 +1,6 @@
 services:
   madi:
-    image: madi:v0.1.0
+    image: madi:v0.2.0
     pull_policy: never
     restart: unless-stopped
     ports:
@@ -17,6 +17,7 @@ services:
     cap_drop:
       - ALL
     read_only: true
+    pids_limit: 512
     tmpfs:
       # Bounded, allocated on demand. Import/restore may stage up to 1 GiB.
       - /tmp:rw,noexec,nosuid,size=2g

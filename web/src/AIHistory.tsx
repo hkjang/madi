@@ -14,6 +14,7 @@ import {
 } from "./ui";
 import { MarkdownContent } from "./editor/MarkdownContent";
 import CitationViewer, { type CitationSource } from "./CitationViewer";
+import SaveEvidence from "./evidence/SaveEvidence";
 const ConversationAI = lazy(() => import("./AI"));
 
 export function SaveAIHistory({
@@ -60,6 +61,7 @@ export function SaveAIHistory({
   };
   return (
     <>
+      <SaveEvidence ticket={ticket} onNavigate={onNavigate} />
       {saved ? (
         <Link
           className="button"
@@ -254,6 +256,12 @@ export default function AIHistoryPage() {
                 {datetime(message.created_at)} · {message.model}
               </p>
               <h3>질문</h3>
+              <Link
+                className="button"
+                to={`/app/knowledge-questions?message_id=${message.id}`}
+              >
+                이 질문을 공식 답변 초안으로 정리
+              </Link>
               <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                 {message.question}
               </p>

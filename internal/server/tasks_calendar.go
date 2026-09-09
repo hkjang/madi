@@ -18,13 +18,18 @@ func (s *Server) taskCalendar(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 403, "워크스페이스 접근 권한이 없습니다")
 		return
 	}
+	did := r.URL.Query().Get("document_id")
+	if did != "" && !validID(did) {
+		apiError(w, 400, "문서 ID를 확인하세요")
+		return
+	}
 	month, e := time.Parse("2006-01", r.URL.Query().Get("month"))
 	if e != nil {
 		apiError(w, 400, "달력 월은 YYYY-MM 형식이어야 합니다")
 		return
 	}
 	start, end := month.Format(time.DateOnly), month.AddDate(0, 1, 0).Format(time.DateOnly)
-	events, e := s.rows(r.Context(), `SELECT to_jsonb(c)||jsonb_build_object('key','event:'||c.id::text,'start',c.start_date,'end',c.end_date,'can_write',c.owner_id=$1) FROM calendar_events c WHERE c.workspace_id=$2 AND c.start_date<$4::date AND c.end_date>=$3::date AND (c.visibility='workspace' OR c.owner_id=$1) AND (c.document_id IS NULL OR EXISTS(SELECT 1 FROM documents d WHERE d.id=c.document_id AND d.deleted_at IS NULL AND madi_document_allowed($1,d.id,false))) ORDER BY c.start_date,c.id LIMIT 2001`, current(r).ID, wid, start, end)
+	events, e := s.rows(r.Context(), `SELECT to_jsonb(c)||jsonb_build_object('key','event:'||c.id::text,'start',c.start_date,'end',c.end_date,'can_write',c.owner_id=$1) FROM calendar_events c WHERE c.workspace_id=$2 AND c.start_date<$4::date AND c.end_date>=$3::date AND ($5='' OR c.document_id=NULLIF($5,'')::uuid) AND (c.visibility='workspace' OR c.owner_id=$1) AND (c.document_id IS NULL OR EXISTS(SELECT 1 FROM documents d WHERE d.id=c.document_id AND d.deleted_at IS NULL AND madi_document_allowed($1,d.id,false))) ORDER BY c.start_date,c.id LIMIT 2001`, current(r).ID, wid, start, end, did)
 	if e != nil {
 		respond(w, nil, e)
 		return
@@ -51,7 +56,7 @@ func (s *Server) taskCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 	dbRows := []map[string]any{}
 	// Calendar aggregation must not broaden a document-only integration grant.
-	if hasIntegrationScope(current(r), "database:read") {
+	if did == "" && hasIntegrationScope(current(r), "database:read") {
 		dbRows, e = s.rows(r.Context(), `SELECT jsonb_build_object('key','database:'||b.id::text||':'||r.id::text||':'||(p->>'id'),'kind','database','title',b.name||' · '||coalesce(nullif(r.values->>(b.properties->0->>'id'),''),r.id::text),'start',left(r.values->>(p->>'id'),10),'end',left(r.values->>(p->>'id'),10),'database_id',b.id,'row_id',r.id,'property',p->>'name','url','/app/databases/'||b.id::text||'?view=calendar&row='||r.id::text) FROM databases b JOIN database_rows r ON r.database_id=b.id CROSS JOIN LATERAL jsonb_array_elements(b.properties) p WHERE b.workspace_id=$2 AND madi_space_allowed($1,b.space_id,false) AND p->>'type'='date' AND left(r.values->>(p->>'id'),10)>=$3 AND left(r.values->>(p->>'id'),10)<$4 ORDER BY r.created_at DESC LIMIT 2001`, current(r).ID, wid, start, end)
 	}
 	if e != nil {
@@ -63,7 +68,14 @@ func (s *Server) taskCalendar(w http.ResponseWriter, r *http.Request) {
 		dbRows = dbRows[:2000]
 	}
 	events = append(events, dbRows...)
-	docs, e := s.knowledgeDocuments(r)
+	var docs []map[string]any
+	if did != "" {
+		// A document filter expresses an existing relation, not a request to
+		// associate independent meetings or database dates with this source.
+		docs, e = s.rows(r.Context(), `SELECT jsonb_build_object('id',d.id,'title',d.title,'markdown',d.markdown,'kind',coalesce(k.kind,'page')) FROM documents d LEFT JOIN knowledge_document_meta k ON k.document_id=d.id WHERE d.id=$3::uuid AND d.workspace_id=$2::uuid AND d.deleted_at IS NULL AND octet_length(d.markdown)<=16777216 AND `+docACL, current(r).ID, wid, did)
+	} else {
+		docs, e = s.knowledgeDocuments(r)
+	}
 	if e != nil {
 		respond(w, nil, e)
 		return

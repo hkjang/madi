@@ -57,6 +57,7 @@
 </tbody></table></div>
 <p>선택형 재정렬은 vLLM의 Cohere/Jina 호환 <code>/rerank</code> API를 사용합니다. 응답의 출처 순서·중복·유효 점수를 검사하며 공급자가 돌려준 원문으로 기존 인용을 바꾸지 않습니다. <a href="https://docs.vllm.ai/en/stable/models/pooling_models/scoring/">vLLM 재정렬 API 문서</a>를 참고하세요.</p>
 <p>현재 정확 코사인 검색은 설정한 최대 조각 수 안에서 수행합니다. 기본은 5,000개, 설정 범위는 100~50,000개입니다. 한도에 도달하면 <code>truncated</code>와 안내를 표시합니다. 이는 전체 저장소의 무제한 전역 최근접 검색이나 HNSW 검색 성능 보장이 아닙니다. 배열 방식은 벡터를 한 개씩 읽어 후보만 유지하며, pgvector 방식도 동일한 제한 범위에서 실제 확장 연산을 사용합니다.</p>
+<p>v0.2.0은 별도 <strong>벡터 색인 세대</strong>에서 HNSW 근사·검증 모드와 모델/차원 변경 전환을 제공합니다. 기존 기본 색인은 유지하면서 새 세대에 동의·색인·정확/근사 검증을 수행하고 현재 검증 결과를 명시적으로 활성화합니다. 롤백도 현재 권한과 정책을 다시 확인합니다. <a href="vector-index-operations-guide.html">세대별 운영 가이드</a>의 차원·탐색·검사 한도와 검증 조건을 확인하세요. 단순 설정 문자열 변경으로 검증된 세대의 모드를 바꾸지 않습니다.</p>
 <p>색인 문서는 최대 4MiB, 조각은 약 6KiB와 겹침 512바이트, 전송 배치는 16개입니다. 벡터 차원은 최대 8,192, 최종 인용은 1~20개, 재정렬 후보는 최대 200개입니다. 의미 검색 질문은 8,192바이트 이하여야 합니다. AI 답변의 최대 토큰 설정(최대 262,144)은 별도이며 실제 지원량은 연결한 모델을 확인해야 합니다.</p>
 <h2 id="api">API</h2>
 <ul>
@@ -68,5 +69,5 @@
 </ul>
 <p>인용 링크는 현재 문서 버전·접근권한·UTF-8 원문 범위·해시가 모두 맞을 때만 해당 내용을 반환합니다. 문서가 바뀌면 이전 인용을 최신 내용인 것처럼 표시하지 않습니다.</p>
 </article></div></main>
-<footer class="site-footer"><div class="container"><div class="footer-top"><a class="brand" href="../index.html"><img src="../assets/logo.svg" alt="madi" width="90" height="32"></a><div class="footer-links"><a href="../manuals.html">사용자·관리자 매뉴얼</a><a href="../screenshots.html">실제 화면</a><a href="https://github.com/hkjang/madi">소스 저장소 ↗</a></div></div><p class="footer-bottom">madi v0.1.0 · 우리 조직의 지식이 연결되는 공간.</p></div></footer>
+<footer class="site-footer"><div class="container"><div class="footer-top"><a class="brand" href="../index.html"><img src="../assets/logo.svg" alt="madi" width="90" height="32"></a><div class="footer-links"><a href="../manuals.html">사용자·관리자 매뉴얼</a><a href="../screenshots.html">실제 화면</a><a href="https://github.com/hkjang/madi">소스 저장소 ↗</a></div></div><p class="footer-bottom">madi v0.2.0 · 우리 조직의 지식이 연결되는 공간.</p></div></footer>
 <dialog class="lightbox" aria-label="서비스 화면 확대"><img alt=""><div class="lightbox-caption"><span data-caption></span><button class="lightbox-close" type="button">닫기 ×</button></div></dialog><script src="../assets/site.js" defer></script></body></html>

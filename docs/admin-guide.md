@@ -12,6 +12,21 @@
 4. 필요할 때만 OIDC, AI, 검토·승인 기능을 켭니다.
 5. 백업과 복원 절차를 시험하고 ENCRYPTION_KEY를 별도 보관합니다.
 
+## 운영 고도화 설정
+
+| 운영 과제 | 화면·안내 | 기본 운영 원칙 |
+| --- | --- | --- |
+| 장시간 공동 편집 | [협업 진단](collaboration-operations-guide.md) | 체크포인트·편집 세대·현재 권한을 확인하며 미확정 변경을 서버 저장으로 표시하지 않습니다. |
+| 한국어 검색 품질 | [조직 용어·평가·진단](search-operations-guide.md) | 실제 조직 평가셋을 운영하고 합성 평가 결과를 조직 품질로 과장하지 않습니다. |
+| 벡터 색인 전환 | [RAG 색인 세대](vector-index-operations-guide.md) | 새 모델·차원에 재동의하고 정확/근사 결과를 검증한 뒤 명시적으로 전환합니다. |
+| 첨부 본문·OCR | `/admin/attachment-extraction`, [추출 안내](attachment-extraction-guide.md) | 기본 비활성화, 격리 커널 필수, 원본 보존·현재 ACL·선택 전송을 적용합니다. |
+| AI 과거 근거 | `/admin/evidence`, [근거 보관함](evidence-guide.md) | 명시 보관·보존기간·현재 접근·정보보호 정책을 확인합니다. |
+| 에이전트 지식 | `/admin/knowledge-packages`, [패키지](evidence-guide.md) | 토큰 예산과 유효기간, 필수 정책과 외부 전달 동의를 구분합니다. |
+| 망간 배포 | `/admin/knowledge-distribution`, [서명 배포](knowledge-distribution-guide.md) | 서명/신뢰 키·수신망을 명시하고, 문서 게시 승인과 전체 묶음 승인을 구분합니다. |
+| 운영 현황 | `/admin/system-status`, [운영 카드](system-status-guide.md) | 보고자 권한·갱신 주기·관측 출처를 확인하며 수집 성공을 독립 배포 검증으로 표시하지 않습니다. |
+
+개인 초안·근거·진행 기록은 서비스 관리자라는 이유만으로 조회하지 않습니다. 모순 후보·구조화 초안·공식 답변·지식 경로는 기존 문서·DB·승인 권한에 연결되며 자동으로 다른 사람의 정본을 수정하지 않습니다. 신규 기능 노출은 기존 기능 정책으로 제한할 수 있습니다. 실제 브라우저·DB 조합과 규모 측정 조건은 각 운영 가이드의 검증 기록을 확인하세요.
+
 ## 계정과 역할
 
 서비스 역할은 관리자(`admin`), 편집자(`editor`), 조회자(`viewer`)로 구분합니다. 워크스페이스는 소유자·관리자·편집자·댓글 작성자·조회자 역할을 사용합니다. 계정의 서비스 역할과 워크스페이스 멤버십을 함께 확인하세요. 비활성화된 계정은 접근할 수 없습니다.
@@ -29,8 +44,15 @@ Keycloak은 별도로 운영하는 IdP입니다. madi는 관리자 설정에 입
 | Client ID | `madi` |
 | Client secret | Keycloak에서 발급한 비밀 |
 | 자동 계정 생성 | 조직 정책에 맞게 설정 |
+| SSO 이메일 검증 필수 | `oidc_require_verified_email`, 기본 꺼짐 (`false`) |
 
 Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard flow를 사용합니다. 유효한 리디렉션 URI는 `https://madi.example.internal/api/v1/auth/oidc/callback`으로 지정합니다. 서비스와 사용자 브라우저가 모두 Keycloak에 접근할 수 있어야 합니다. 서비스 URL·issuer·리디렉션 URI의 스킴, 호스트, 경로가 정확히 일치하는지 확인하세요.
+
+시스템 설정의 SSO 탭(`/admin/settings?tab=auth`)에서 **SSO 이메일 검증 필수**를 선택합니다. v0.2.0 업데이트 후 기본값은 `false`이며, 기존 저장 설정에 항목이 없는 경우도 같습니다. 꺼져 있으면 `email_verified=false` 또는 claim 누락만으로 로그인 절차를 거부하지 않습니다. 켜져 있으면 `email_verified=true`가 필요합니다. 이메일 검증을 필수로 운영할 조직은 업그레이드 시 명시적으로 켜세요. 변경 사항을 저장한 뒤 회사 계정 로그인을 다시 시작합니다.
+
+어느 설정에서도 유효한 이메일·subject와 토큰 서명·issuer·audience·nonce·state·PKCE·만료 검증은 필요합니다. 실제 이메일 검증 값은 계정 연결 정책에 그대로 사용하므로 **미검증 이메일로 기존 로컬 일반 사용자·관리자를 자동 연결하지 않습니다**. 신규 생성은 별도 OIDC 자동 등록 설정에 따릅니다. 동일 이메일 충돌이 남으면 기업 계정 연동(`/admin/identity`)에서 사용자·제공자·issuer·불변 `sub`를 확인하여 명시적으로 연결하세요. 자세한 처리 조건은 [OIDC 이메일 검증과 계정 보호](identity-guide.md#이메일-검증-요구와-기존-계정-보호)에 있습니다.
+
+이는 madi 설정의 변경이며, 외부에서 운영하는 Keycloak의 이메일 검증 정책을 자동 수정하지 않습니다. 실제 운영 서버에 대한 설정 변경·배포·수용 시험은 관리자가 별도로 수행해야 합니다.
 
 SSO 연동 비밀은 DB에 암호화해 저장하며 설정 조회 시 원문을 다시 보여주지 않습니다. 서비스 관리자 로컬 계정을 보관하여 SSO 설정 오류 시 복구 경로로 사용하세요. SAML·LDAP·SCIM과 그룹 매핑의 구성 및 지원 경계는 [인증·계정 연동 가이드](identity-guide.md)를 참고하세요.
 

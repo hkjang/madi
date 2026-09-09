@@ -29,6 +29,7 @@ func featureCatalogue() []featureDefinition {
 		{"database-formula", "데이터베이스 수식", "수식 계산과 수식에 의존하는 집계", "계산 차단, 기존 수식 정의·원본 행 보존"},
 		{"ai-graph", "AI 지식 그래프", "AI 관계 추천과 사용자 승인", "새 실행 차단, 진행 중 분석 취소, 기존 수동 관계 보존"},
 		{"workspace-agents", "워크스페이스 에이전트", "허용된 지식과 도구를 사용하는 AI 에이전트", "실행·도구 호출 차단, 진행 중 실행 취소, 설정·기록 보존"},
+		{"document-queries", "문서 선언형 조회", "문서 안의 제한된 문서·할 일·관계 표 조회", "새 조회 차단, 표시 결과 폐기, Markdown 정의 보존"},
 	}
 }
 func knownFeature(key string) bool {

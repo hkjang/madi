@@ -685,10 +685,16 @@ export function AdminSettings() {
                     {input("oidc_client_id", "Client ID")}
                     {input("oidc_client_secret", "Client Secret", "password")}
                     <Toggle
+                      checked={v("oidc_require_verified_email", false)}
+                      onChange={(x) => set("oidc_require_verified_email", x)}
+                      label="SSO 이메일 검증 필수"
+                      description="기본은 꺼짐입니다. 꺼두면 Keycloak의 이메일 미검증 계정도 로그인할 수 있습니다. 토큰 검증과 기존 계정 연결 보호는 유지됩니다."
+                    />
+                    <Toggle
                       checked={v("oidc_auto_register", false)}
                       onChange={(x) => set("oidc_auto_register", x)}
                       label="처음 로그인한 사용자 자동 등록"
-                      description="검증된 회사 계정으로 madi 사용자를 생성합니다."
+                      description="SSO 인증을 마친 신규 계정으로 madi 사용자를 생성합니다. 같은 이메일의 기존 계정은 별도 연결 정책을 따릅니다."
                     />
                     <Field label="Keycloak에 등록할 Redirect URI">
                       <div className="input-with-button">

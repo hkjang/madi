@@ -22,9 +22,29 @@ type migrationContextKey struct{}
 
 func (s *Server) migrateImports(ctx context.Context) error {
 	_, e := s.DB.Exec(ctx, migrationSchema)
+	if e == nil {
+		_, e = s.DB.Exec(ctx, migrationResumeSchema)
+	}
 	return e
 }
 func (s *Server) registerImports() {
+	s.handle("GET /api/v1/migrations/sessions", s.listMigrationSessions)
+	s.handle("POST /api/v1/migrations/sessions", s.createMigrationSession)
+	s.handle("GET /api/v1/migrations/sessions/{id}", s.getMigrationSession)
+	s.handle("DELETE /api/v1/migrations/sessions/{id}", s.cancelMigrationSession)
+	s.handle("GET /api/v1/migrations/sessions/{id}/items", s.listMigrationSessionItems)
+	s.handle("POST /api/v1/migrations/sessions/{id}/items", s.registerMigrationSessionItems)
+	s.handle("GET /api/v1/migrations/sessions/{id}/items/{item}", s.getMigrationSessionItem)
+	s.handle("GET /api/v1/migrations/sessions/{id}/items/{item}/download", s.downloadMigrationSessionItem)
+	s.handle("GET /api/v1/migrations/sessions/{id}/items/{item}/chunks", s.migrationSessionItemChunks)
+	s.handle("PUT /api/v1/migrations/sessions/{id}/items/{item}/chunks/{chunk}", s.uploadMigrationSessionChunk)
+	s.handle("PUT /api/v1/migrations/sessions/{id}/items/{item}/review", s.reviewMigrationSessionItem)
+	s.handle("POST /api/v1/migrations/sessions/{id}/prepare", s.beginMigrationSessionPrepare)
+	s.handle("POST /api/v1/migrations/sessions/{id}/commit", s.commitMigrationSession)
+	s.admin("GET /api/v1/admin/migration/settings", s.migrationSetting)
+	s.admin("PUT /api/v1/admin/migration/settings", s.migrationSetting)
+	s.RegisterJobHandler("migration.session.prepare", s.prepareMigrationSessionJob)
+	s.RegisterJobHandler("migration.session.commit", s.commitMigrationSessionJob)
 	s.handle("GET /api/v1/migrations", s.listMigrations)
 	s.handle("POST /api/v1/migrations", s.stageMigration)
 	s.handle("GET /api/v1/migrations/{id}", s.getMigration)
@@ -43,6 +63,8 @@ func (s *Server) StartImports(ctx context.Context) {
 				return
 			}
 			s.expireMigrationSources(ctx)
+			s.expireMigrationSessions(ctx)
+			s.cleanupMigrationObjects(ctx)
 			select {
 			case <-ctx.Done():
 				return

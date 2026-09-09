@@ -24,6 +24,19 @@ func TestPostgresIntegratedCalendarDatesAndACL(t *testing.T) {
 	if len(events) != 4 {
 		t.Fatal(calendar)
 	}
+	independent := map[string]any{"workspace_id": wid, "title": "문서와 연결하지 않은 개인 일정", "kind": "meeting", "start_date": "2026-09-10", "end_date": "2026-09-10", "visibility": "private"}
+	c.request("POST", "/api/v1/tasks/calendar/events", independent, 200)
+	filtered := testJSONObject(t, c.request("GET", "/api/v1/tasks/calendar?workspace_id="+wid+"&month=2026-09&document_id="+id, nil, 200))
+	if len(filtered["events"].([]any)) != 3 {
+		t.Fatal("document scope must contain only source date, source task and explicitly linked meeting", filtered)
+	}
+	for _, raw := range filtered["events"].([]any) {
+		item := raw.(map[string]any)
+		if str(item, "document_id") != id || str(item, "kind") == "database" {
+			t.Fatal("independent resource was implicitly associated", item)
+		}
+	}
+	c.request("GET", "/api/v1/tasks/calendar?workspace_id="+wid+"&month=2026-09&document_id=invalid", nil, 400)
 	key := testJSONObject(t, c.request("POST", "/api/v1/keys", map[string]any{"name": "문서 일정만 읽기", "workspace_id": wid, "scopes": []string{"document:read"}, "expires_in_days": 7}, 201))
 	reader := newIntegrationTestClient(t, ts.URL)
 	reader.token = str(key, "token")
@@ -47,6 +60,10 @@ func TestPostgresIntegratedCalendarDatesAndACL(t *testing.T) {
 	json.Unmarshal(raw, &calendar)
 	if len(calendar["events"].([]any)) != 1 {
 		t.Fatal(calendar)
+	}
+	privateScope := testJSONObject(t, viewer.request("GET", "/api/v1/tasks/calendar?workspace_id="+wid+"&month=2026-09&document_id="+id, nil, 200))
+	if len(privateScope["events"].([]any)) != 0 || boolean(privateScope, "truncated") {
+		t.Fatal("document-filter calendar leaked private existence or events", privateScope)
 	}
 	viewer.request("POST", "/api/v1/tasks/calendar/events", event, 403)
 	viewer.request("DELETE", "/api/v1/tasks/calendar/events/"+eid, nil, 404)

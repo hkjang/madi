@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { pdfjsAssets } from "./vite-pdfjs-assets";
 function offlineAssets(): Plugin {
   return {
     name: "madi-offline-static-only",
@@ -32,7 +33,7 @@ function offlineAssets(): Plugin {
   };
 }
 export default defineConfig({
-  plugins: [react(), offlineAssets()],
+  plugins: [react(), pdfjsAssets(), offlineAssets()],
   server: {
     proxy: {
       "/api": "http://localhost:8080",

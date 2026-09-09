@@ -70,13 +70,24 @@ func (s *Server) loadAIHistoryContext(r *http.Request, id string, version int, w
 		return h, errors.New("과거 대화의 참조 버전·권한·색인 동의가 변경되었습니다. 현재 자료로 새 대화를 시작하세요")
 	}
 	budget := 96 << 10
+	tx, e := s.DB.Begin(r.Context())
+	if e != nil {
+		return h, e
+	}
+	defer tx.Rollback(r.Context())
 	for i := range h.Sources {
 		src := &h.Sources[i]
 		if src.StartByte < 0 || src.EndByte < src.StartByte || src.EndByte-src.StartByte > 8192 {
 			return h, errors.New("과거 참조 범위를 확인할 수 없습니다")
 		}
 		var fragment []byte
-		e := s.DB.QueryRow(r.Context(), `SELECT title,substring(convert_to(markdown,'UTF8') from $4 for $5) FROM documents WHERE id=$1 AND workspace_id=$2 AND version=$3 AND deleted_at IS NULL AND madi_document_allowed($6,id,false)`, src.ID, wid, src.Version, src.StartByte+1, src.EndByte-src.StartByte, p.ID).Scan(&src.Title, &fragment)
+		if src.AttachmentID != "" {
+			var value attachmentCitationCurrent
+			value, e = s.attachmentCitationTx(r.Context(), tx, p, *src, true)
+			src.Title, fragment = value.Title, []byte(value.Text)
+		} else {
+			e = tx.QueryRow(r.Context(), `SELECT title,substring(convert_to(markdown,'UTF8') from $4 for $5) FROM documents WHERE id=$1 AND workspace_id=$2 AND version=$3 AND deleted_at IS NULL AND madi_document_allowed($6,id,false)`, src.ID, wid, src.Version, src.StartByte+1, src.EndByte-src.StartByte, p.ID).Scan(&src.Title, &fragment)
+		}
 		if e != nil || (src.ContentHash != "" && digest(string(fragment)) != src.ContentHash) {
 			return h, errors.New("과거 참조의 원문 해시·권한이 변경되었습니다. 새 대화를 시작하세요")
 		}
@@ -93,7 +104,7 @@ func mergeAIHistorySources(first, second []aiSource) []aiSource {
 	seen := map[string]bool{}
 	for _, list := range [][]aiSource{first, second} {
 		for _, source := range list {
-			key := fmt.Sprintf("%s:%d:%d:%d:%s:%s:%d", source.ID, source.Version, source.StartByte, source.EndByte, source.ContentHash, source.RAGGrantID, source.RAGGrantRevision)
+			key := fmt.Sprintf("%s:%d:%d:%d:%s:%s:%d:%s:%s:%s:%d", source.ID, source.Version, source.StartByte, source.EndByte, source.ContentHash, source.RAGGrantID, source.RAGGrantRevision, source.AttachmentID, source.ExtractionID, source.FragmentID, source.ExtractionRevision)
 			if !seen[key] {
 				seen[key] = true
 				result = append(result, source)

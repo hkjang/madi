@@ -82,6 +82,18 @@ func (s *Server) runMaintenance(ctx context.Context) (result maintenanceResult, 
 	if err = s.expireGraphAI(ctx); err != nil {
 		return result, err
 	}
+	if err = s.purgeEvidence(ctx); err != nil {
+		return result, err
+	}
+	if _, err = s.DB.Exec(ctx, `DELETE FROM knowledge_structured_drafts WHERE id IN (SELECT x.id FROM knowledge_structured_drafts x WHERE x.state<>'committed' AND x.expires_at<=now() AND NOT EXISTS(SELECT 1 FROM knowledge_document_meta m WHERE m.document_id=x.document_id AND (m.legal_hold OR m.retain_until>now())) ORDER BY x.expires_at LIMIT 500)`); err != nil {
+		return result, err
+	}
+	if _, err = s.expireSystemStatusReports(ctx); err != nil {
+		return result, err
+	}
+	if _, err = s.DB.Exec(ctx, `DELETE FROM knowledge_packages WHERE id IN (SELECT p.id FROM knowledge_packages p WHERE expires_at<=now() AND NOT EXISTS(SELECT 1 FROM jsonb_to_recordset(p.source_refs) AS ref(id uuid) JOIN knowledge_document_meta m ON m.document_id=ref.id WHERE m.legal_hold OR m.retain_until>now()) ORDER BY expires_at LIMIT 500)`); err != nil {
+		return result, err
+	}
 	settings, err := s.settings(ctx)
 	if err != nil {
 		return result, err

@@ -446,6 +446,10 @@ func (s *Server) createRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	if e = s.prepareStructuredRowTx(r, tx, id, in.Values); e != nil {
+		apiError(w, 409, "구조화 초안·원문·권한이 변경되었습니다. 현재 미리보기에서 다시 확인하세요")
+		return
+	}
 	if e := s.validateValuesTx(r, tx, id, in.Values); e != nil {
 		apiError(w, 400, e.Error())
 		return
@@ -457,6 +461,9 @@ func (s *Server) createRow(w http.ResponseWriter, r *http.Request) {
 	}
 	if e == nil {
 		e = s.recordAutomationEffect(r.Context(), tx, map[string]any{"id": rid})
+	}
+	if e == nil {
+		e = s.finishStructuredRowTx(r, tx, id, rid)
 	}
 	if e == nil {
 		e = tx.Commit(r.Context())
@@ -480,11 +487,21 @@ func (s *Server) updateRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Values map[string]any `json:"values"`
+		Values   map[string]any  `json:"values"`
+		Expected json.RawMessage `json:"expected_version"`
 	}
 	if decode(r, &in) != nil || in.Values == nil {
 		apiError(w, 400, "행 입력값을 확인하세요")
 		return
+	}
+	var expected *int
+	if len(in.Expected) > 0 {
+		var n int
+		if string(in.Expected) == "null" || json.Unmarshal(in.Expected, &n) != nil || n < 1 || n > 2147483647 {
+			apiError(w, 400, "expected_version은1이상의 정수여야 합니다")
+			return
+		}
+		expected = &n
 	}
 	tx, e := s.DB.Begin(r.Context())
 	if e != nil {
@@ -495,6 +512,17 @@ func (s *Server) updateRow(w http.ResponseWriter, r *http.Request) {
 	if e := s.validateValuesTx(r, tx, id, in.Values); e != nil {
 		apiError(w, 400, e.Error())
 		return
+	}
+	if expected != nil {
+		var actual int
+		if e = tx.QueryRow(r.Context(), "SELECT version FROM database_rows WHERE id=$1 AND database_id=$2 FOR UPDATE", rid, id).Scan(&actual); e != nil {
+			respond(w, nil, e)
+			return
+		}
+		if actual != *expected {
+			apiError(w, 409, "다른 편집자가 행을 변경했습니다. 현재 값과 다시 비교하세요")
+			return
+		}
 	}
 	var raw []byte
 	e = tx.QueryRow(r.Context(), "UPDATE database_rows SET values=values||$1::jsonb,updated_at=now(),updated_by=$4 WHERE id=$2 AND database_id=$3 RETURNING to_jsonb(database_rows)", jsonValue(in.Values), rid, id, current(r).ID).Scan(&raw)
@@ -520,12 +548,28 @@ func (s *Server) deleteRow(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 403, "행 삭제 권한이 없습니다")
 		return
 	}
+	expected, e := documentTrashExpectedVersion(r)
+	if e != nil {
+		apiError(w, 400, e.Error())
+		return
+	}
 	tx, e := s.DB.Begin(r.Context())
 	if e != nil {
 		respond(w, nil, e)
 		return
 	}
 	defer tx.Rollback(r.Context())
+	if expected != nil {
+		var actual int
+		if e = tx.QueryRow(r.Context(), "SELECT version FROM database_rows WHERE id=$1 AND database_id=$2 FOR UPDATE", rid, id).Scan(&actual); e != nil {
+			respond(w, nil, e)
+			return
+		}
+		if actual != *expected {
+			apiError(w, 409, "다른 편집자가 행을 변경했습니다. 삭제할 상태를 다시 확인하세요")
+			return
+		}
+	}
 	tag, e := tx.Exec(r.Context(), "DELETE FROM database_rows WHERE id=$1 AND database_id=$2", rid, id)
 	if e == nil && tag.RowsAffected() > 0 {
 		e = s.enqueueDatabaseEvent(r, tx, "database.row.deleted", id, rid, nil)

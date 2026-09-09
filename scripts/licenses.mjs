@@ -40,6 +40,14 @@ let text = "madi — Third-party attribution\n\nGenerated from installed depende
 const missing = [], manifest = [];
 for (const { dir, ...component } of components) {
   const names = (await readdir(dir)).filter((file) => /^(licen[sc]e|copying|copyright|notice)([._-].*)?$/i.test(file));
+  if (component.name === "pdfjs-dist") {
+    // These exact directories, including their notices, are emitted by the
+    // offline Vite asset plugin. Preserve their notices in the central index too.
+    for (const group of ["cmaps", "standard_fonts", "wasm"])
+      for (const file of await readdir(path.join(dir, group)))
+        if (/^(licen[sc]e|copying|copyright|notice)([._-].*)?$/i.test(file))
+          names.push(`${group}/${file}`);
+  }
   const notices = [];
   for (const file of names.sort()) {
     try {
@@ -55,6 +63,18 @@ for (const { dir, ...component } of components) {
       if (section && /Permission is hereby granted|Redistribution and use/.test(section))
         notices.push({ file: "README.md (license section)", content: section });
     } catch (e) { if (e.code !== "ENOENT") throw e; }
+  }
+  if (!notices.length) {
+    // The npm platform binary packages omit LICENSE while the same-version
+    // parent distributes it. Validate the exact platform/version relationship;
+    // do not substitute an unrelated package's license based on a name prefix.
+    if (component.name.startsWith("@napi-rs/canvas-")) {
+      const parentDir = path.join(root, "web/node_modules/@napi-rs/canvas");
+      const parent = JSON.parse(await readFile(path.join(parentDir, "package.json"), "utf8"));
+      if (parent.version !== component.version || parent.optionalDependencies?.[component.name] !== component.version || parent.license !== component.license)
+        throw new Error(`Platform attribution relationship changed: ${component.name}`);
+      notices.push({ file: `@napi-rs/canvas@${parent.version}/LICENSE (same-version platform distribution)`, content: await readFile(path.join(parentDir, "LICENSE"), "utf8") });
+    }
   }
   if (!notices.length) {
     const fallback = component.name === "Go standard library" ? "go-LICENSE.txt" : component.name === "react-remove-scroll-bar" ? "react-remove-scroll-bar-LICENSE.txt" : "";

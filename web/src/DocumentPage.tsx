@@ -1,3 +1,36 @@
+import CollaborationSaveStatus from "./collaboration/SaveStatus";
+import { TagChips } from "./review/TagChips";
+import { DocumentStates } from "./review/DocumentStates";
+import { DocumentModeControls } from "./review/DocumentModeControls";
+import { selectedMarkdown, type MarkdownSelection } from "./review/selection";
+import { applyMarkdownProposal } from "./review/documentMutation";
+import { ApiError } from "./api";
+import { offerDocumentUndo } from "./review/DocumentRecovery";
+import {
+  AccessChangePreview,
+  useAccessChangeReview,
+} from "./review/AccessChangePreview";
+const SelectionAI = lazy(() => import("./review/SelectionAI"));
+const DocumentSplit = lazy(() => import("./review/DocumentSplit"));
+const DocumentPassport = lazy(() => import("./worksets/DocumentPassport"));
+import SaveToWorkset from "./worksets/SaveToWorkset";
+import { captureWorksetDocumentContext } from "./navigation/NavigationMemory";
+import ContextTools from "./editor/ContextTools";
+import PasteReview from "./editor/PasteReview";
+const RequestDocumentAccess = lazy(() =>
+  import("./review/AccessRequestsPage").then((m) => ({
+    default: m.RequestDocumentAccess,
+  })),
+);
+const CollaborationDiagnostics = lazy(
+  () => import("./collaboration/CollaborationDiagnostics"),
+);
+import {
+  DocumentInspector,
+  InspectorToggle,
+  useDocumentInspector,
+} from "./review/DocumentInspector";
+import { ChangeReview, RecoveryNotice } from "./review/ChangeReview";
 import {
   lazy,
   Suspense,
@@ -15,6 +48,7 @@ import { reconcileSavedDocument } from "./editor/saveSnapshot";
 import { resolveEditorMode } from "./editor/mode";
 const DocumentRAGIndex = lazy(() => import("./DocumentRAGIndex"));
 const DocumentHistory = lazy(() => import("./history/DocumentHistory"));
+const DocumentPreview = lazy(() => import("./review/DocumentPreview"));
 import { MoveDocumentModal } from "./navigation/DocumentActions";
 import { copyText } from "./navigation/clipboard";
 import ApprovalPanel from "./approval/ApprovalPanel";
@@ -61,6 +95,8 @@ import "./collaboration/style.css";
 import type { Editor, JSONContent } from "@tiptap/core";
 import {
   ArrowDownToLine,
+  ShieldCheck,
+  Network,
   ArrowUp,
   ArrowDown,
   GripVertical,
@@ -79,6 +115,7 @@ import {
   Heading1,
   History,
   Italic,
+  KeyRound,
   Link2,
   List,
   ListOrdered,
@@ -117,6 +154,7 @@ import {
   DocIcon,
 } from "./ui";
 import DiscussionPanel from "./DiscussionPanel";
+import DocumentQueryBuilder from "./query/DocumentQueryBuilder";
 
 function splitFrontMatter(value: string) {
   const match = value.match(/^(---\r?\n[\s\S]*?\r?\n---\r?\n)/);
@@ -128,16 +166,19 @@ export function MarkdownView({
   markdown,
   documents,
   metadata,
+  documentId,
 }: {
   markdown: string;
   documents: DocSummary[];
   metadata?: Doc["block_metadata"];
+  documentId?: string;
 }) {
   return (
     <MarkdownContent
       markdown={markdown}
       documents={documents}
       metadata={metadata}
+      documentId={documentId}
     />
   );
 }
@@ -214,6 +255,7 @@ function NativeBlockEditor({
     onMetadata({ blocks });
   };
   const [manage, setManage] = useState(false),
+    [queryBuilder, setQueryBuilder] = useState(false),
     [revision, setRevision] = useState(0);
   const editor = useEditor({
     extensions: [
@@ -378,20 +420,7 @@ function NativeBlockEditor({
         data-state={provider.status}
         aria-live="polite"
       >
-        <span>
-          {
-            {
-              connecting: "공동 편집 연결 중…",
-              syncing: "편집 상태 동기화 중…",
-              connected: provider.hasUnsavedChanges
-                ? "공동 편집 · 저장 중…"
-                : "공동 편집 · 모든 변경 저장됨",
-              disconnected: "연결 재시도 중 · 로컬 초안 보관",
-              conflict: "문서 기준 변경 · 초안 확인 필요",
-              error: "공동 편집 연결 확인 필요",
-            }[provider.status]
-          }
-        </span>
+        <CollaborationSaveStatus provider={provider} />
         <div className="collaboration-peers">
           {[...provider.awareness.getStates()].map(
             ([client, state]) =>
@@ -435,6 +464,13 @@ function NativeBlockEditor({
         </div>
       )}
       <div className="editor-toolbar">
+        <button
+          title="선언형 조회 표"
+          aria-label="선언형 조회 표"
+          onClick={() => setQueryBuilder(true)}
+        >
+          <Table2 size={18} />
+        </button>
         <button
           title="굵게"
           aria-label="굵게"
@@ -553,6 +589,8 @@ function NativeBlockEditor({
         }}
       >
         <AdvancedToolbar editor={editor} documentId={documentId} />
+        <ContextTools editor={editor} />
+        <PasteReview editor={editor} />
         <EditorContent editor={editor} />
       </div>
       {slash && (
@@ -592,6 +630,15 @@ function NativeBlockEditor({
           <button onClick={() => setSlash(false)}>닫기</button>
         </div>
       )}
+      {queryBuilder && (
+        <DocumentQueryBuilder
+          onClose={() => setQueryBuilder(false)}
+          onInsert={(value) => {
+            insert(value);
+            setQueryBuilder(false);
+          }}
+        />
+      )}
       <BlockOrganizer
         editor={editor}
         documentID={documentId}
@@ -603,6 +650,7 @@ function NativeBlockEditor({
 }
 
 export default function DocumentPage({ onAI }: { onAI: () => void }) {
+  const inspector = useDocumentInspector();
   const { id } = useParams();
   const [modeParams, setModeParams] = useSearchParams();
   const sourceLine = /^\d{1,7}$/.test(modeParams.get("line") || "")
@@ -633,12 +681,14 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
       ),
     ),
     [error, setError] = useState(""),
+    [errorStatus, setErrorStatus] = useState(0),
     [saving, setSaving] = useState(false),
     [dirty, setDirty] = useState(false),
     [saved, setSaved] = useState(false),
     [history, setHistory] = useState(false),
     [backlinks, setBacklinks] = useState<Doc[]>([]),
     [share, setShare] = useState(false),
+    [passport, setPassport] = useState(false),
     [visibility, setVisibility] = useState("workspace"),
     [parent, setParent] = useState(""),
     [aliases, setAliases] = useState(""),
@@ -646,11 +696,34 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
     [shareEmail, setShareEmail] = useState(""),
     [shareRole, setShareRole] = useState("viewer");
   const [pendingDraft, setPendingDraft] = useState<any>(null);
+  const [selectionAI, setSelectionAI] = useState<{
+    doc: Doc;
+    selection: MarkdownSelection;
+  } | null>(null);
+  const [splitSelection, setSplitSelection] = useState<{
+    doc: Doc;
+    selection: MarkdownSelection;
+  } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{
+    id: string;
+    version?: number;
+  } | null>(null);
+  const [reviewServer, setReviewServer] = useState<Doc | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [moveDoc, setMoveDoc] = useState<Doc | null>(null);
   const [ragIndexOpen, setRAGIndexOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const shareAccessReview = useAccessChangeReview(
+    doc,
+    { parent_id: parent, visibility },
+    share && doc?.owner_id === user.id,
+    JSON.stringify(
+      shares.map((item) => [item.user_id, item.role, item.permission]),
+    ),
+  );
   const favoritePending = useRef(false),
     actionPending = useRef(false),
     sharePending = useRef(false),
@@ -675,6 +748,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
   const currentDocument = useRef(doc);
   currentDocument.current = doc;
   const fileInput = useRef<HTMLInputElement>(null),
+    publicShareAnchor = useRef<HTMLDivElement>(null),
     activeRoute = useRef(id),
     loadSequence = useRef(0),
     blockMetadata = useRef<NonNullable<Doc["block_metadata"]>>({ blocks: [] }),
@@ -683,6 +757,16 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
   latest.current = { markdown, title, tags };
   const canWrite = doc?.can_write ?? false;
   useEffect(() => setHistory(false), [id]);
+  useEffect(() => setSelectionAI(null), [id, user.id, workspace?.id]);
+  useEffect(() => setSplitSelection(null), [id, user.id, workspace?.id]);
+  useEffect(() => {
+    const open = () => inspector.change("ai");
+    window.addEventListener("madi:document-ai", open);
+    return () => window.removeEventListener("madi:document-ai", open);
+  }, [user.id]);
+  useEffect(() => {
+    if (modeParams.get("comment")) inspector.change("comments");
+  }, [id, modeParams.get("comment")]);
   useEffect(() => {
     setMode(
       resolveEditorMode(
@@ -727,7 +811,10 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
       sequence = loadSequence.current,
       actor = user.id;
     return () =>
+      window.location.pathname.replace(/\/+$/, "") ===
+        `/app/documents/${route}` &&
       activeRoute.current === route &&
+      currentDocument.current?.id === route &&
       sequence === loadSequence.current &&
       activeUser.current === actor;
   };
@@ -739,6 +826,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
     savingRef.current = false;
     setSaving(false);
     setError("");
+    setErrorStatus(0);
     try {
       const d = await api<Doc>("/documents/" + id);
       if (activeRoute.current !== id || sequence !== loadSequence.current)
@@ -773,16 +861,23 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         }),
       ]);
     } catch (e) {
-      if (activeRoute.current === id && sequence === loadSequence.current)
+      if (activeRoute.current === id && sequence === loadSequence.current) {
         setError((e as Error).message);
+        setErrorStatus(Number((e as { status?: number }).status) || 0);
+      }
     }
   }, [id, user.id]);
   useEffect(() => {
     setDoc(null);
+    setReviewServer(null);
+    setPreviewDoc(null);
+    setReviewBusy(false);
+    setDiagnosticsOpen(false);
     setRAGIndexOpen(false);
     setMoveDoc(null);
     shareRevision.current++;
     setShare(false);
+    setPassport(false);
     setShares([]);
     setShareEmail("");
     setShareRole("viewer");
@@ -842,12 +937,29 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
             sequence !== loadSequence.current
           )
             return true;
+          // Metadata remains editable while the body awaits a CRDT ACK. Read
+          // it again before deciding that the whole document is saved. Adopt
+          // acknowledged remote metadata only where the local field did not
+          // change from this save's baseline; never replay its stale value.
+          const confirmedTitle = live.snapshot?.title ?? doc.title;
+          const originalTags = (doc.tags || []).join(", ");
+          const confirmedTags = (live.snapshot?.tags ?? doc.tags ?? []).join(
+            ", ",
+          );
+          snapshot.title =
+            latest.current.title === doc.title
+              ? confirmedTitle
+              : latest.current.title;
+          snapshot.tags =
+            latest.current.tags === originalTags
+              ? confirmedTags
+              : latest.current.tags;
           if (
-            snapshot.title === doc.title &&
-            snapshot.tags === (doc.tags || []).join(", ")
+            snapshot.title === confirmedTitle &&
+            snapshot.tags === confirmedTags
           ) {
             setDirty(live.hasUnsavedChanges);
-            setSaved(true);
+            setSaved(!live.hasUnsavedChanges);
             if (!silent) notify("공동 편집 변경 내용을 저장했습니다.");
             return true;
           }
@@ -910,6 +1022,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         setDirty(reconciled.dirty);
         setSaved(true);
         setError("");
+        setErrorStatus(0);
         if (d.protection?.changed)
           notify(
             reconciled.dirty
@@ -924,8 +1037,13 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         await reload();
         return true;
       } catch (e) {
-        if (activeRoute.current === doc.id && sequence === loadSequence.current)
+        if (
+          activeRoute.current === doc.id &&
+          sequence === loadSequence.current
+        ) {
           setError((e as Error).message);
+          setErrorStatus(Number((e as { status?: number }).status) || 0);
+        }
         return false;
       } finally {
         if (
@@ -1063,7 +1181,12 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         }
       }
       setMode(target);
-      setModeParams({ mode: value });
+      setModeParams((current) => {
+        const next = new URLSearchParams(current);
+        next.set("mode", value);
+        next.delete("line");
+        return next;
+      });
     } catch (e) {
       if (current()) setError((e as Error).message);
     }
@@ -1073,6 +1196,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
       const action = (event as CustomEvent).detail?.action;
       if (
         !doc ||
+        doc.id !== id ||
         ![
           "save",
           "focus",
@@ -1086,6 +1210,9 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
       )
         return;
       const current = actionGuard();
+      // BrowserRouter can update the address before the previous document's
+      // passive listener is removed. Never run that listener for the new URL.
+      if (!current()) return;
       void (async () => {
         if (action === "focus") {
           setFocus(!focus);
@@ -1167,12 +1294,216 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
     }
   };
   if (!doc || doc.id !== id)
-    return error ? <ErrorBox error={error} /> : <Loading />;
+    return error ? (
+      <div>
+        <RecoveryNotice
+          error={error}
+          status={errorStatus}
+          onRetry={() => void load()}
+          onReauthenticate={() => navigate("/login")}
+        />
+        {id && [403, 404].includes(errorStatus) && (
+          <Suspense fallback={null}>
+            <RequestDocumentAccess documentID={id} />
+          </Suspense>
+        )}
+      </div>
+    ) : (
+      <Loading />
+    );
   const headings = [...markdown.matchAll(/^(#{1,3})\s+(.+)$/gm)].map(
     (m, i) => ({ level: m[1].length, text: m[2], id: i }),
   );
   return (
     <div className={`document-page ${focus ? "focus-mode" : ""}`}>
+      {splitSelection && (
+        <Suspense fallback={<Loading />}>
+          <DocumentSplit
+            doc={splitSelection.doc}
+            selection={splitSelection.selection}
+            stale={
+              doc.id !== splitSelection.doc.id ||
+              doc.version !== splitSelection.doc.version ||
+              dirty ||
+              markdown !== splitSelection.doc.markdown ||
+              !canWrite
+            }
+            onClose={() => setSplitSelection(null)}
+            onCommit={async (ticket, requestID) => {
+              const current = actionGuard(),
+                snapshot = currentDocument.current;
+              if (
+                !snapshot ||
+                !current() ||
+                savingRef.current ||
+                collaboration.current?.hasUnsavedChanges ||
+                snapshot.version !== splitSelection.doc.version ||
+                latest.current.markdown !== splitSelection.doc.markdown ||
+                latest.current.title !== snapshot.title ||
+                latest.current.tags !== (snapshot.tags || []).join(", ")
+              )
+                throw new ApiError(
+                  "문서에 새로운 변경이 있습니다. 현재 원문을 저장하고 다시 선택하세요.",
+                  409,
+                );
+              // Detach the previous CRDT epoch before the atomic REST mutation.
+              setMode("source");
+              setModeParams((value) => {
+                const next = new URLSearchParams(value);
+                next.set("mode", "source");
+                next.delete("line");
+                return next;
+              });
+              await new Promise<void>((resolve) =>
+                requestAnimationFrame(() => resolve()),
+              );
+              if (!current()) return;
+              const result = await api<
+                import("./review/DocumentSplit").SplitResult
+              >(`/documents/${snapshot.id}/split`, "POST", {
+                ticket,
+                client_request_id: requestID,
+                consent: true,
+              });
+              if (!current()) return;
+              const reconciled = reconcileSavedDocument(
+                {
+                  markdown: snapshot.markdown,
+                  title: snapshot.title,
+                  tags: (snapshot.tags || []).join(", "),
+                },
+                latest.current,
+                result.source,
+                false,
+              );
+              latest.current = reconciled.values;
+              currentDocument.current = result.source;
+              setDoc(result.source);
+              setTitle(reconciled.values.title);
+              setTags(reconciled.values.tags);
+              setMarkdown(reconciled.values.markdown);
+              if (reconciled.applyMetadata)
+                blockMetadata.current = result.source.block_metadata || {
+                  blocks: [],
+                };
+              setDirty(reconciled.dirty);
+              setSaved(true);
+              setError("");
+              setErrorStatus(0);
+              notify(
+                result.replayed
+                  ? "이미 완료한 분리 결과를 다시 확인했습니다."
+                  : "선택 블록을 하위 초안으로 분리했습니다. 원본에 남은 참조로 새 문서를 열 수 있습니다.",
+              );
+              setSplitSelection(null);
+              await reload();
+              return result;
+            }}
+          />
+        </Suspense>
+      )}
+      {selectionAI && (
+        <Suspense fallback={<Loading />}>
+          <SelectionAI
+            doc={selectionAI.doc}
+            selection={selectionAI.selection}
+            stale={
+              doc.id !== selectionAI.doc.id ||
+              doc.version !== selectionAI.doc.version ||
+              dirty ||
+              markdown !== selectionAI.doc.markdown ||
+              doc.can_write !== selectionAI.doc.can_write
+            }
+            onClose={() => setSelectionAI(null)}
+            onApply={async (nextMarkdown, expectedVersion) => {
+              const current = actionGuard(),
+                snapshot = currentDocument.current;
+              if (
+                !snapshot ||
+                !current() ||
+                savingRef.current ||
+                collaboration.current?.hasUnsavedChanges ||
+                latest.current.markdown !== selectionAI.doc.markdown ||
+                latest.current.title !== snapshot.title ||
+                latest.current.tags !== (snapshot.tags || []).join(", ")
+              )
+                throw new ApiError(
+                  "저장되지 않은 변경이 있습니다. 현재 원문을 저장하고 다시 선택하세요.",
+                  409,
+                );
+              if (snapshot.version !== expectedVersion)
+                throw new ApiError(
+                  "문서 버전이 변경되었습니다. 현재 원문에서 다시 선택하세요.",
+                  409,
+                );
+              setMode("source");
+              setModeParams((value) => {
+                const next = new URLSearchParams(value);
+                next.set("mode", "source");
+                next.delete("line");
+                return next;
+              });
+              await new Promise<void>((resolve) =>
+                requestAnimationFrame(() => resolve()),
+              );
+              if (!current()) return;
+              const result = await applyMarkdownProposal(
+                snapshot,
+                nextMarkdown,
+                expectedVersion,
+              );
+              if (!current()) return;
+              const before = {
+                markdown: snapshot.markdown,
+                title: snapshot.title,
+                tags: (snapshot.tags || []).join(", "),
+              };
+              const reconciled = reconcileSavedDocument(
+                before,
+                latest.current,
+                result,
+                false,
+              );
+              latest.current = reconciled.values;
+              currentDocument.current = result;
+              setDoc(result);
+              setTitle(reconciled.values.title);
+              setTags(reconciled.values.tags);
+              setMarkdown(reconciled.values.markdown);
+              if (reconciled.applyMetadata)
+                blockMetadata.current = result.block_metadata || { blocks: [] };
+              setDirty(reconciled.dirty);
+              setSaved(true);
+              setError("");
+              setErrorStatus(0);
+              notify(
+                result.protection?.changed
+                  ? "AI 변경을 적용하고 정보보호 정책에 따라 정본을 마스킹했습니다."
+                  : "비교한 AI 변경을 원문에 적용했습니다.",
+              );
+              await reload();
+            }}
+          />
+        </Suspense>
+      )}
+      {previewDoc && (
+        <Suspense fallback={<Loading />}>
+          <DocumentPreview
+            documentId={previewDoc.id}
+            expectedVersion={previewDoc.version}
+            onClose={() => setPreviewDoc(null)}
+          />
+        </Suspense>
+      )}
+      {diagnosticsOpen && (
+        <Suspense fallback={<Loading />}>
+          <CollaborationDiagnostics
+            documentId={doc.id}
+            open={diagnosticsOpen}
+            onOpenChange={setDiagnosticsOpen}
+          />
+        </Suspense>
+      )}
       {ragIndexOpen && (
         <Suspense fallback={<Loading />}>
           <DocumentRAGIndex
@@ -1209,6 +1540,10 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         />
       )}
       <div className="document-actionbar">
+        <InspectorToggle
+          open={inspector.open}
+          onClick={() => inspector.toggle(!inspector.open)}
+        />
         <Link to="/app/documents">
           <FileText size={16} /> 문서
         </Link>
@@ -1278,7 +1613,59 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
           </Button>
         </div>
       </div>
-      <ErrorBox error={error} />
+      <DocumentStates
+        doc={doc}
+        dirty={dirty}
+        saving={saving}
+        owner={doc.owner_id === user.id}
+        onSharing={() => {
+          setVisibility(doc.visibility);
+          setParent(doc.parent_id || "");
+          setAliases((doc.aliases || []).join(", "));
+          changeShare(true);
+        }}
+        onPublishing={() => navigate(`/app/documents/${doc.id}/knowledge`)}
+        onExternal={() => {
+          inspector.change("properties");
+          requestAnimationFrame(() =>
+            publicShareAnchor.current?.querySelector("button")?.click(),
+          );
+        }}
+      />
+      <RecoveryNotice
+        error={error}
+        status={errorStatus}
+        dirty={dirty}
+        busy={reviewBusy || saving}
+        onCopy={
+          dirty
+            ? () => downloadText(`${title || "madi"}-미확정-초안.md`, markdown)
+            : undefined
+        }
+        onRetry={() => (dirty ? void save() : void load())}
+        onReauthenticate={() => navigate("/login")}
+        onReview={
+          dirty
+            ? async () => {
+                const current = actionGuard();
+                setReviewBusy(true);
+                try {
+                  const latestServer = await api<Doc>(`/documents/${doc.id}`);
+                  if (current()) setReviewServer(latestServer);
+                } catch (e) {
+                  if (current()) {
+                    setError((e as Error).message);
+                    setErrorStatus(
+                      Number((e as { status?: number }).status) || 0,
+                    );
+                  }
+                } finally {
+                  if (current()) setReviewBusy(false);
+                }
+              }
+            : undefined
+        }
+      />
       {pendingDraft && canWrite && (
         <div className="notice">
           <History size={20} />
@@ -1323,7 +1710,21 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
           </div>
         </div>
       )}
-      {error && <Button onClick={load}>서버 문서 다시 불러오기</Button>}
+      {error && (
+        <Button
+          onClick={() => {
+            if (
+              !dirty ||
+              window.confirm(
+                "현재 초안은 이 탭에 임시 보관됩니다. 서버 문서를 다시 불러올까요?",
+              )
+            )
+              void load();
+          }}
+        >
+          서버 문서 다시 불러오기
+        </Button>
+      )}
       {!canWrite && (
         <div className="notice subtle">
           <Eye size={19} />
@@ -1334,7 +1735,11 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         </div>
       )}
       <div className="document-layout">
-        <article className="document-main">
+        <article
+          className="document-main"
+          data-document-id={doc.id}
+          data-document-version={doc.version}
+        >
           <div className="doc-cover">
             <span>
               <DocIcon icon={doc.icon} size={38} />
@@ -1361,108 +1766,104 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
               placeholder="제목 없는 문서"
             />
             <div className="document-metadata">
-              <span>#</span>
-              <input
-                aria-label="문서 태그"
+              <TagChips
+                key={doc.id}
                 value={tags}
                 readOnly={!canWrite}
-                onChange={(e) => {
-                  setTags(e.target.value);
+                suggestions={documents.flatMap((d) => d.tags || [])}
+                onChange={(value) => {
+                  setTags(value);
                   setDirty(true);
                 }}
-                placeholder="태그 추가 (쉼표로 구분)"
               />
-              <button
-                className="text-button"
-                onClick={() => {
-                  setVisibility(doc.visibility);
-                  setParent(doc.parent_id || "");
-                  setAliases((doc.aliases || []).join(", "));
-                  setShare(true);
-                }}
-              >
-                {doc.visibility === "private"
-                  ? "나만 보기"
-                  : doc.visibility === "selected"
-                    ? "선택한 사용자"
-                    : "워크스페이스 공유"}
-              </button>
             </div>
-            <div className="editor-mode-bar">
-              <div className="segmented">
-                {[
-                  ["edit", "블록 편집"],
-                  ["source", "Markdown"],
-                  ["preview", "읽기"],
-                ].map(([v, l]) => (
-                  <button
-                    key={v}
-                    className={
-                      (mode === "edit" && !canWrite ? "preview" : mode) === v
-                        ? "active"
-                        : ""
-                    }
-                    disabled={v === "edit" && !canWrite}
-                    onClick={() => switchMode(v)}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <div>
-                <button
-                  className="icon-button"
-                  title="집중 모드"
-                  aria-label="집중 모드"
-                  onClick={() => setFocus(!focus)}
-                >
-                  <Focus size={18} />
-                </button>
-                <button
-                  className="text-button"
-                  aria-label="프레젠테이션 보기"
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("madi-document-command", {
-                        detail: { action: "present" },
-                      }),
-                    )
-                  }
-                >
-                  발표
-                </button>
-                <button
-                  className="text-button"
-                  aria-label="문서 인쇄 또는 PDF 내보내기"
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("madi-document-command", {
-                        detail: { action: "print" },
-                      }),
-                    )
-                  }
-                >
-                  인쇄
-                </button>
-                <button
-                  className="icon-button"
-                  title="파일 첨부"
-                  aria-label="파일 첨부"
-                  disabled={!canWrite}
-                  onClick={() => fileInput.current?.click()}
-                >
-                  <Paperclip size={18} />
-                </button>
-                <button
-                  className="icon-button"
-                  title="AI 도우미"
-                  aria-label="AI 도우미"
-                  onClick={onAI}
-                >
-                  <Sparkles size={18} />
-                </button>
-              </div>
-            </div>
+            <DocumentModeControls
+              mode={mode}
+              canWrite={canWrite}
+              onMode={(value) => void switchMode(value)}
+              onFocus={() => setFocus(!focus)}
+              onPresent={() =>
+                window.dispatchEvent(
+                  new CustomEvent("madi-document-command", {
+                    detail: { action: "present" },
+                  }),
+                )
+              }
+              onPrint={() =>
+                window.dispatchEvent(
+                  new CustomEvent("madi-document-command", {
+                    detail: { action: "print" },
+                  }),
+                )
+              }
+              onAttach={() => fileInput.current?.click()}
+              onAI={() => inspector.change("ai")}
+              onSplit={() => {
+                if (
+                  dirty ||
+                  savingRef.current ||
+                  collaboration.current?.hasUnsavedChanges ||
+                  markdown !== doc.markdown
+                ) {
+                  notify(
+                    "현재 변경을 저장한 뒤 완전한 블록을 선택하세요.",
+                    "error",
+                  );
+                  return;
+                }
+                const selected = selectedMarkdown(
+                  markdown,
+                  sourceInput.current,
+                );
+                if (!selected?.text.trim()) {
+                  notify(
+                    "분리할 완전한 문단·목록·표·코드 블록을 선택하세요. 서식 위치가 모호하면 Markdown 원문에서 선택할 수 있습니다.",
+                    "error",
+                  );
+                  return;
+                }
+                setSplitSelection({ doc: { ...doc }, selection: selected });
+              }}
+              onSelectionAI={() => {
+                if (
+                  dirty ||
+                  savingRef.current ||
+                  collaboration.current?.hasUnsavedChanges ||
+                  markdown !== doc.markdown
+                ) {
+                  notify(
+                    "현재 변경을 먼저 저장한 뒤 원문을 선택하세요.",
+                    "error",
+                  );
+                  return;
+                }
+                const selected = selectedMarkdown(
+                  markdown,
+                  sourceInput.current,
+                );
+                if (!selected || !selected.text.trim()) {
+                  notify(
+                    "문서에서 AI로 다룰 문장을 선택하세요. 서식 때문에 위치가 모호하면 Markdown 원문에서 정확한 범위를 선택할 수 있습니다.",
+                    "error",
+                  );
+                  return;
+                }
+                if (new TextEncoder().encode(selected.text).length > 32768) {
+                  notify(
+                    "선택 원문은 32KiB 이하여야 합니다. 범위를 줄여주세요.",
+                    "error",
+                  );
+                  return;
+                }
+                setSelectionAI({ doc: { ...doc }, selection: selected });
+              }}
+            />
+            {mode === "source" && (
+              <p className="muted small-text">
+                Markdown 원문 편집 모드 · 보기 도구에서 선택한 고급 편집
+                방식입니다.
+              </p>
+            )}
             <input
               ref={fileInput}
               type="file"
@@ -1548,6 +1949,9 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
                   markdown={markdown}
                   documents={documents}
                   metadata={blockMetadata.current}
+                  documentId={
+                    !dirty && markdown === doc.markdown ? doc.id : undefined
+                  }
                 />
               )}
             </div>
@@ -1574,179 +1978,295 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
               documentID={doc.id}
               revision={attachmentRevision}
             />
-            <DiscussionPanel key={doc.id} document={doc} />
           </div>
         </article>
-        <aside className="document-aside">
-          <section>
-            <h3>이 문서에서</h3>
-            {headings.length ? (
-              headings.map((h) => (
-                <button
-                  key={h.id}
-                  className={`outline-item depth-${h.level}`}
-                  onClick={() => {
-                    const root = document.querySelector(".editor-area");
-                    const found = [
-                      ...(root?.querySelectorAll("h1,h2,h3") || []),
-                    ].find((el) => el.textContent === h.text);
-                    found?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                  }}
-                >
-                  {h.text}
-                </button>
-              ))
-            ) : (
-              <p className="muted small-text">
-                제목을 추가하면 목차가 표시됩니다.
-              </p>
-            )}
-          </section>
-          <section>
-            <h3>
-              <Link2 size={16} /> 연결된 문서 <Badge>{backlinks.length}</Badge>
-            </h3>
-            {backlinks.length ? (
-              backlinks.map((d) => (
-                <Link
-                  className="backlink"
-                  key={d.id}
-                  to={`/app/documents/${d.id}`}
-                >
-                  <FileText size={16} />
-                  {d.title}
+        <DocumentInspector
+          documentID={doc.id}
+          version={doc.version}
+          {...inspector}
+          onChange={inspector.change}
+          onOpen={inspector.toggle}
+          backlinks={
+            <>
+              <section>
+                <h3>이 문서에서</h3>
+                {headings.length ? (
+                  headings.map((h) => (
+                    <button
+                      key={h.id}
+                      className={`outline-item depth-${h.level}`}
+                      onClick={() => {
+                        const root = document.querySelector(".editor-area");
+                        const found = [
+                          ...(root?.querySelectorAll("h1,h2,h3") || []),
+                        ].find((el) => el.textContent === h.text);
+                        found?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      }}
+                    >
+                      {h.text}
+                    </button>
+                  ))
+                ) : (
+                  <p className="muted small-text">
+                    제목을 추가하면 목차가 표시됩니다.
+                  </p>
+                )}
+              </section>
+              <section>
+                <h3>
+                  <Link2 size={16} /> 연결된 문서{" "}
+                  <Badge>{backlinks.length}</Badge>
+                </h3>
+                {backlinks.length ? (
+                  backlinks.map((d) => (
+                    <div className="backlink-with-preview" key={d.id}>
+                      <Link className="backlink" to={`/app/documents/${d.id}`}>
+                        <FileText size={16} />
+                        {d.title}
+                      </Link>
+                      <button
+                        className="icon-button"
+                        aria-label={`${d.title} 미리보기`}
+                        onClick={() =>
+                          setPreviewDoc({ id: d.id, version: d.version })
+                        }
+                      >
+                        <Eye size={17} />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="muted small-text">
+                    이 문서를 참조하는 백링크가 아직 없어요.
+                  </p>
+                )}
+                <Link className="text-button" to={`/app/graph?focus=${doc.id}`}>
+                  전체 그래프 보기 →
                 </Link>
-              ))
-            ) : (
-              <p className="muted small-text">
-                이 문서를 참조하는 백링크가 아직 없어요.
-              </p>
-            )}
-            <Link className="text-button" to="/app/graph">
-              전체 그래프 보기 →
-            </Link>
-          </section>
-          <section>
-            <h3>문서 도구</h3>
-            {doc.owner_id === user.id && (
-              <PublicShareManager key={doc.id} documentID={doc.id} />
-            )}
-            <button
-              className="aside-action"
-              onClick={() => setRAGIndexOpen(true)}
-            >
-              <Sparkles size={17} /> AI 검색 색인
-            </button>
-            <Link
-              className="aside-action"
-              to={`/app/documents/${id}/knowledge`}
-            >
-              <FileText size={17} /> 문서 운영 속성
-            </Link>
-            {publicInfo.runbook_enabled && (
+              </section>
+
               <Link
                 className="aside-action"
-                to={`/app/documents/${doc.id}/runbook`}
+                to={`/app/tasks?document_id=${doc.id}`}
               >
-                <Code2 size={17} /> 실행 런북
+                <CheckSquare size={17} />
+                문서의 할 일 확인
               </Link>
-            )}
-            <button
-              className="aside-action"
-              onClick={async () => {
-                const current = actionGuard();
-                try {
-                  if (dirty && !(await save(true))) return;
-                  if (current()) setHistory(true);
-                } catch (e) {
-                  if (current()) notify((e as Error).message, "error");
-                }
-              }}
-            >
-              <History size={17} /> 변경 이력
-            </button>
-            <button
-              className="aside-action"
-              onClick={() => downloadText(`${title}.md`, markdown)}
-            >
-              <ArrowDownToLine size={17} /> Markdown 다운로드
-            </button>
-            <button className="aside-action" onClick={() => window.print()}>
-              <FileText size={17} /> 인쇄 / PDF 저장
-            </button>
-            <button
-              className="aside-action"
-              disabled={!canWrite || actionBusy}
-              onClick={async () => {
-                if (actionPending.current) return;
-                const current = actionGuard();
-                actionPending.current = true;
-                setActionBusy(true);
-                try {
-                  const d = await api<Doc>("/documents", "POST", {
-                    workspace_id: doc.workspace_id,
-                    title: title + " (복사)",
-                    markdown,
-                    tags: doc.tags,
-                    visibility: doc.visibility,
-                  });
-                  if (!current()) return;
-                  await reload();
-                  if (!current()) return;
-                  navigate(`/app/documents/${d.id}`);
-                  notify("문서를 복제했습니다.");
-                } catch (e) {
-                  if (current()) notify((e as Error).message, "error");
-                } finally {
-                  if (current()) {
-                    actionPending.current = false;
-                    setActionBusy(false);
+              <Link className="aside-action" to="/app/evidence">
+                <ShieldCheck size={17} />
+                근거 보관함
+              </Link>
+            </>
+          }
+          properties={
+            <>
+              <div className="workset-actions">
+                <Button onClick={() => setPassport(true)}>문서 여권</Button>
+                <SaveToWorkset
+                  disabled={
+                    dirty ||
+                    saving ||
+                    !!collaboration.current?.hasUnsavedChanges
                   }
-                }
-              }}
-            >
-              <Copy size={17} /> 문서 복제
-            </button>
-            <button
-              className="aside-action danger-text"
-              disabled={!canWrite || actionBusy}
-              onClick={async () => {
-                if (actionPending.current) return;
-                if (!window.confirm("이 문서를 휴지통으로 이동할까요?")) return;
-                const current = actionGuard();
-                actionPending.current = true;
-                setActionBusy(true);
-                try {
-                  await api("/documents/" + id, "DELETE");
-                  if (!current()) return;
-                  await reload();
-                  if (!current()) return;
-                  navigate("/app/documents");
-                  notify("문서를 휴지통으로 이동했습니다.");
-                } catch (e) {
-                  if (current()) notify((e as Error).message, "error");
-                } finally {
-                  if (current()) {
-                    actionPending.current = false;
-                    setActionBusy(false);
-                  }
-                }
-              }}
-            >
-              <Trash2 size={17} /> 휴지통으로 이동
-            </button>
-          </section>
-          <div className="document-tip">
-            <Sparkles size={20} />
-            <strong>지식은 연결될 때 더 빛나요</strong>
-            <p>
-              <code>[[문서 제목]]</code>으로 다른 문서를 연결해 보세요.
-            </p>
-          </div>
-        </aside>
+                  item={() => ({
+                    kind: "document",
+                    resource_id: doc.id,
+                    context: captureWorksetDocumentContext(doc.version),
+                  })}
+                />
+              </div>
+              <section>
+                <h3>현재 문서 속성</h3>
+                {passport && (
+                  <Suspense fallback={<Loading />}>
+                    <DocumentPassport
+                      documentID={doc.id}
+                      onClose={() => setPassport(false)}
+                      allowCleanup={
+                        !dirty &&
+                        !saving &&
+                        !collaboration.current?.hasUnsavedChanges
+                      }
+                      onUpdated={() => void load()}
+                    />
+                  </Suspense>
+                )}
+                <dl className="inspector-properties">
+                  <dt>공개 범위</dt>
+                  <dd>
+                    {doc.visibility === "private"
+                      ? "나만 보기"
+                      : doc.visibility === "selected"
+                        ? "선택한 사용자"
+                        : "워크스페이스"}
+                  </dd>
+                  <dt>버전</dt>
+                  <dd>{doc.version}</dd>
+                  <dt>태그</dt>
+                  <dd>{doc.tags?.join(", ") || "없음"}</dd>
+                </dl>
+                <Button disabled={!canWrite} onClick={() => changeShare(true)}>
+                  <Share2 size={17} />
+                  공유·속성 변경
+                </Button>
+              </section>
+              <section>
+                <h3>문서 도구</h3>
+                <button
+                  className="aside-action"
+                  onClick={() => setDiagnosticsOpen(true)}
+                >
+                  <Network size={17} />
+                  공동 편집 진단
+                </button>
+                <Link
+                  className="aside-action"
+                  to="/app/access-requests?view=received"
+                >
+                  <KeyRound size={17} />내 문서 접근 요청
+                </Link>
+                <Link
+                  className="aside-action"
+                  to={`/app/knowledge-proposals?document_id=${doc.id}`}
+                >
+                  <Network size={17} />
+                  문서 변경 제안
+                </Link>
+                <Link
+                  className="aside-action"
+                  to={`/app/knowledge-time?document_id=${doc.id}`}
+                >
+                  <History size={17} /> 시점 기준 지식
+                </Link>
+                {doc.owner_id === user.id && (
+                  <div ref={publicShareAnchor}>
+                    <PublicShareManager key={doc.id} documentID={doc.id} />
+                  </div>
+                )}
+                <button
+                  className="aside-action"
+                  onClick={() => setRAGIndexOpen(true)}
+                >
+                  <Sparkles size={17} /> AI 검색 색인
+                </button>
+                <Link
+                  className="aside-action"
+                  to={`/app/documents/${id}/knowledge`}
+                >
+                  <FileText size={17} /> 문서 운영 속성
+                </Link>
+                {publicInfo.runbook_enabled && (
+                  <Link
+                    className="aside-action"
+                    to={`/app/documents/${doc.id}/runbook`}
+                  >
+                    <Code2 size={17} /> 실행 런북
+                  </Link>
+                )}
+                <button
+                  className="aside-action"
+                  onClick={async () => {
+                    const current = actionGuard();
+                    try {
+                      if (dirty && !(await save(true))) return;
+                      if (current()) setHistory(true);
+                    } catch (e) {
+                      if (current()) notify((e as Error).message, "error");
+                    }
+                  }}
+                >
+                  <History size={17} /> 변경 이력
+                </button>
+                <button
+                  className="aside-action"
+                  onClick={() => downloadText(`${title}.md`, markdown)}
+                >
+                  <ArrowDownToLine size={17} /> Markdown 다운로드
+                </button>
+                <button className="aside-action" onClick={() => window.print()}>
+                  <FileText size={17} /> 인쇄 / PDF 저장
+                </button>
+                <button
+                  className="aside-action"
+                  disabled={!canWrite || actionBusy || dirty || saving}
+                  onClick={async () => {
+                    if (actionPending.current) return;
+                    const current = actionGuard();
+                    actionPending.current = true;
+                    setActionBusy(true);
+                    try {
+                      const d = await api<Doc>("/documents", "POST", {
+                        workspace_id: doc.workspace_id,
+                        title: title + " (복사)",
+                        markdown,
+                        tags: doc.tags,
+                        visibility: doc.visibility,
+                      });
+                      if (!current()) return;
+                      await reload();
+                      if (!current()) return;
+                      navigate(`/app/documents/${d.id}`);
+                      notify("문서를 복제했습니다.");
+                    } catch (e) {
+                      if (current()) notify((e as Error).message, "error");
+                    } finally {
+                      if (current()) {
+                        actionPending.current = false;
+                        setActionBusy(false);
+                      }
+                    }
+                  }}
+                >
+                  <Copy size={17} /> 문서 복제
+                </button>
+                <button
+                  className="aside-action danger-text"
+                  disabled={!canWrite || actionBusy || dirty || saving}
+                  onClick={async () => {
+                    if (actionPending.current) return;
+                    if (!window.confirm("이 문서를 휴지통으로 이동할까요?"))
+                      return;
+                    const current = actionGuard();
+                    actionPending.current = true;
+                    setActionBusy(true);
+                    try {
+                      const removed = await api<{ version: number }>(
+                        "/documents/" + id,
+                        "DELETE",
+                        { expected_version: doc.version },
+                      );
+                      if (!current()) return;
+                      await reload();
+                      if (!current()) return;
+                      navigate("/app/documents");
+                      offerDocumentUndo({
+                        id: doc.id,
+                        version: removed.version,
+                        title: doc.title,
+                        actor: user.id,
+                        workspace: doc.workspace_id,
+                      });
+                    } catch (e) {
+                      if (current()) notify((e as Error).message, "error");
+                    } finally {
+                      if (current()) {
+                        actionPending.current = false;
+                        setActionBusy(false);
+                      }
+                    }
+                  }}
+                >
+                  <Trash2 size={17} /> 휴지통으로 이동
+                </button>
+              </section>
+            </>
+          }
+          comments={<DiscussionPanel key={doc.id} document={doc} />}
+          onHistory={() => setHistory(true)}
+        />
       </div>
       {history && (
         <Suspense fallback={<Loading />}>
@@ -1754,7 +2274,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
             key={doc.id}
             documentID={doc.id}
             currentVersion={doc.version}
-            canWrite={canWrite}
+            canWrite={canWrite && !dirty}
             documents={documents}
             onClose={() => setHistory(false)}
             onRestored={async () => {
@@ -1771,6 +2291,64 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
           />
         </Suspense>
       )}
+      <Modal
+        open={!!reviewServer}
+        onOpenChange={(v) => {
+          if (!v) setReviewServer(null);
+        }}
+        title="서버 내용과 내 변경 비교"
+        description="확인한 서버 버전을 기준으로만 다시 저장합니다. 그사이 다른 변경이 생기면 다시 충돌로 안내합니다."
+        wide
+      >
+        {reviewServer && (
+          <ChangeReview
+            title="문서 변경 확인"
+            description={`서버 버전 ${reviewServer.version} · 내 편집 기준 버전 ${doc.version}`}
+            changes={[
+              { label: "제목", before: reviewServer.title, after: title },
+              {
+                label: "태그",
+                before: reviewServer.tags?.join(", "),
+                after: tags,
+              },
+              {
+                label: "Markdown 원문",
+                before: reviewServer.markdown.slice(0, 100000),
+                after: markdown.slice(0, 100000),
+              },
+            ]}
+            warnings={[
+              "서버의 최신 내용 대신 내 변경을 저장합니다. 필요한 서버 변경을 먼저 내 초안에 반영하세요.",
+              ...(markdown.length > 100000 ||
+              reviewServer.markdown.length > 100000
+                ? [
+                    "미리보기는 각 원문의 앞 100,000자만 표시합니다. 저장 대상 원문은 잘리지 않습니다.",
+                  ]
+                : []),
+              ...(!reviewServer.can_write
+                ? ["현재 쓰기 권한이 없어 적용할 수 없습니다."]
+                : []),
+              ...(collaboration.current
+                ? [
+                    "공동 편집 중에는 이 화면에서 덮어쓰지 않습니다. 초안을 보관하고 서버 문서를 다시 여세요.",
+                  ]
+                : []),
+            ]}
+            disabled={!reviewServer.can_write || !!collaboration.current}
+            confirmLabel="확인한 버전을 기준으로 저장"
+            onCancel={() => setReviewServer(null)}
+            onConfirm={() => {
+              if (!reviewServer.can_write || collaboration.current) return;
+              currentDocument.current = reviewServer;
+              setDoc(reviewServer);
+              setDirty(true);
+              setError("");
+              setErrorStatus(0);
+              setReviewServer(null);
+            }}
+          />
+        )}
+      </Modal>
       <Modal
         open={share}
         onOpenChange={changeShare}
@@ -1791,7 +2369,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         <Field label="공개 범위">
           <select
             value={visibility}
-            disabled={!canWrite || shareBusy}
+            disabled={!canWrite || doc.owner_id !== user.id || shareBusy}
             onChange={(e) => setVisibility(e.target.value)}
           >
             <option value="private">개인 문서 · 나만 보기</option>
@@ -1801,7 +2379,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
         </Field>
         <Field label="상위 문서">
           <select
-            disabled={!canWrite || shareBusy}
+            disabled={!canWrite || doc.owner_id !== user.id || shareBusy}
             value={parent}
             onChange={(e) => setParent(e.target.value)}
           >
@@ -1826,7 +2404,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
             onChange={(e) => setAliases(e.target.value)}
           />
         </Field>
-        {visibility === "selected" && canWrite && (
+        {visibility === "selected" && canWrite && doc.owner_id === user.id && (
           <div className="sharing-users">
             <Field label="공유할 사용자 이메일">
               <input
@@ -1888,13 +2466,14 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
             ))}
           </div>
         )}
+        <AccessChangePreview review={shareAccessReview} busy={shareBusy} />
         <div className="modal-actions">
           <Button onClick={() => changeShare(false)}>취소</Button>
           <Button
             variant="primary"
-            disabled={!canWrite || shareBusy}
+            disabled={!canWrite || shareBusy || !shareAccessReview.ready}
             onClick={async () => {
-              if (sharePending.current) return;
+              if (sharePending.current || !shareAccessReview.ready) return;
               const current = actionGuard(),
                 revision = shareRevision.current;
               const currentModal = () =>
@@ -1915,8 +2494,13 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
                   Doc & { protection?: { changed?: boolean } }
                 >(`/documents/${id}`, "PUT", {
                   version: previous.version,
-                  visibility,
-                  parent_id: parent || null,
+                  ...(doc.owner_id === user.id
+                    ? {
+                        visibility,
+                        parent_id: parent || null,
+                        access_preview_ticket: shareAccessReview.ticket,
+                      }
+                    : {}),
                   aliases: aliases
                     .split(",")
                     .map((a) => a.trim())

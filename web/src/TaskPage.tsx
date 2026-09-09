@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
+  Eye,
   CheckCircle2,
   Columns3,
   FileText,
@@ -24,6 +32,9 @@ import {
 } from "./ui";
 import TaskCalendar, { dayKey, todayKey } from "./TaskCalendar";
 import "./tasks.css";
+import NaturalDateInput from "./personalization/NaturalDateInput";
+import SaveToWorkset from "./worksets/SaveToWorkset";
+const DocumentPreview = lazy(() => import("./review/DocumentPreview"));
 type Row = Record<string, any>;
 const statuses: Record<string, string> = {
     backlog: "나중에",
@@ -55,8 +66,11 @@ export default function TaskPage() {
     filter = query.get("filter") || "all",
     team = query.get("team") || "",
     search = query.get("q") || "",
+    sourceDocument = query.get("document_id") || "",
+    taskFilter = query.get("task") || "",
     today = todayKey(user.preferences?.timezone || "Asia/Seoul");
   const [items, setItems] = useState<Row[]>([]),
+    [preview, setPreview] = useState<Row | null>(null),
     [people, setPeople] = useState<Row[]>([]),
     [teams, setTeams] = useState<Row[]>([]),
     [teamMembers, setTeamMembers] = useState<string[]>([]),
@@ -83,27 +97,54 @@ export default function TaskPage() {
     else next.delete(key);
     setQuery(next);
   };
+  const loadScope = `${user.id}:${workspace?.id}:${sourceDocument}:${taskFilter}`;
+  const currentLoadScope = useRef(loadScope),
+    loadRequest = useRef(0);
+  currentLoadScope.current = loadScope;
   const load = useCallback(async () => {
     if (!workspace) return;
+    const request = ++loadRequest.current;
+    const fresh = () =>
+      currentLoadScope.current === loadScope && loadRequest.current === request;
     try {
+      if (
+        sourceDocument &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          sourceDocument,
+        )
+      )
+        throw Error(
+          "문서 ID를 확인하세요. 잘못된 문서 조건으로 전체 할 일을 조회하지 않습니다.",
+        );
       const [data, members, groups] = await Promise.all([
         api(
-          `/tasks/board?workspace_id=${workspace.id}${query.get("task") ? `&task=${encodeURIComponent(query.get("task")!)}` : ""}`,
+          `/tasks/board?workspace_id=${workspace.id}${sourceDocument ? `&document_id=${encodeURIComponent(sourceDocument)}` : ""}${taskFilter ? `&task=${encodeURIComponent(taskFilter)}` : ""}`,
         ),
         api<Row[]>(`/workspaces/${workspace.id}/members`),
         api<Row[]>(`/teams?workspace_id=${workspace.id}`),
       ]);
+      if (!fresh()) return;
       setItems(data.items);
       setTruncated(data.truncated);
       setPeople(members);
       setTeams(groups);
       setError(null);
     } catch (e) {
+      if (!fresh()) return;
+      setItems([]);
+      setTruncated(false);
       setError(e);
     }
-  }, [workspace?.id, query.get("task")]);
+  }, [workspace?.id, user.id, sourceDocument, taskFilter, loadScope]);
   useEffect(() => {
+    setPreview(null);
+    setItems([]);
+    setPeople([]);
+    setTeams([]);
     void load();
+    return () => {
+      loadRequest.current++;
+    };
   }, [load]);
   useEffect(() => {
     setTeamMembers([]);
@@ -112,7 +153,10 @@ export default function TaskPage() {
         .then((rows) => setTeamMembers(rows.map((m) => m.id)))
         .catch(setError);
   }, [team]);
-  const filtered = items.filter((t) => {
+  const documentItems = sourceDocument
+    ? items.filter((t) => t.document_id === sourceDocument)
+    : items;
+  const filtered = documentItems.filter((t) => {
     if (
       search &&
       !`${t.text} ${t.title} ${t.assignee_name || ""}`
@@ -211,7 +255,26 @@ export default function TaskPage() {
           <FileText size={14} />
           {t.title}
         </Link>
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => setPreview(t)}
+          aria-label={`${t.title} 문서 미리보기`}
+        >
+          <Eye size={15} />
+          미리보기
+        </button>
         <div className="task-details-line">
+          {/^[a-f0-9-]{36}$/i.test(t.task_id || "") && (
+            <SaveToWorkset
+              item={{
+                kind: "task",
+                resource_id: t.document_id,
+                context: { task_id: t.task_id, version: t.version },
+              }}
+              label="할 일 보관"
+            />
+          )}
           {t.assignee_name && (
             <span>
               {t.assignee_name}
@@ -261,6 +324,16 @@ export default function TaskPage() {
   );
   return (
     <div className="page tasks-page">
+      {preview && (
+        <Suspense fallback={null}>
+          <DocumentPreview
+            documentId={preview.document_id}
+            expectedVersion={preview.version}
+            sourceLine={preview.line}
+            onClose={() => setPreview(null)}
+          />
+        </Suspense>
+      )}
       <PageHeading
         eyebrow="ONE STEP AT A TIME"
         title="할 일과 일정"
@@ -280,26 +353,37 @@ export default function TaskPage() {
         }
       />
       <ErrorBox error={editing || newTask ? null : error} />
+      {sourceDocument && (
+        <div className="notice subtle">
+          <FileText size={19} />
+          <span>
+            선택한 문서의 할 일만 표시합니다. 현재 열람 가능한 항목에
+            한정합니다.
+          </span>
+          <Button onClick={() => set("document_id", "")}>문서 필터 해제</Button>
+        </div>
+      )}
       <div className="task-summary">
         <div>
-          <strong>{items.length}</strong>
-          <span>전체 할 일</span>
+          <strong>{documentItems.length}</strong>
+          <span>{truncated ? "조회한 할 일" : "전체 할 일"}</span>
         </div>
         <div>
-          <strong>{items.filter((t) => !t.done).length}</strong>
+          <strong>{documentItems.filter((t) => !t.done).length}</strong>
           <span>진행 중</span>
         </div>
         <div>
           <strong>
             {
-              items.filter((t) => !t.done && t.due_date && t.due_date < today)
-                .length
+              documentItems.filter(
+                (t) => !t.done && t.due_date && t.due_date < today,
+              ).length
             }
           </strong>
           <span>기한 초과</span>
         </div>
         <div>
-          <strong>{items.filter((t) => t.done).length}</strong>
+          <strong>{documentItems.filter((t) => t.done).length}</strong>
           <span>완료</span>
         </div>
       </div>
@@ -325,8 +409,9 @@ export default function TaskPage() {
       </div>
       {truncated && (
         <p className="notice">
-          최근 문서 최대 2,000개·본문 16MiB·할 일 10,000개 범위입니다. 특정
-          문서는 문서 화면에서 확인하세요.
+          현재 열람 가능한 최신 문서 최대 2,000개·본문 16MiB·할 일 10,000개
+          범위입니다. 전체 문서 총수는 계산하지 않으며, 특정 문서는 문서
+          화면에서 확인하세요.
         </p>
       )}
       {view === "calendar" ? (
@@ -491,15 +576,14 @@ export default function TaskPage() {
               </select>
             </Field>
             <div className="two-columns">
-              <Field label="할 일 마감일">
-                <input
-                  type="date"
-                  value={editing.due_date}
-                  onChange={(e) =>
-                    setEditing({ ...editing, due_date: e.target.value })
-                  }
-                />
-              </Field>
+              <NaturalDateInput
+                label="할 일 마감일"
+                value={editing.due_date}
+                disabled={busy}
+                onChange={(value) =>
+                  setEditing({ ...editing, due_date: value })
+                }
+              />
               <Field label="할 일 우선순위">
                 <select
                   value={editing.priority}

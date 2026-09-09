@@ -12,15 +12,15 @@ func (s *Server) ragJobGuard(ctx context.Context, j Job) (ragIndexGrant, *Princi
 	if ctx.Err() != nil {
 		return ragIndexGrant{}, nil, nil, ctx.Err()
 	}
-	g, e := ragGrantTx(ctx, s.DB, str(j.Payload, "document_id"), false)
-	if e != nil || !g.Active || g.ID != str(j.Payload, "grant_id") || g.Revision != int64(number(j.Payload, "grant_revision", 0)) || g.Version != number(j.Payload, "document_version", 0) || g.Provider != str(j.Payload, "provider_fingerprint") || g.JobID != j.ID || g.ActorID != j.ActorID || g.TokenID != j.TokenID {
+	g, e := ragGrantByIDTx(ctx, s.DB, str(j.Payload, "grant_id"), false)
+	if e != nil || !g.Active || g.ID != str(j.Payload, "grant_id") || g.DocumentID != str(j.Payload, "document_id") || g.Revision != int64(number(j.Payload, "grant_revision", 0)) || g.Version != number(j.Payload, "document_version", 0) || g.Provider != str(j.Payload, "provider_fingerprint") || g.JobID != j.ID || g.ActorID != j.ActorID || g.TokenID != j.TokenID {
 		return g, nil, nil, errRAGChanged
 	}
 	p, e := s.ragCurrentActor(ctx, g)
 	if e != nil {
 		return g, nil, nil, e
 	}
-	cfg, e := s.effectiveSettings(ctx, g.WorkspaceID)
+	cfg, e := s.ragGrantSettings(ctx, g)
 	if e != nil || !boolean(cfg, "rag_enabled") || g.Provider != ragProviderFingerprint(cfg) {
 		return g, nil, nil, errRAGChanged
 	}
@@ -42,11 +42,11 @@ func (s *Server) ragJobTx(ctx context.Context, tx pgx.Tx, j Job, g ragIndexGrant
 	if e = ragActorTx(ctx, tx, p, g.DocumentID, g.WorkspaceID, true); e != nil {
 		return "", e
 	}
-	current, e := ragGrantTx(ctx, tx, g.DocumentID, true)
-	if e != nil || !current.Active || current.Revision != g.Revision || current.JobID != j.ID || current.Provider != g.Provider {
+	current, e := ragGrantByIDTx(ctx, tx, g.ID, true)
+	if e != nil || !current.Active || current.Revision != g.Revision || current.JobID != j.ID || current.Provider != g.Provider || current.GenerationID != g.GenerationID {
 		return "", errRAGChanged
 	}
-	cfg, e := s.ragSettingsTx(ctx, tx, g.WorkspaceID)
+	cfg, e := s.ragGrantSettingsTx(ctx, tx, g)
 	if e != nil || !boolean(cfg, "rag_enabled") || ragProviderFingerprint(cfg) != g.Provider {
 		return "", errRAGChanged
 	}
@@ -133,13 +133,16 @@ func (s *Server) runRAGIndex(ctx context.Context, j Job) (map[string]any, error)
 			return nil, jobPermanent("공급자의 벡터 차원이 작업 도중 변경되었습니다")
 		}
 		dimensions = len(vectors[0])
+		if expected := number(cfg, "rag_generation_dimensions", 0); expected > 0 && dimensions != expected {
+			return nil, jobPermanent("세대에 고정한 벡터 차원과 공급자 응답이 다릅니다")
+		}
 		tx, e = s.DB.Begin(ctx)
 		if e != nil {
 			return fail(e)
 		}
 		if _, e = s.ragJobTx(ctx, tx, j, g, p); e == nil {
 			for i, c := range chunks[start:end] {
-				_, e = tx.Exec(ctx, `INSERT INTO rag_vector_chunks(index_id,ordinal,content_hash,start_byte,end_byte,start_line,end_line,heading,embedding) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(index_id,ordinal) DO UPDATE SET embedding=EXCLUDED.embedding WHERE rag_vector_chunks.content_hash=EXCLUDED.content_hash`, j.ID, c.Index, c.Hash, c.Start, c.End, c.StartLine, c.EndLine, c.Heading, vectors[i])
+				_, e = tx.Exec(ctx, `INSERT INTO rag_vector_chunks(index_id,ordinal,content_hash,start_byte,end_byte,start_line,end_line,heading,embedding,generation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,'')::uuid) ON CONFLICT(index_id,ordinal) DO UPDATE SET embedding=EXCLUDED.embedding WHERE rag_vector_chunks.content_hash=EXCLUDED.content_hash`, j.ID, c.Index, c.Hash, c.Start, c.End, c.StartLine, c.EndLine, c.Heading, vectors[i], g.GenerationID)
 				if e != nil {
 					break
 				}

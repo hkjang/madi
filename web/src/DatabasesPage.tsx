@@ -1,4 +1,10 @@
 import { useEffect, useState, useRef } from "react";
+import EditableGrid from "./database/EditableGrid";
+import DatabaseViews, { type ViewState } from "./database/DatabaseViews";
+import RowDetailPanel from "./database/RowDetailPanel";
+import MobileTableLayout from "./database/MobileTableLayout";
+import NaturalDateInput from "./personalization/NaturalDateInput";
+import SaveToWorkset from "./worksets/SaveToWorkset";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
@@ -7,7 +13,6 @@ import {
   Columns3,
   Database as DatabaseIcon,
   GripVertical,
-  MoreHorizontal,
   Plus,
   Search,
   Settings2,
@@ -189,6 +194,9 @@ export default function DatabasesPage() {
     [month, setMonth] = useState(
       new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     );
+  const dataScope = `${user.id}:${workspace?.id}`;
+  const [loadedScope, setLoadedScope] = useState("");
+  const [rowScope, setRowScope] = useState("");
   const [aiTarget, setAITarget] = useState<{
       property: AdvancedProperty;
       row: Row;
@@ -199,7 +207,9 @@ export default function DatabasesPage() {
   const rowGeneration = useRef(0),
     workspaceGeneration = useRef(0);
   const currentRoute = useRef(selectedId),
-    currentWorkspace = useRef(workspace?.id);
+    currentWorkspace = useRef(workspace?.id),
+    currentUser = useRef(user.id);
+  currentUser.current = user.id;
   currentRoute.current = selectedId;
   currentWorkspace.current = workspace?.id;
   const sort =
@@ -208,7 +218,57 @@ export default function DatabasesPage() {
       : "";
   const setSort = (id: string) =>
     setQueries(filters, id ? [{ property_id: id, direction: "asc" }] : []);
-  const selected = databases.find((d) => d.id === selectedId);
+  const selected =
+    loadedScope === dataScope
+      ? databases.find((d) => d.id === selectedId)
+      : undefined;
+  const visibleColumns = (() => {
+    try {
+      const value = JSON.parse(viewParams.get("columns") || "[]");
+      return Array.isArray(value)
+        ? value
+            .filter(
+              (id): id is string =>
+                typeof id === "string" &&
+                !!selected?.properties.some((p) => p.id === id),
+            )
+            .slice(0, 100)
+        : [];
+    } catch {
+      return [];
+    }
+  })();
+  const viewState: ViewState = {
+    view,
+    filters,
+    sorts,
+    columns: visibleColumns,
+    board_property_id: viewParams.get("board_property") || "",
+    date_property_id: viewParams.get("date_property") || "",
+  };
+  const applyView = (data: ViewState, savedID: string) =>
+    setViewParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("view", data.view);
+      for (const [key, value] of [
+        ["filters", data.filters],
+        ["sorts", data.sorts],
+        ["columns", data.columns],
+      ] as const) {
+        if (value?.length) next.set(key, JSON.stringify(value));
+        else next.delete(key);
+      }
+      for (const [key, value] of [
+        ["saved_view", savedID],
+        ["board_property", data.board_property_id],
+        ["date_property", data.date_property_id],
+      ]) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      next.delete("offset");
+      return next;
+    });
   const workspaceWrite =
     !!workspace &&
     ["owner", "admin", "editor"].includes(workspace.role || "") &&
@@ -216,13 +276,20 @@ export default function DatabasesPage() {
   const canWrite = selected?.can_write ?? workspaceWrite;
   const load = async () => {
     if (!workspace || currentWorkspace.current !== workspace.id) return;
-    const generation = ++workspaceGeneration.current;
+    const generation = ++workspaceGeneration.current,
+      actor = user.id;
     try {
       const result = await api<Database[]>(
         "/databases?workspace_id=" + workspace.id,
       );
-      if (generation !== workspaceGeneration.current) return;
+      if (
+        generation !== workspaceGeneration.current ||
+        currentUser.current !== actor ||
+        currentWorkspace.current !== workspace.id
+      )
+        return;
       setDatabases(result);
+      setLoadedScope(dataScope);
       setError("");
     } catch (e) {
       if (generation === workspaceGeneration.current)
@@ -233,14 +300,23 @@ export default function DatabasesPage() {
   };
   useEffect(() => {
     setLoading(true);
+    setDatabases([]);
+    setLoadedScope("");
+    setRowOpen(false);
+    setPropertiesOpen(false);
+    setNewOpen(false);
+    setBusy(false);
+    setAITarget(null);
     load();
     return () => {
       workspaceGeneration.current++;
     };
-  }, [workspace?.id]);
+  }, [workspace?.id, user.id]);
   const refreshRows = async () => {
     if (currentRoute.current !== selectedId) return;
-    const generation = ++rowGeneration.current;
+    const generation = ++rowGeneration.current,
+      actor = user.id,
+      wid = workspace?.id;
     if (!selectedId) {
       setRows([]);
       setTotal(0);
@@ -258,8 +334,14 @@ export default function DatabasesPage() {
         offset,
         limit: 1000,
       });
-      if (generation !== rowGeneration.current) return;
+      if (
+        generation !== rowGeneration.current ||
+        currentUser.current !== actor ||
+        currentWorkspace.current !== wid
+      )
+        return;
       setRows(result.rows);
+      setRowScope(`${dataScope}:${selectedId}`);
       setTotal(result.total);
       setTruncated(result.truncated);
       setError("");
@@ -275,14 +357,62 @@ export default function DatabasesPage() {
     return () => {
       rowGeneration.current++;
     };
-  }, [selectedId, filtersKey, sortsKey, offset]);
+  }, [selectedId, filtersKey, sortsKey, offset, user.id, workspace?.id]);
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    const abort = new AbortController();
+    let checking = false;
+    const check = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const result = await api<Database>(
+          `/databases/${selectedId}`,
+          "GET",
+          undefined,
+          { signal: abort.signal },
+        );
+        if (
+          active &&
+          currentUser.current === user.id &&
+          currentWorkspace.current === workspace?.id &&
+          currentRoute.current === selectedId
+        )
+          setDatabases((values) =>
+            values.map((d) =>
+              d.id === selectedId ? { ...d, can_write: result.can_write } : d,
+            ),
+          );
+      } catch (e) {
+        if (active && !abort.signal.aborted) {
+          setDatabases((values) => values.filter((d) => d.id !== selectedId));
+          setRows([]);
+          setRowOpen(false);
+          setPropertiesOpen(false);
+          setAITarget(null);
+          setError(
+            "현재 데이터베이스 권한을 확인하지 못했습니다. 다시 연결한 뒤 목록을 확인하세요.",
+          );
+        }
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = setInterval(() => void check(), 2000);
+    return () => {
+      active = false;
+      abort.abort();
+      clearInterval(timer);
+    };
+  }, [selectedId, user.id, workspace?.id]);
   useEffect(() => {
     setRowOpen(false);
     setPropertiesOpen(false);
     setAITarget(null);
     setQuery("");
   }, [selectedId]);
-  const filtered = rows
+  const filtered = (rowScope === `${dataScope}:${selectedId}` ? rows : [])
     .filter((r) =>
       Object.values({ ...r.values, ...r.computed_values })
         .join(" ")
@@ -315,19 +445,32 @@ export default function DatabasesPage() {
     );
     setRowOpen(true);
   };
-  const selectProp = selected?.properties.find((p) =>
-      ["select", "status"].includes(p.type),
+  const selectProp = selected?.properties.find(
+      (p) =>
+        ["select", "status"].includes(p.type) &&
+        (!viewState.board_property_id || p.id === viewState.board_property_id),
     ),
-    dateProp = selected?.properties.find((p) => p.type === "date");
+    dateProp = selected?.properties.find(
+      (p) =>
+        p.type === "date" &&
+        (!viewState.date_property_id || p.id === viewState.date_property_id),
+    );
   const updateRow = async (row: Row, newValues: Record<string, any>) => {
+    const actor = user.id,
+      current = () =>
+        currentRoute.current === selectedId &&
+        currentWorkspace.current === workspace?.id &&
+        currentUser.current === actor;
     try {
       await api<Row>(`/databases/${selectedId}/rows/${row.id}`, "PUT", {
         values: newValues,
+        expected_version: row.version,
       });
+      if (!current()) return;
       await refreshRows();
-      notify("항목을 업데이트했습니다.");
+      if (current()) notify("항목을 업데이트했습니다.");
     } catch (e) {
-      notify((e as Error).message, "error");
+      if (current()) notify((e as Error).message, "error");
     }
   };
   const onAction = async (p: AdvancedProperty, row: Row) => {
@@ -381,7 +524,7 @@ export default function DatabasesPage() {
         }
       />
       <ErrorBox error={error} />
-      {loading ? (
+      {loading || loadedScope !== dataScope ? (
         <Loading />
       ) : selected ? (
         <>
@@ -486,6 +629,44 @@ export default function DatabasesPage() {
               </span>
             )}
           </div>
+          <DatabaseViews
+            key={`${user.id}:${workspace?.id}:${selectedId}`}
+            databaseId={selectedId}
+            properties={selected.properties}
+            current={viewState}
+            selectedId={viewParams.get("saved_view") || ""}
+            canWrite={canWrite}
+            onApply={applyView}
+            onSelect={(id) =>
+              setViewParams((prev) => {
+                const next = new URLSearchParams(prev);
+                if (id) next.set("saved_view", id);
+                else next.delete("saved_view");
+                return next;
+              })
+            }
+            onDefault={(data, id) => {
+              if (
+                !viewParams.has("view") &&
+                !viewParams.has("filters") &&
+                !viewParams.has("sorts")
+              )
+                applyView(data, id);
+            }}
+          />
+          <SaveToWorkset
+            item={{
+              kind: "database",
+              resource_id: selectedId,
+              context: {
+                view: viewState,
+                ...(viewParams.get("saved_view")
+                  ? { view_id: viewParams.get("saved_view") }
+                  : {}),
+              },
+            }}
+            label="현재 보기를 작업 묶음에 보관"
+          />
           {rowLoading && !rows.length ? (
             <Loading />
           ) : ["list", "gallery", "timeline"].includes(view) ? (
@@ -498,76 +679,26 @@ export default function DatabasesPage() {
               onAction={canWrite ? onAction : undefined}
             />
           ) : view === "table" ? (
-            <div className="panel table-scroll">
-              <table className="data-table editable-table">
-                <thead>
-                  <tr>
-                    {selected.properties.map((p) => (
-                      <th key={p.id}>
-                        <span>
-                          {p.type === "number"
-                            ? "#"
-                            : p.type === "date"
-                              ? "◷"
-                              : p.type === "select"
-                                ? "◉"
-                                : "Aa"}
-                        </span>
-                        {p.name}
-                      </th>
-                    ))}
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} onDoubleClick={() => editRow(r)}>
-                      {selected.properties.map((p) => (
-                        <td key={p.id}>
-                          {advancedPropertyNames[p.type] ? (
-                            <AdvancedCell
-                              property={p}
-                              row={r}
-                              onAction={canWrite ? onAction : undefined}
-                            />
-                          ) : (
-                            <button
-                              className="cell-button"
-                              onClick={() => editRow(r)}
-                            >
-                              <CellValue
-                                property={p}
-                                value={effectiveValue(r, p.id)}
-                              />
-                            </button>
-                          )}
-                        </td>
-                      ))}
-                      <td>
-                        <button
-                          className="icon-button"
-                          aria-label="항목 편집"
-                          onClick={() => editRow(r)}
-                        >
-                          <MoreHorizontal size={19} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {canWrite && (
-                <button className="add-table-row" onClick={() => editRow()}>
-                  <Plus size={17} /> 새 항목 추가
-                </button>
-              )}
-              {!rows.length && (
-                <Empty
-                  title="첫 항목을 추가해 보세요"
-                  text="속성을 설정하고 팀의 정보를 한곳에 정리하세요."
-                />
-              )}
-            </div>
+            <MobileTableLayout
+              database={selected}
+              rows={filtered}
+              columns={visibleColumns}
+              onDetail={editRow}
+              onAction={onAction}
+              canWrite={canWrite}
+            >
+              <EditableGrid
+                key={`${user.id}:${workspace?.id}:${selectedId}`}
+                database={selected}
+                rows={filtered}
+                columns={visibleColumns}
+                canWrite={canWrite}
+                onDetail={editRow}
+                onCreate={() => editRow()}
+                onAction={onAction}
+                onChanged={refreshRows}
+              />
+            </MobileTableLayout>
           ) : view === "board" ? (
             selectProp ? (
               <div className="kanban-board">
@@ -870,7 +1001,7 @@ export default function DatabasesPage() {
         </form>
       </Modal>
       <Modal
-        open={propertiesOpen}
+        open={propertiesOpen && !!selected}
         onOpenChange={setPropertiesOpen}
         title="데이터베이스 속성"
         description="각 열의 이름과 유형, 선택 옵션을 설정하세요."
@@ -1034,8 +1165,8 @@ export default function DatabasesPage() {
           </Button>
         </div>
       </Modal>
-      <Modal
-        open={rowOpen}
+      <RowDetailPanel
+        open={rowOpen && !!selected}
         onOpenChange={setRowOpen}
         title={editingRow ? (canWrite ? "항목 편집" : "항목 보기") : "새 항목"}
       >
@@ -1043,20 +1174,32 @@ export default function DatabasesPage() {
           onSubmit={async (e) => {
             e.preventDefault();
             if (!canWrite) return;
+            const actor = user.id,
+              current = () =>
+                currentRoute.current === selectedId &&
+                currentWorkspace.current === workspace?.id &&
+                currentUser.current === actor;
             setBusy(true);
             try {
               await api<Row>(
                 `/databases/${selectedId}/rows${editingRow ? "/" + editingRow.id : ""}`,
                 editingRow ? "PUT" : "POST",
-                { values },
+                {
+                  values,
+                  ...(editingRow
+                    ? { expected_version: editingRow.version }
+                    : {}),
+                },
               );
+              if (!current()) return;
               await refreshRows();
+              if (!current()) return;
               setRowOpen(false);
               notify("항목을 저장했습니다.");
             } catch (e) {
-              notify((e as Error).message, "error");
+              if (current()) notify((e as Error).message, "error");
             } finally {
-              setBusy(false);
+              if (current()) setBusy(false);
             }
           }}
         >
@@ -1094,6 +1237,13 @@ export default function DatabasesPage() {
                     }
                   />
                 </div>
+              ) : p.type === "date" ? (
+                <NaturalDateInput
+                  key={p.id}
+                  label={p.name}
+                  value={values[p.id] || ""}
+                  onChange={(value) => setValues({ ...values, [p.id]: value })}
+                />
               ) : (
                 <Field label={p.name} key={p.id}>
                   {["select", "status"].includes(p.type) ? (
@@ -1184,6 +1334,7 @@ export default function DatabasesPage() {
                     await api(
                       `/databases/${selectedId}/rows/${editingRow.id}`,
                       "DELETE",
+                      { expected_version: editingRow.version },
                     );
                     await refreshRows();
                     setRowOpen(false);
@@ -1206,10 +1357,10 @@ export default function DatabasesPage() {
             )}
           </div>
         </form>
-      </Modal>
+      </RowDetailPanel>
       <DatabaseAIAction
         databaseId={selectedId}
-        target={aiTarget}
+        target={selected ? aiTarget : null}
         onClose={() => setAITarget(null)}
         onSaved={refreshRows}
       />

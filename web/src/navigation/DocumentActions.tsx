@@ -17,6 +17,12 @@ import { useApp } from "../context";
 import { Button, ErrorBox, Field, Modal } from "../ui";
 import { usePreferenceWriter } from "./preferences";
 import { copyText } from "./clipboard";
+import { ChangeReview, RecoveryNotice } from "../review/ChangeReview";
+import { offerDocumentUndo } from "../review/DocumentRecovery";
+import {
+  AccessChangePreview,
+  useAccessChangeReview,
+} from "../review/AccessChangePreview";
 export function safeIDs(value: unknown): string[] {
   return Array.isArray(value)
     ? [
@@ -59,14 +65,51 @@ export function MoveDocumentModal({
   doc: Doc | null;
   close: () => void;
 }) {
-  const { documents, reload, notify } = useApp();
+  const { documents, reload, notify, user, workspace } = useApp();
   const [parent, setParent] = useState(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState<unknown>(null);
+  const generation = useRef(0),
+    scope = useRef("");
+  scope.current = `${user.id}:${workspace?.id}:${doc?.id}`;
+  const accessReview = useAccessChangeReview(doc, { parent_id: parent }, !!doc);
   useEffect(() => {
+    generation.current++;
     setParent(doc?.parent_id || "");
-    setError("");
-  }, [doc?.id]);
+    setError(null);
+    setBusy(false);
+    return () => {
+      generation.current++;
+    };
+  }, [doc?.id, user.id, workspace?.id]);
+  const move = async () => {
+    if (!doc || busy || !accessReview.ready) return;
+    const sequence = generation.current,
+      key = scope.current;
+    const active = () =>
+      sequence === generation.current && key === scope.current;
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/documents/" + doc.id, "PUT", {
+        version: doc.version,
+        parent_id: parent || null,
+        access_preview_ticket: accessReview.ticket,
+      });
+      if (!active()) return;
+      await reload();
+      if (!active()) return;
+      notify("문서를 이동했습니다.");
+      close();
+    } catch (e) {
+      if (active()) setError(e);
+    } finally {
+      if (active()) setBusy(false);
+    }
+  };
+  const label = (id: string | null) =>
+    documents.find((d) => d.id === id)?.title ||
+    (id ? "상위 문서" : "워크스페이스 최상위");
   return (
     <Modal
       open={!!doc}
@@ -74,35 +117,34 @@ export function MoveDocumentModal({
         if (!v && !busy) close();
       }}
       title="문서 위치 변경"
-      description="문서의 상위 페이지를 선택하세요. 이동 후에는 대상 페이지의 접근 권한도 적용됩니다."
+      description="이동 후에는 대상 페이지의 접근 권한도 적용됩니다."
     >
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!doc) return;
-          setBusy(true);
-          setError("");
-          try {
-            const fresh = await api<Doc>("/documents/" + doc.id);
-            if (!fresh.can_write)
-              throw new Error("이 문서를 이동할 권한이 없습니다.");
-            await api("/documents/" + doc.id, "PUT", {
-              version: fresh.version,
-              parent_id: parent || null,
-            });
-            await reload();
-            notify("문서를 이동했습니다.");
-            close();
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
+      <ChangeReview
+        title="이동 위치 확인"
+        changes={[
+          {
+            label: doc?.title || "문서",
+            before: label(doc?.parent_id || null),
+            after: label(parent || null),
+          },
+        ]}
+        warnings={[
+          "확인한 문서 버전만 이동합니다. 그사이 문서가 변경되었다면 닫은 후 최신 문서에서 다시 이동하세요.",
+        ]}
+        busy={busy}
+        disabled={
+          !doc || parent === (doc.parent_id || "") || !accessReview.ready
+        }
+        confirmLabel="이동"
+        onConfirm={() => void move()}
+        onCancel={close}
       >
-        <ErrorBox error={error} />
         <Field label="상위 문서">
-          <select value={parent} onChange={(e) => setParent(e.target.value)}>
+          <select
+            value={parent}
+            disabled={busy}
+            onChange={(e) => setParent(e.target.value)}
+          >
             <option value="">워크스페이스 최상위</option>
             {doc &&
               moveCandidates(doc, documents).map((item) => (
@@ -112,15 +154,9 @@ export function MoveDocumentModal({
               ))}
           </select>
         </Field>
-        <div className="modal-actions">
-          <Button type="button" disabled={busy} onClick={close}>
-            취소
-          </Button>
-          <Button variant="primary" disabled={busy}>
-            이동
-          </Button>
-        </div>
-      </form>
+        <AccessChangePreview review={accessReview} busy={busy} />
+        <RecoveryNotice error={error} />
+      </ChangeReview>
     </Modal>
   );
 }
@@ -305,12 +341,23 @@ export default function DocumentActions({ doc }: { doc: DocSummary }) {
               setBusy(true);
               run(async () => {
                 try {
-                  await api("/documents/" + doc.id, "DELETE");
+                  if (!fresh) throw new Error("현재 문서를 다시 확인하세요.");
+                  const removed = await api<{ version: number }>(
+                    "/documents/" + doc.id,
+                    "DELETE",
+                    { expected_version: fresh.version },
+                  );
                   await reload();
                   setRemove(false);
                   if (location.pathname === "/app/documents/" + doc.id)
                     navigate("/app/trash");
-                  notify("문서를 휴지통으로 이동했습니다.");
+                  offerDocumentUndo({
+                    id: doc.id,
+                    version: removed.version,
+                    title: doc.title,
+                    actor: user.id,
+                    workspace: doc.workspace_id,
+                  });
                 } finally {
                   setBusy(false);
                 }

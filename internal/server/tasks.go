@@ -46,9 +46,19 @@ func (s *Server) taskRows(r *http.Request) (map[string]any, error) {
 	if did != "" && !validID(did) {
 		return nil, errors.New("문서 ID를 확인하세요")
 	}
-	docs, e := s.rows(r.Context(), `WITH sampled AS (SELECT d.id,count(*) OVER() total_visible,sum(octet_length(d.markdown)) OVER(ORDER BY d.updated_at DESC,d.id) running_bytes FROM documents d WHERE ($2='' OR d.workspace_id::text=$2) AND d.deleted_at IS NULL AND ($3='' OR d.id::text=$3) AND `+docACL+`) SELECT jsonb_build_object('id',d.id,'title',d.title,'markdown',d.markdown,'version',d.version,'owner_id',d.owner_id,'space_id',d.space_id,'total_visible',sampled.total_visible,'can_write',madi_document_allowed($1,d.id,true),'details',coalesce((SELECT jsonb_agg(to_jsonb(t)||jsonb_build_object('assignee_name',u.name,'assignee_available',NOT u.disabled AND madi_document_allowed(u.id,d.id,false))) FROM task_details t LEFT JOIN users u ON u.id=t.assignee_id WHERE t.document_id=d.id),'[]')) FROM sampled JOIN documents d ON d.id=sampled.id WHERE sampled.running_bytes<=16777216 ORDER BY d.updated_at DESC,d.id LIMIT 2000`, current(r).ID, wid, did)
+	query, args := taskDocumentQuery(current(r).ID, wid, did)
+	docs, e := s.rows(r.Context(), query, args...)
 	if e != nil {
 		return nil, e
+	}
+	total := 0
+	if len(docs) > 0 {
+		total = number(docs[0], "total_visible", 0)
+		// A zero-payload result still carries safe visible-only statistics: for
+		// example the newest source alone exceeds the 16MiB body budget.
+		if str(docs[0], "id") == "" {
+			docs = docs[:0]
+		}
 	}
 	people, e := s.rows(r.Context(), `SELECT jsonb_build_object('id',u.id,'name',u.name) FROM users u JOIN workspace_members m ON m.user_id=u.id WHERE ($1='' OR m.workspace_id::text=$1) AND NOT u.disabled AND EXISTS(SELECT 1 FROM workspace_members own WHERE own.workspace_id=m.workspace_id AND own.user_id=$2) GROUP BY u.id ORDER BY u.name LIMIT 10000`, wid, current(r).ID)
 	if e != nil {
@@ -61,11 +71,7 @@ func (s *Server) taskRows(r *http.Request) (map[string]any, error) {
 		names[str(p, "name")] = str(p, "id")
 	}
 	out := []map[string]any{}
-	total := 0
 	for _, d := range docs {
-		if total == 0 {
-			total = number(d, "total_visible", 0)
-		}
 		details := map[string]map[string]any{}
 		if raw, ok := d["details"].([]any); ok {
 			for _, v := range raw {
@@ -119,7 +125,11 @@ func (s *Server) taskRows(r *http.Request) (map[string]any, error) {
 			break
 		}
 	}
-	return map[string]any{"items": out, "documents_scanned": len(docs), "total_documents": total, "truncated": total > len(docs) || len(out) >= 10000, "limits": map[string]any{"documents": 2000, "markdown_bytes": 16 << 20, "tasks": 10000}}, nil
+	return map[string]any{"items": out, "documents_scanned": len(docs), "total_documents": total,
+		"total_documents_exact": total < 2001, "total_documents_is_lower_bound": total >= 2001,
+		"truncated": total > len(docs) || len(out) >= 10000,
+		"notice":    "현재 열람 가능한 최신 문서 최대 2,000개·본문 16MiB 범위입니다. total_documents_exact=false이면 total_documents는 전체 총수가 아니라 최소 문서 수입니다.",
+		"limits":    map[string]any{"documents": 2000, "visible_count": 2001, "markdown_bytes": 16 << 20, "tasks": 10000}}, nil
 }
 func (s *Server) taskBoard(w http.ResponseWriter, r *http.Request) {
 	if id := r.URL.Query().Get("document_id"); id != "" && !validID(id) {

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -34,8 +42,16 @@ import {
   type GraphEdge,
 } from "./graph/model";
 import "./graph/style.css";
+const DocumentPreview = lazy(() => import("./review/DocumentPreview"));
 
-const types = { reference: "참조", related: "관련", parent: "상위 문서" };
+const types = {
+  reference: "참조",
+  related: "관련",
+  parent: "상위 문서",
+  policy: "정책 의존",
+  execution: "실행 의존",
+  data: "데이터 의존",
+};
 const origins = { wiki: "위키 링크", manual: "직접 연결", tree: "문서 계층" };
 
 export default function GraphPage() {
@@ -43,6 +59,7 @@ export default function GraphPage() {
   return <WorkspaceGraph key={`${user.id}:${workspace?.id || ""}`} />;
 }
 function WorkspaceGraph() {
+  const [preview, setPreview] = useState<string | null>(null);
   const { user, workspace, notify } = useApp();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -70,9 +87,7 @@ function WorkspaceGraph() {
   const depth = /^[1-5]$/.test(params.get("depth") || "")
     ? Number(params.get("depth"))
     : 2;
-  const type = ["reference", "related", "parent"].includes(
-    params.get("type") || "",
-  )
+  const type = Object.keys(types).includes(params.get("type") || "")
     ? params.get("type")!
     : "";
   const layout = ["cose", "concentric", "breadthfirst"].includes(
@@ -503,6 +518,15 @@ function WorkspaceGraph() {
                       <ArrowUpRight size={16} />
                       문서 열기
                     </Link>
+                    <Button onClick={() => setPreview(selectedNode.id)}>
+                      문서 미리보기
+                    </Button>
+                    <Link
+                      className="button"
+                      to={`/app/knowledge-impact?document_id=${selectedNode.id}`}
+                    >
+                      변경 영향 분석
+                    </Link>
                     <Button
                       variant="secondary"
                       onClick={() => set("focus", selectedNode.id)}
@@ -530,6 +554,12 @@ function WorkspaceGraph() {
                               {origins[edge.origin] || "위키 링크"}
                             </small>
                           </button>
+                          <Button
+                            aria-label={`${nodesByID.get(otherID)?.title || "연결 문서"} 미리보기`}
+                            onClick={() => setPreview(otherID)}
+                          >
+                            미리보기
+                          </Button>
                           {edge.origin === "manual" &&
                             edge.source === source?.id &&
                             source.can_write && (
@@ -698,6 +728,14 @@ function WorkspaceGraph() {
           </div>
         </>
       )}
+      {preview && (
+        <Suspense fallback={<Loading />}>
+          <DocumentPreview
+            documentId={preview}
+            onClose={() => setPreview(null)}
+          />
+        </Suspense>
+      )}
       <Modal
         open={relation}
         onOpenChange={setRelation}
@@ -736,6 +774,15 @@ function WorkspaceGraph() {
             >
               <option value="related">관련</option>
               <option value="reference">참조</option>
+              <option value="policy">
+                정책 의존 · 이 문서가 대상 정책을 따름
+              </option>
+              <option value="execution">
+                실행 의존 · 이 문서가 대상 절차에 의존
+              </option>
+              <option value="data">
+                데이터 의존 · 이 문서가 대상 데이터를 사용
+              </option>
             </select>
           </Field>
           <div className="modal-actions">

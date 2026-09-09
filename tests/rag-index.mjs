@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
+import { documentPanel } from "./document-ui.mjs";
 const base = process.env.MADI_BASE_URL,
   documentID = process.env.MADI_RAG_DOCUMENT,
   workspaceID = process.env.MADI_RAG_WORKSPACE;
@@ -77,6 +78,7 @@ try {
     workspaceID,
   );
   await page.goto(base + `/app/documents/${documentID}?mode=preview`);
+  await documentPanel(page, "속성");
   await page.getByRole("button", { name: "AI 검색 색인", exact: true }).click();
   await consent.waitFor();
   assert.equal((await api(statusPath)).grant, null);

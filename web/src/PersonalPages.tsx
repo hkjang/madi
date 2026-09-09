@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ShortcutSettings } from "./navigation/shortcuts";
+import {
+  navigationPresets,
+  navigationPreset,
+} from "./navigation/WorkspaceNavigation";
 import { useSearchParams } from "react-router-dom";
 import {
   Check,
@@ -143,6 +147,32 @@ export function ProfilePage() {
                 <Settings size={20} /> 화면과 편집
               </h2>
               <div className="form-grid">
+                <Field label="화면 밀도">
+                  <select
+                    value={preferences.density || "comfortable"}
+                    onChange={(e) => update("density", e.target.value)}
+                  >
+                    <option value="comfortable">기본 · 편안한 간격</option>
+                    <option value="compact">
+                      촘촘하게 · 글자와 누름 영역 유지
+                    </option>
+                    <option value="relaxed">여유롭게 · 간격 넓히기</option>
+                  </select>
+                  <small>
+                    글자는 16px 이상, 주요 조작 영역은 44px 이상을 유지합니다.
+                  </small>
+                </Field>
+                <Field label="모바일 데이터베이스 기본 보기">
+                  <select
+                    value={preferences.mobile_table_view || "cards"}
+                    onChange={(e) =>
+                      update("mobile_table_view", e.target.value)
+                    }
+                  >
+                    <option value="cards">카드 · 행별로 읽기</option>
+                    <option value="table">표 · 가로 비교와 셀 편집</option>
+                  </select>
+                </Field>
                 <Field label="테마">
                   <select
                     value={preferences.theme || "light"}
@@ -277,6 +307,68 @@ export function ProfilePage() {
                     문서·이력·감사 기록의 날짜와 시각에 저장한 시간대를 함께
                     적용합니다.
                   </small>
+                </Field>
+              </div>
+            </section>
+            <section className="panel padded">
+              <h2>
+                <Settings size={20} />
+                탐색과 문서 패널
+              </h2>
+              <p className="muted">
+                메뉴 구성만 바뀝니다. 접근 권한과 관리자가 설정한 기능 정책은
+                그대로 적용됩니다.
+              </p>
+              <div className="form-grid">
+                <Field label="기본 작업 방식">
+                  <select
+                    value={navigationPreset(preferences.nav_preset)}
+                    onChange={(e) => update("nav_preset", e.target.value)}
+                  >
+                    {navigationPresets.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="고급 도구 메뉴">
+                  <select
+                    value={
+                      preferences.navigation_advanced === true ? "on" : "off"
+                    }
+                    onChange={(e) =>
+                      update("navigation_advanced", e.target.value === "on")
+                    }
+                  >
+                    <option value="off">필요할 때 전체 도구 펼치기</option>
+                    <option value="on">전체 도구 항상 표시</option>
+                  </select>
+                </Field>
+                <Field label="기본 문서 패널">
+                  <select
+                    value={preferences.document_panel || "backlinks"}
+                    onChange={(e) => update("document_panel", e.target.value)}
+                  >
+                    <option value="backlinks">연결된 문서와 목차</option>
+                    <option value="properties">문서 속성과 도구</option>
+                    <option value="comments">댓글</option>
+                    <option value="ai">AI 지식 도우미</option>
+                    <option value="versions">변경 이력</option>
+                  </select>
+                </Field>
+                <Field label="문서 패널 표시">
+                  <select
+                    value={
+                      preferences.document_panel_open !== false ? "on" : "off"
+                    }
+                    onChange={(e) =>
+                      update("document_panel_open", e.target.value === "on")
+                    }
+                  >
+                    <option value="on">펼쳐서 시작</option>
+                    <option value="off">접어서 시작</option>
+                  </select>
                 </Field>
               </div>
             </section>

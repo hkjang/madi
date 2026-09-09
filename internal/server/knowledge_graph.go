@@ -192,7 +192,7 @@ func (s *Server) mutateDocumentRelation(w http.ResponseWriter, r *http.Request) 
 	} else {
 		expected, _ = strconv.Atoi(r.URL.Query().Get("expected_version"))
 	}
-	if !validID(id) || !validID(target) || id == target || !oneOf(kind, "related", "reference") || expected < 1 {
+	if !validID(id) || !validID(target) || id == target || !oneOf(kind, "related", "reference", "policy", "execution", "data") || expected < 1 {
 		apiError(w, 400, "같은 워크스페이스의 대상 문서·관계 종류·현재 문서 버전을 확인하세요")
 		return
 	}

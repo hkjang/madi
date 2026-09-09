@@ -16,9 +16,14 @@ var searchIndexSchema string
 
 func (s *Server) migrateSearchIndex(ctx context.Context) error {
 	_, e := s.DB.Exec(ctx, searchIndexSchema)
+	if e != nil {
+		return e
+	}
+	_, e = s.DB.Exec(ctx, searchOperationsSchema)
 	return e
 }
 func (s *Server) registerSearchIndex() {
+	s.registerSearchOperations()
 	s.handle("GET /api/v1/search", s.universalSearch)
 	s.handle("GET /api/v1/search/index-status", s.searchIndexStatus)
 	s.handle("POST /api/v1/search/reindex", s.requestSearchIndex)
@@ -64,7 +69,7 @@ func (s *Server) StartSearchIndex(ctx context.Context) {
 }
 
 func (s *Server) searchIndexBackfill(ctx context.Context, cursor string) (string, bool, error) {
-	rows, e := s.DB.Query(ctx, `WITH batch AS (SELECT d.id FROM documents d WHERE ($1='' OR d.id>NULLIF($1,'')::uuid) ORDER BY d.id LIMIT 200), queued AS (INSERT INTO search_index_queue(document_id) SELECT d.id FROM batch b JOIN documents d ON d.id=b.id LEFT JOIN search_index_documents x ON x.document_id=d.id WHERE d.deleted_at IS NULL AND (x.document_id IS NULL OR x.document_version<>d.version OR NOT x.links_indexed) ON CONFLICT(document_id) DO NOTHING) SELECT id::text FROM batch ORDER BY id`, cursor)
+	rows, e := s.DB.Query(ctx, `WITH batch AS (SELECT d.id FROM documents d WHERE ($1='' OR d.id>NULLIF($1,'')::uuid) ORDER BY d.id LIMIT 200), queued AS (INSERT INTO search_index_queue(document_id) SELECT d.id FROM batch b JOIN documents d ON d.id=b.id LEFT JOIN search_index_documents x ON x.document_id=d.id WHERE d.deleted_at IS NULL AND (x.document_id IS NULL OR x.document_version<>d.version OR NOT x.links_indexed OR NOT EXISTS(SELECT 1 FROM search_folded_documents z WHERE z.document_id=d.id AND z.document_version=d.version)) ON CONFLICT(document_id) DO NOTHING) SELECT id::text FROM batch ORDER BY id`, cursor)
 	if e != nil {
 		return cursor, false, e
 	}
@@ -158,6 +163,9 @@ func (s *Server) indexSearchDocument(ctx context.Context, id string) (bool, erro
 				return false, e
 			}
 		}
+		if e = s.writeFoldedProjectionTx(ctx, tx, id, version, markdown, fragments); e != nil {
+			return false, e
+		}
 		values := make([][]any, 0, len(chunks))
 		for _, c := range chunks {
 			values = append(values, []any{id, c.Index, version, c.Hash, c.Start, c.End, c.StartLine, c.EndLine, c.Heading, c.Content})
@@ -187,7 +195,7 @@ func (s *Server) searchIndexStatus(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 403, "워크스페이스 접근 권한이 없습니다")
 		return
 	}
-	v, e := s.one(r.Context(), `SELECT jsonb_build_object('documents',count(*),'indexed',count(*) FILTER(WHERE x.document_version=d.version),'pending',count(*) FILTER(WHERE x.document_version IS DISTINCT FROM d.version),'chunks',coalesce(sum(x.chunk_count) FILTER(WHERE x.document_version=d.version),0),'scope','현재 열람 권한의 로컬 PostgreSQL 색인; 외부 임베딩 전송 없음') FROM documents d LEFT JOIN search_index_documents x ON x.document_id=d.id WHERE d.workspace_id=$2 AND d.deleted_at IS NULL AND madi_document_allowed($1,d.id,false)`, current(r).ID, wid)
+	v, e := s.one(r.Context(), `SELECT jsonb_build_object('documents',count(*),'indexed',count(*) FILTER(WHERE x.document_version=d.version),'pending',count(*) FILTER(WHERE x.document_version IS DISTINCT FROM d.version),'normalized',count(*) FILTER(WHERE z.document_version=d.version),'normalized_pending',count(*) FILTER(WHERE z.document_version IS DISTINCT FROM d.version),'chunks',coalesce(sum(x.chunk_count) FILTER(WHERE x.document_version=d.version),0),'scope','현재 열람 권한의 로컬 PostgreSQL 색인; 외부 임베딩 전송 없음') FROM documents d LEFT JOIN search_index_documents x ON x.document_id=d.id LEFT JOIN search_folded_documents z ON z.document_id=d.id WHERE d.workspace_id=$2 AND d.deleted_at IS NULL AND madi_document_allowed($1,d.id,false)`, current(r).ID, wid)
 	respond(w, v, e)
 }
 func (s *Server) requestSearchIndex(w http.ResponseWriter, r *http.Request) {

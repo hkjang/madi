@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { api } from "./api";
@@ -39,6 +39,7 @@ export default function TaskCalendar({
   const { workspace, user, documents, notify } = useApp(),
     [query, setQuery] = useSearchParams();
   const today = todayKey(user.preferences?.timezone || "Asia/Seoul"),
+    sourceDocument = query.get("document_id") || "",
     month = /^\d{4}-(0[1-9]|1[0-2])$/.test(query.get("month") || "")
       ? query.get("month")!
       : today.slice(0, 7),
@@ -54,21 +55,45 @@ export default function TaskCalendar({
     !!workspace &&
     ["owner", "admin", "editor"].includes(workspace.role) &&
     user.role !== "viewer";
+  const loadScope = `${user.id}:${workspace?.id}:${month}:${sourceDocument}`,
+    currentScope = useRef(loadScope),
+    loadRequest = useRef(0);
+  currentScope.current = loadScope;
   const load = useCallback(async () => {
     if (!workspace) return;
+    const request = ++loadRequest.current;
+    const fresh = () =>
+      currentScope.current === loadScope && loadRequest.current === request;
     try {
+      if (
+        sourceDocument &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          sourceDocument,
+        )
+      )
+        throw Error(
+          "문서 ID를 확인하세요. 전체 달력으로 대신 조회하지 않습니다.",
+        );
       const data = await api(
-        `/tasks/calendar?workspace_id=${workspace.id}&month=${month}`,
+        `/tasks/calendar?workspace_id=${workspace.id}&month=${month}${sourceDocument ? `&document_id=${encodeURIComponent(sourceDocument)}` : ""}`,
       );
+      if (!fresh()) return;
       setEvents(data.events);
       setTruncated(data.truncated);
       setError(null);
     } catch (e) {
+      if (!fresh()) return;
+      setEvents([]);
+      setTruncated(false);
       setError(e);
     }
-  }, [workspace?.id, month]);
+  }, [workspace?.id, user.id, month, sourceDocument, loadScope]);
   useEffect(() => {
+    setEvents([]);
     void load();
+    return () => {
+      loadRequest.current++;
+    };
   }, [load, revision]);
   const changeMonth = (delta: number) => {
     const d = new Date(first.getFullYear(), first.getMonth() + delta, 1, 12);
@@ -113,6 +138,12 @@ export default function TaskCalendar({
         )}
       </div>
       <ErrorBox error={editing ? null : error} />
+      {sourceDocument && (
+        <p className="notice">
+          선택한 문서의 날짜·할 일과 실제로 연결한 일정만 표시합니다. 연결하지
+          않은 독립 일정과 데이터베이스 행은 포함하지 않습니다.
+        </p>
+      )}
       {truncated && (
         <p className="notice">
           표시 한도에 도달했습니다. 날짜와 원본 문서를 좁혀 확인하세요.

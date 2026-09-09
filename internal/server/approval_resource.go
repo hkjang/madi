@@ -32,7 +32,7 @@ type ApprovalRequest = approvalRequest
 
 // RegisterApprovalAdapter is startup-only. The server must not be serving yet.
 func (s *Server) RegisterApprovalAdapter(kind string, adapter ApprovalAdapter) {
-	if !oneOf(kind, "document", "runbook", "sql_query_plan") || adapter.Lock == nil || adapter.CanReview == nil {
+	if !oneOf(kind, "document", "runbook", "sql_query_plan", "impact_exception", "knowledge_distribution", "learning_step") || adapter.Lock == nil || adapter.CanReview == nil {
 		panic("invalid approval adapter")
 	}
 	if s.approvalAdapters == nil {

@@ -31,10 +31,14 @@ func signedOIDCTestToken(t *testing.T, key *rsa.PrivateKey, claims map[string]an
 }
 
 func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
-	_, server := integrationTestServer(t)
+	s, server := integrationTestServer(t)
 	admin := newIntegrationTestClient(t, server.URL)
 	admin.request("POST", "/api/v1/auth/login", map[string]any{"email": "admin@example.test", "password": "Integration-Test-Password-2026!"}, 200)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +46,8 @@ func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
 	var mu sync.Mutex
 	var nonce, challenge string
 	verified := true
-	badNonce := false
+	omitVerified := false
+	badNonce, badAudience, badSignature := false, false, false
 	email := "sso@example.test"
 	subject := "sso-subject-1"
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +77,18 @@ func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
 			if badNonce {
 				tokenNonce = "wrong-nonce"
 			}
-			idToken := signedOIDCTestToken(t, key, map[string]any{"iss": issuer, "sub": subject, "aud": "madi-client", "exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Unix(), "nonce": tokenNonce, "email": email, "email_verified": verified, "name": "SSO 사용자"})
+			claims := map[string]any{"iss": issuer, "sub": subject, "aud": "madi-client", "exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Unix(), "nonce": tokenNonce, "email": email, "name": "SSO 사용자"}
+			if !omitVerified {
+				claims["email_verified"] = verified
+			}
+			if badAudience {
+				claims["aud"] = "another-client"
+			}
+			signingKey := key
+			if badSignature {
+				signingKey = wrongKey // Same kid, but not the key advertised by JWKS.
+			}
+			idToken := signedOIDCTestToken(t, signingKey, claims)
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "provider-access-token", "token_type": "Bearer", "expires_in": 60, "id_token": idToken})
 		default:
 			http.NotFound(w, r)
@@ -81,6 +97,17 @@ func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
 	defer provider.Close()
 	issuer = provider.URL
 	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"site_url": server.URL, "oidc_enabled": true, "oidc_issuer": issuer, "oidc_client_id": "madi-client", "oidc_client_secret": "madi-client-secret", "oidc_auto_register": true}, 200)
+	cfg := testJSONObject(t, admin.request("GET", "/api/v1/admin/settings", nil, 200))
+	if value, ok := cfg["oidc_require_verified_email"].(bool); !ok || value {
+		t.Fatalf("email verification must default to boolean false: %v", cfg["oidc_require_verified_email"])
+	}
+	for _, invalid := range []string{"true", "false"} {
+		admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_require_verified_email": invalid}, 400)
+	}
+	cfg = testJSONObject(t, admin.request("GET", "/api/v1/admin/settings", nil, 200))
+	if boolean(cfg, "oidc_require_verified_email") {
+		t.Fatal("rejected string setting changed the current policy")
+	}
 	browser := newIntegrationTestClient(t, server.URL)
 	browser.client.CheckRedirect = func(r *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }
 	start := func() string {
@@ -117,22 +144,110 @@ func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
 		t.Fatalf("unexpected SSO user: %v", me)
 	}
 	browser.request("GET", callback, nil, 400) // Consumed state cannot be replayed.
+	setIdentity := func(address, sub string, verifiedEmail, missingClaim bool) {
+		mu.Lock()
+		email, subject, verified, omitVerified = address, sub, verifiedEmail, missingClaim
+		mu.Unlock()
+	}
+	logout := func() {
+		browser.request("POST", "/api/v1/auth/logout", nil, 200)
+		browser.request("GET", "/api/v1/auth/me", nil, 401)
+	}
+	login := func() map[string]any {
+		browser.request("GET", start(), nil, 302)
+		return testJSONObject(t, browser.request("GET", "/api/v1/auth/me", nil, 200))
+	}
+	reject := func(status int) {
+		browser.request("GET", start(), nil, status)
+		browser.request("GET", "/api/v1/auth/me", nil, 401)
+	}
+	logout()
+	// New subjects work with false or absent email_verified under the default
+	// policy. Subsequent logins resolve exactly the same provider/issuer/subject.
+	for _, missing := range []bool{false, true} {
+		address, sub := "unverified@example.test", "unverified-subject"
+		if missing {
+			address, sub = "missing-claim@example.test", "missing-claim-subject"
+		}
+		setIdentity(address, sub, false, missing)
+		first := login()
+		if str(first, "email") != address || str(first, "role") != "editor" {
+			t.Fatalf("unexpected newly provisioned identity: %v", first)
+		}
+		logout()
+		second := login()
+		if str(second, "id") != str(first, "id") {
+			t.Fatalf("same subject provisioned another user: first=%v second=%v", first, second)
+		}
+		logout()
+		var accounts, links, verifiedAudits int
+		if err = s.DB.QueryRow(t.Context(), `SELECT (SELECT count(*) FROM users WHERE email=$1),(SELECT count(*) FROM identity_links WHERE provider='oidc' AND issuer=$2 AND subject=$3),(SELECT count(*) FROM audit_logs WHERE action='LOGIN' AND resource=$4 AND details->>'provider'='oidc' AND details->>'email_verified'='false')`, address, issuer, sub, str(first, "id")).Scan(&accounts, &links, &verifiedAudits); err != nil || accounts != 1 || links != 1 || verifiedAudits != 2 {
+			t.Fatalf("identity duplication or forged verified claim: accounts=%d links=%d actual-false-audits=%d err=%v", accounts, links, verifiedAudits, err)
+		}
+	}
+	// Strict mode is an actual administrator policy: false and absent claims
+	// fail even for an already bound subject, while the signed true claim works.
+	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_require_verified_email": true}, 200)
+	for _, missing := range []bool{false, true} {
+		setIdentity("sso@example.test", "sso-subject-1", false, missing)
+		reject(403)
+	}
+	setIdentity("sso@example.test", "sso-subject-1", true, false)
+	strictUser := login()
+	if str(strictUser, "id") != str(me, "id") {
+		t.Fatal("strict mode changed the existing identity", strictUser)
+	}
+	logout()
+	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_require_verified_email": false}, 200)
+	// Relaxing the email policy must not relax any cryptographic token check.
+	setIdentity("sso@example.test", "sso-subject-1", false, false)
+	for _, fault := range []string{"nonce", "audience", "signature"} {
+		mu.Lock()
+		badNonce, badAudience, badSignature = fault == "nonce", fault == "audience", fault == "signature"
+		mu.Unlock()
+		reject(401)
+	}
 	mu.Lock()
-	badNonce = true
+	badNonce, badAudience, badSignature = false, false, false
 	mu.Unlock()
-	browser.request("GET", start(), nil, 401)
-	mu.Lock()
-	badNonce = false
-	verified = false
-	email = "admin@example.test"
-	subject = "attacker-subject"
-	mu.Unlock()
-	browser.request("GET", start(), nil, 403) // Unverified email cannot bind to an existing local administrator.
+	// Signature/nonce errors consume their state but do not poison a new login.
+	if good := login(); str(good, "id") != str(me, "id") {
+		t.Fatal("valid retry did not resolve the original subject", good)
+	}
+	logout()
+	local := testJSONObject(t, admin.request("POST", "/api/v1/admin/users", map[string]any{"email": "local-user@example.test", "name": "로컬 사용자", "role": "editor", "password": "Local-user-Password-2026!"}, 200))
+	// Actual false claims must reach identityUser unchanged. Neither role may
+	// auto-link, including when verified-email auto-linking is explicitly enabled.
+	for _, policy := range []string{"manual", "verified_email_non_admin"} {
+		admin.request("PUT", "/api/v1/admin/settings", map[string]any{"identity_link_policy": policy}, 200)
+		for _, address := range []string{"local-user@example.test", "admin@example.test"} {
+			for _, missing := range []bool{false, true} {
+				setIdentity(address, "untrusted-"+address, false, missing)
+				reject(403)
+			}
+		}
+	}
+	var bound int
+	if err = s.DB.QueryRow(t.Context(), `SELECT count(*) FROM identity_links i JOIN users u ON u.id=i.user_id WHERE i.provider='oidc' AND i.issuer=$1 AND u.email IN ('local-user@example.test','admin@example.test')`, issuer).Scan(&bound); err != nil || bound != 0 {
+		t.Fatalf("unverified email took over a local account: %d %v", bound, err)
+	}
+	// Even a verified email may not automatically link a local administrator.
+	setIdentity("admin@example.test", "verified-admin-attacker", true, false)
+	reject(403)
+	// A deliberate administrator-created subject binding remains authoritative;
+	// this is not an email match and therefore works without a verified claim.
+	admin.request("POST", "/api/v1/admin/identity/links", map[string]any{"user_id": local["id"], "provider": "oidc", "issuer": issuer, "subject": "explicit-local-subject"}, 201)
+	setIdentity("local-user@example.test", "explicit-local-subject", false, true)
+	if linked := login(); str(linked, "id") != str(local, "id") || str(linked, "role") != "editor" {
+		t.Fatal("explicit trusted subject binding was not preserved", linked)
+	}
+	logout()
 	mu.Lock()
 	verified = true
+	omitVerified = false
 	email = "unregistered@example.test"
 	subject = "unregistered-subject"
 	mu.Unlock()
 	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_auto_register": false}, 200)
-	browser.request("GET", start(), nil, 403)
+	reject(403)
 }

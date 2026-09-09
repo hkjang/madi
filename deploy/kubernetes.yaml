@@ -1,5 +1,5 @@
 # 먼저 deploy/README.md에 따라 madi-secrets Secret을 생성하고
-# madi:v0.1.0 이미지를 모든 스케줄 대상 노드에 반입하세요.
+# madi:v0.2.0 이미지를 모든 스케줄 대상 노드에 반입하세요.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -36,7 +36,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: madi
-          image: madi:v0.1.0
+          image: madi:v0.2.0
           imagePullPolicy: Never
           ports:
             - containerPort: 8080

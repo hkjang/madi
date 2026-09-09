@@ -1,5 +1,6 @@
+import {documentTool,documentPanel} from "./document-ui.mjs";
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { chromium, expect } from "playwright/test";
 
 const base = process.env.MADI_BASE_URL || "http://127.0.0.1:8080";
 const browser = await chromium.launch(),
@@ -147,6 +148,7 @@ try {
 
   await navigate(a);
   const duplicate = await holdResponse("/documents", "POST");
+  await documentPanel(page,"속성");
   await page.getByRole("button", { name: "문서 복제", exact: true }).click();
   await duplicate.started;
   await navigate(b);
@@ -186,7 +188,22 @@ try {
       .getByLabel("워크스페이스 선택", { exact: true })
       .selectOption(id);
     await page.waitForURL(base + "/app");
-    await page
+    // Browser history changes before React commits the route. Reading the old
+    // settings route's open <details> here can skip the required summary click,
+    // just before the home commit closes it. Wait for the visible router state.
+    await expect(
+      page.getByLabel("워크스페이스 선택", { exact: true }),
+    ).toHaveValue(id);
+    await expect(
+      page
+        .getByRole("navigation", { name: "주요 메뉴", exact: true })
+        .getByRole("link", { name: "홈", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    const management = page.locator("details.workspace-management");
+    await management.locator("summary").waitFor();
+    if ((await management.getAttribute("open")) === null)
+      await management.locator("summary").click();
+    await management
       .getByRole("link", { name: "워크스페이스 설정", exact: true })
       .click();
     await settingField().waitFor();

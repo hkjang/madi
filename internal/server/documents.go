@@ -213,6 +213,14 @@ func (s *Server) createDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	if e = s.validateAISelectionCreateTx(r, tx, wid, md); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
+	if e = s.validateQuestionDraftTx(r, tx, wid, md); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
 	if capture, ok := r.Context().Value(captureContextKey{}).(captureInput); ok && capture.RequestID != "" {
 		if _, e = tx.Exec(r.Context(), "SELECT pg_advisory_xact_lock(hashtextextended($1,81))", current(r).ID+"/"+capture.RequestID); e != nil {
 			respond(w, nil, e)
@@ -293,6 +301,9 @@ func (s *Server) createDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	if e == nil {
 		e = s.recordAutomationEffect(r.Context(), tx, map[string]any{"id": id, "version": 1})
+	}
+	if e == nil {
+		e = s.finishQuestionDraftTx(r, tx, wid, id)
 	}
 	if e == nil {
 		e = tx.Commit(r.Context())
@@ -459,6 +470,14 @@ func (s *Server) saveDocument(w http.ResponseWriter, r *http.Request, id string,
 		return
 	}
 	defer tx.Rollback(r.Context())
+	if e = s.prepareDocumentSplitTx(r, tx, str(old, "workspace_id")); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
+	if e = s.prepareProposalConflictMergeTx(r, tx); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
 	if parent != str(old, "parent_id") {
 		if e = s.treePlacementTx(r, tx, "documents", str(old, "workspace_id"), id, parent); e != nil {
 			apiError(w, 409, e.Error())
@@ -481,6 +500,18 @@ func (s *Server) saveDocument(w http.ResponseWriter, r *http.Request, id string,
 		apiError(w, 409, "다른 사용자가 문서를 수정했습니다. 변경 내용을 보관하고 문서를 다시 불러오세요")
 		return
 	}
+	if e = s.validateDocumentAccessChangeTx(r, tx, id, old, in, parent, space, visibility); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
+	if e = s.validateProposalMergeTx(r, tx, id, expected, str(old, "markdown"), md); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
+	if e = s.validateDocumentSplitTx(r, tx, id, old, expected, md); e != nil {
+		apiError(w, 409, e.Error())
+		return
+	}
 	protected, e := s.protectCanonicalDocumentTx(r.Context(), tx, current(r), id, str(old, "workspace_id"), title, md, tags, aliases, metadata)
 	if e != nil {
 		if !WriteProtectionError(w, e) {
@@ -499,7 +530,7 @@ func (s *Server) saveDocument(w http.ResponseWriter, r *http.Request, id string,
 		approvalRespondError(w, e)
 		return
 	}
-	tag, e := tx.Exec(r.Context(), "UPDATE documents SET title=$1,markdown=$2,tags=$3,aliases=$4,visibility=$5,icon=$6,status=$7,parent_id=NULLIF($8,'')::uuid,version=version+1,updated_at=now(),block_metadata=$11,space_id=NULLIF($12,'')::uuid WHERE id=$9 AND version=$10 AND deleted_at IS NULL AND madi_document_allowed($13,id,true)", title, md, jsonValue(tags), jsonValue(aliases), visibility, icon, status, parent, id, expected, jsonValue(metadata), space, current(r).ID)
+	tag, e := tx.Exec(r.Context(), "UPDATE documents SET title=$1,markdown=$2,tags=$3,aliases=$4,visibility=$5,icon=$6,status=$7,parent_id=NULLIF($8,'')::uuid,version=version+1,updated_at=now(),block_metadata=$11,space_id=NULLIF($12,'')::uuid WHERE id=$9 AND version=$10 AND deleted_at IS NULL AND madi_document_allowed($13,id,true) AND (NULLIF($8,'') IS NULL OR EXISTS(SELECT 1 FROM documents target WHERE target.id=NULLIF($8,'')::uuid AND target.workspace_id=documents.workspace_id AND target.deleted_at IS NULL AND madi_document_allowed($13,target.id,true))) AND madi_space_allowed($13,NULLIF($12,'')::uuid,true)", title, md, jsonValue(tags), jsonValue(aliases), visibility, icon, status, parent, id, expected, jsonValue(metadata), space, current(r).ID)
 	if e != nil {
 		respond(w, nil, e)
 		return
@@ -530,13 +561,26 @@ func (s *Server) saveDocument(w http.ResponseWriter, r *http.Request, id string,
 		e = s.recordAutomationEffect(r.Context(), tx, map[string]any{"id": id, "version": expected + 1})
 	}
 	if e == nil {
+		e = s.finishProposalMergeTx(r, tx, id, md, expected+1)
+	}
+	if e == nil {
+		e = s.finishDocumentSplitTx(r, tx, id, old, md, expected+1)
+	}
+	if e == nil {
 		e = tx.Commit(r.Context())
 	}
 	if e != nil {
+		if WriteProtectionError(w, e) {
+			return
+		}
 		respond(w, nil, e)
 		return
 	}
-	s.audit(r, "DOCUMENT_UPDATE", id, map[string]any{"version": expected + 1})
+	auditChange := map[string]any{"version": expected + 1}
+	if intent, ok := r.Context().Value(documentProposalMergeKey{}).(documentProposalMerge); ok {
+		auditChange["proposal_id"] = intent.ID
+	}
+	s.audit(r, "DOCUMENT_UPDATE", id, auditChange)
 	v, e := s.document(r, id)
 	if e == nil {
 		v["protection"] = protected.response()
@@ -549,16 +593,30 @@ func (s *Server) deleteDocument(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 403, "문서 삭제 권한이 없습니다")
 		return
 	}
+	expected, e := documentTrashExpectedVersion(r)
+	if e != nil {
+		apiError(w, 400, e.Error())
+		return
+	}
 	tx, e := s.DB.Begin(r.Context())
 	if e != nil {
 		respond(w, nil, e)
 		return
 	}
 	defer tx.Rollback(r.Context())
-	var locked string
-	e = tx.QueryRow(r.Context(), "SELECT id::text FROM documents WHERE id=$1 AND madi_document_allowed($2,id,true) FOR UPDATE", id, current(r).ID).Scan(&locked)
+	var version int
+	var deleted bool
+	e = tx.QueryRow(r.Context(), "SELECT version,deleted_at IS NOT NULL FROM documents WHERE id=$1 AND madi_document_allowed($2,id,true) FOR UPDATE", id, current(r).ID).Scan(&version, &deleted)
 	if e != nil {
 		respond(w, nil, e)
+		return
+	}
+	if expected != nil && version != *expected {
+		apiError(w, 409, "문서 버전이 변경되었습니다. 현재 문서를 확인하고 다시 삭제하세요")
+		return
+	}
+	if deleted {
+		jsonResponse(w, 200, map[string]any{"ok": true, "id": id, "version": version, "changed": false})
 		return
 	}
 	var held bool
@@ -572,14 +630,13 @@ func (s *Server) deleteDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var raw []byte
-	e = tx.QueryRow(r.Context(), "UPDATE documents SET deleted_at=now(),updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING to_jsonb(documents)", id).Scan(&raw)
-	if e == pgx.ErrNoRows {
-		jsonResponse(w, 200, map[string]bool{"ok": true})
-		return
-	}
+	e = tx.QueryRow(r.Context(), "UPDATE documents SET deleted_at=now(),updated_at=now(),version=version+1 WHERE id=$1 AND deleted_at IS NULL RETURNING to_jsonb(documents)", id).Scan(&raw)
 	var d map[string]any
 	if e == nil {
 		e = json.Unmarshal(raw, &d)
+	}
+	if e == nil {
+		_, e = tx.Exec(r.Context(), "INSERT INTO document_versions(document_id,version,title,markdown,tags,user_id,block_metadata) SELECT id,version,title,markdown,tags,$2,block_metadata FROM documents WHERE id=$1", id, current(r).ID)
 	}
 	if e == nil {
 		e = s.enqueueEvent(r.Context(), tx, Event{Type: "document.deleted", WorkspaceID: str(d, "workspace_id"), ResourceID: id, Before: d})
@@ -591,8 +648,8 @@ func (s *Server) deleteDocument(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, e)
 		return
 	}
-	s.audit(r, "DOCUMENT_DELETE", id, nil)
-	respond(w, map[string]bool{"ok": true}, e)
+	s.audit(r, "DOCUMENT_DELETE", id, map[string]any{"version": version + 1, "cas": expected != nil})
+	respond(w, map[string]any{"ok": true, "id": id, "version": version + 1, "changed": true}, e)
 }
 func (s *Server) restoreDocument(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -600,13 +657,69 @@ func (s *Server) restoreDocument(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 403, "문서 복원 권한이 없습니다")
 		return
 	}
-	_, e := s.DB.Exec(r.Context(), "UPDATE documents SET deleted_at=NULL,updated_at=now() WHERE id=$1", id)
+	expected, e := documentTrashExpectedVersion(r)
+	if e != nil {
+		apiError(w, 400, e.Error())
+		return
+	}
+	tx, e := s.DB.Begin(r.Context())
 	if e != nil {
 		respond(w, nil, e)
 		return
 	}
-	s.audit(r, "DOCUMENT_RESTORE", id, nil)
+	defer tx.Rollback(r.Context())
+	var old map[string]any
+	e = tx.QueryRow(r.Context(), `SELECT to_jsonb(d) FROM documents d WHERE id=$1 AND madi_document_allowed($2,id,true) FOR UPDATE`, id, current(r).ID).Scan(&old)
+	if e != nil {
+		respond(w, nil, e)
+		return
+	}
+	if expected != nil && number(old, "version", 0) != *expected {
+		apiError(w, 409, "휴지통의 문서 버전이 변경되었습니다. 현재 상태를 확인한 뒤 복원하세요")
+		return
+	}
+	if old["deleted_at"] == nil {
+		_ = tx.Rollback(r.Context())
+		v, err := s.document(r, id)
+		respond(w, v, err)
+		return
+	}
+	_, e = tx.Exec(r.Context(), "UPDATE documents SET deleted_at=NULL WHERE id=$1", id)
+	if e != nil {
+		respond(w, nil, e)
+		return
+	}
+	protected, e := s.protectCanonicalDocumentTx(r.Context(), tx, current(r), id, str(old, "workspace_id"), str(old, "title"), str(old, "markdown"), listStrings(old["tags"]), listStrings(old["aliases"]), old["block_metadata"])
+	if e != nil {
+		if !WriteProtectionError(w, e) {
+			respond(w, nil, e)
+		}
+		return
+	}
+	status, e := approvalSaveStatusTx(r.Context(), tx, id, old, map[string]any{"title": protected.Title, "markdown": protected.Markdown, "tags": protected.Tags, "aliases": protected.Aliases, "block_metadata": protected.Metadata}, str(old, "status"))
+	if e != nil {
+		approvalRespondError(w, e)
+		return
+	}
+	_, e = tx.Exec(r.Context(), "UPDATE documents SET title=$2,markdown=$3,tags=$4,aliases=$5,block_metadata=$6,status=$7,version=version+1,updated_at=now() WHERE id=$1", id, protected.Title, protected.Markdown, jsonValue(protected.Tags), jsonValue(protected.Aliases), jsonValue(protected.Metadata), status)
+	if e == nil {
+		_, e = tx.Exec(r.Context(), "INSERT INTO document_versions(document_id,version,title,markdown,tags,user_id,block_metadata) SELECT id,version,title,markdown,tags,$2,block_metadata FROM documents WHERE id=$1", id, current(r).ID)
+	}
+	if e == nil {
+		e = s.enqueueEvent(r.Context(), tx, Event{Type: "document.updated", WorkspaceID: str(old, "workspace_id"), ResourceID: id, ResourceType: "document", Before: old, After: map[string]any{"id": id, "version": number(old, "version", 0) + 1, "restored": true}})
+	}
+	if e == nil {
+		e = tx.Commit(r.Context())
+	}
+	if e != nil {
+		respond(w, nil, e)
+		return
+	}
+	s.audit(r, "DOCUMENT_RESTORE", id, map[string]any{"version": number(old, "version", 0) + 1, "cas": expected != nil})
 	v, e := s.document(r, id)
+	if e == nil {
+		v["protection"] = protected.response()
+	}
 	respond(w, v, e)
 }
 func (s *Server) favoriteDocument(w http.ResponseWriter, r *http.Request) {

@@ -23,7 +23,7 @@ try{
  const document=await api('/documents','POST',{workspace_id:workspace.id,title:'외부 검토를 위한 정책 안내 '+stamp,visibility:'private',markdown:'# 외부 검토 안내\n\n이 문서는 소유자가 명시적으로 공유한 자료입니다.\n\n보호검증_'+stamp+'\n\n- [x] 만료·암호·IP 정책 확인\n- [ ] 검토 후 공유 폐기'});
  await api(`/documents/${document.id}/knowledge`,'PUT',{version:document.version,classification:'restricted'});
  await page.goto(base+'/app/documents/'+document.id);await page.getByText('상속 적용 등급: 제한',{exact:true}).waitFor();await shot('document-watermark');
- await page.getByRole('button',{name:'공개 링크',exact:true}).click();await page.getByRole('button',{name:'공개 링크 만들기',exact:true}).click();
+ await page.getByRole('tab',{name:'속성',exact:true}).click();await page.getByRole('button',{name:'공개 링크',exact:true}).click();await page.getByRole('button',{name:'공개 링크 만들기',exact:true}).click();
  await page.getByLabel('공유 암호',{exact:true}).fill('Browser-Public-Share-Password!');await page.getByLabel('화면 텍스트 복사 허용',{exact:true}).uncheck();await page.getByLabel('링크를 가진 방문자에게 이 문서를 공개함을 확인했습니다',{exact:true}).check();
  await shot('public-share-create');await page.getByRole('button',{name:'공유 설정 저장',exact:true}).click();await page.getByRole('textbox',{name:'새 공개 링크',exact:true}).waitFor();const url=await page.getByRole('textbox',{name:'새 공개 링크',exact:true}).inputValue();assert.ok(url.includes('#'));
  await page.keyboard.press('Escape');

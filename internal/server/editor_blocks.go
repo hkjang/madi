@@ -23,13 +23,37 @@ func (s *Server) getEditorBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := current(r)
+	tx, err := s.DB.Begin(r.Context())
+	if err != nil {
+		respond(w, nil, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if _, err = tx.Exec(r.Context(), `SET LOCAL lock_timeout='3s'; SET LOCAL statement_timeout='8s'`); err != nil {
+		respond(w, nil, err)
+		return
+	}
+	// A checkpoint is no longer the complete CRDT head. Fence its canonical
+	// document first, then read a fresh checkpoint+tail under the same lock used
+	// by collaboration writers and generation changes.
+	var workspace string
+	err = tx.QueryRow(r.Context(), `SELECT workspace_id::text FROM documents WHERE id=$1 AND deleted_at IS NULL AND madi_document_allowed($2,id,false) AND ($3='' OR workspace_id::text=$3) FOR SHARE`, id, p.ID, p.WorkspaceID).Scan(&workspace)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			apiError(w, 404, "블록을 찾을 수 없거나 접근 권한이 없습니다")
+		} else {
+			respond(w, nil, err)
+		}
+		return
+	}
 	var state []byte
-	var title, markdown, projection string
+	var title, markdown, projection, epoch string
 	var version int
-	err := s.DB.QueryRow(r.Context(), `SELECT coalesce(c.state,''::bytea),d.title,d.markdown,coalesce(c.projected_markdown,''),d.version
+	var snapshotSequence, sequence int64
+	err = tx.QueryRow(r.Context(), `SELECT coalesce(c.state,''::bytea),d.title,d.markdown,coalesce(c.projected_markdown,''),d.version,coalesce(c.epoch::text,''),coalesce(c.snapshot_sequence,0),coalesce(c.sequence,0)
 	 FROM documents d LEFT JOIN document_collaboration c ON c.document_id=d.id
 	 WHERE d.id=$1 AND d.deleted_at IS NULL AND madi_document_allowed($2,d.id,false)
-	 AND ($3='' OR d.workspace_id::text=$3)`, id, p.ID, p.WorkspaceID).Scan(&state, &title, &markdown, &projection, &version)
+	 AND ($3='' OR d.workspace_id::text=$3)`, id, p.ID, p.WorkspaceID).Scan(&state, &title, &markdown, &projection, &version, &epoch, &snapshotSequence, &sequence)
 	if errors.Is(err, pgx.ErrNoRows) {
 		apiError(w, 404, "블록을 찾을 수 없거나 접근 권한이 없습니다")
 		return
@@ -41,6 +65,11 @@ func (s *Server) getEditorBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(state) == 0 || markdown != projection {
 		apiError(w, 409, "원문 변경으로 블록 기준이 갱신되었습니다. 원본 문서에서 새 블록 링크를 복사하세요")
+		return
+	}
+	state, err = collaborationReplay(r.Context(), tx, id, epoch, state, snapshotSequence, sequence)
+	if err != nil {
+		apiError(w, 409, "블록의 편집 이력을 확인할 수 없습니다. 원본 문서와 공동 편집 진단을 확인하세요")
 		return
 	}
 	doc := crdt.New()
@@ -86,6 +115,15 @@ func (s *Server) getEditorBlock(w http.ResponseWriter, r *http.Request) {
 	body, err := collaborationRender(node)
 	if err != nil {
 		apiError(w, 422, err.Error())
+		return
+	}
+	if err = s.knowledgeActorTx(r, tx, workspace, "document:read"); err != nil {
+		apiError(w, 403, "현재 로그인과 문서 접근 권한을 확인하세요")
+		return
+	}
+	var allowed bool
+	if err = tx.QueryRow(r.Context(), `SELECT madi_document_allowed($1,$2,false)`, p.ID, id).Scan(&allowed); err != nil || !allowed {
+		apiError(w, 404, "블록을 찾을 수 없거나 접근 권한이 없습니다")
 		return
 	}
 	jsonResponse(w, 200, map[string]any{"document_id": id, "block_id": blockID, "title": title, "version": version, "markdown": body, "type": node.Type, "url": "/app/documents/" + id + "#^" + blockID})

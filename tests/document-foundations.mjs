@@ -1,3 +1,4 @@
+import {documentTool,documentPanel} from "./document-ui.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -54,7 +55,8 @@ async function shot(name) {
   });
 }
 async function openHistory() {
-  await page.getByRole("button", { name: "변경 이력", exact: true }).click();
+  await page.getByRole('tab',{name:'이력',exact:true}).click();
+  await page.getByRole("button", { name: "변경 비교·복원 열기", exact: true }).click();
   await page
     .getByRole("dialog", { name: "문서 변경 이력", exact: true })
     .waitFor();
@@ -229,7 +231,7 @@ try {
     await route.continue();
   };
   await page.route(base+'/api/v1/documents/'+doc.id,modeRequest);
-  await page.getByRole('button',{name:'Markdown',exact:true}).click();
+  await documentTool(page,'Markdown 원문');
   await field("Markdown 원문 편집").fill(
     original.replace("첫 번째 원문", "두 번째 원문"),
   );

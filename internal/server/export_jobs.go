@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 //go:embed export_jobs.sql
@@ -45,6 +47,7 @@ func (s *Server) StartExports(ctx context.Context) {
 				return
 			}
 			s.expireExports(ctx)
+			s.expireDistributions(ctx)
 			select {
 			case <-ctx.Done():
 				return
@@ -74,9 +77,15 @@ func (s *Server) expireExports(ctx context.Context) {
 	}
 }
 func (s *Server) readExport(ctx context.Context, id string) (exportRun, error) {
+	return scanExportRun(s.DB.QueryRow(ctx, "SELECT "+exportRunSelect+" FROM export_runs WHERE id=$1", id))
+}
+
+const exportRunSelect = `id::text,workspace_id::text,owner_id::text,coalesce(token_id::text,''),token_bound,actor_constraints,session_hash,request_ip,format,document_ids,coalesce(database_id::text,''),source_fingerprint,policy_revision,status,coalesce(job_id::text,''),expires_at`
+
+func scanExportRun(row pgx.Row) (exportRun, error) {
 	var r exportRun
 	var c []byte
-	e := s.DB.QueryRow(ctx, `SELECT id::text,workspace_id::text,owner_id::text,coalesce(token_id::text,''),token_bound,actor_constraints,session_hash,request_ip,format,document_ids,coalesce(database_id::text,''),source_fingerprint,policy_revision,status,coalesce(job_id::text,''),expires_at FROM export_runs WHERE id=$1`, id).Scan(&r.ID, &r.WorkspaceID, &r.OwnerID, &r.TokenID, &r.TokenBound, &c, &r.SessionHash, &r.IP, &r.Format, &r.IDs, &r.DatabaseID, &r.Fingerprint, &r.Revision, &r.Status, &r.JobID, &r.Expires)
+	e := row.Scan(&r.ID, &r.WorkspaceID, &r.OwnerID, &r.TokenID, &r.TokenBound, &c, &r.SessionHash, &r.IP, &r.Format, &r.IDs, &r.DatabaseID, &r.Fingerprint, &r.Revision, &r.Status, &r.JobID, &r.Expires)
 	if e == nil {
 		e = json.Unmarshal(c, &r.Constraints)
 	}

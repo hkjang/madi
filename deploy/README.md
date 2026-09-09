@@ -15,7 +15,7 @@
 kubectl create secret generic madi-secrets --from-env-file=.env
 ```
 
-3. 모든 배포 대상 노드의 컨테이너 런타임에 `madi:v0.1.0` 이미지를 반입합니다. Docker 노드는 `docker load`, containerd 노드는 해당 배포 환경에서 지정한 이미지 import 명령을 사용합니다. 외부 레지스트리를 참조하지 않도록 예제의 `imagePullPolicy: Never`를 유지합니다.
+3. 모든 배포 대상 노드의 컨테이너 런타임에 `madi:v0.2.0` 이미지를 반입합니다. Docker 노드는 `docker load`, containerd 노드는 해당 배포 환경에서 지정한 이미지 import 명령을 사용합니다. 외부 레지스트리를 참조하지 않도록 예제의 `imagePullPolicy: Never`를 유지합니다.
 4. 배포합니다.
 
 ```sh

@@ -4,6 +4,11 @@ export function applyPersonalization(
   preferences: Record<string, unknown> = {},
 ) {
   const root = document.documentElement;
+  root.dataset.density = ["comfortable", "compact", "relaxed"].includes(
+    String(preferences.density),
+  )
+    ? String(preferences.density)
+    : "comfortable";
   root.dataset.fontFamily = ["sans", "system", "serif"].includes(
     String(preferences.font_family),
   )

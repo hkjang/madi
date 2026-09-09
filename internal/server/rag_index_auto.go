@@ -83,7 +83,7 @@ func (s *Server) dispatchRAGDocument(ctx context.Context, id string) error {
 	if g.Revision != initial.Revision {
 		return nil
 	}
-	cfg, e := s.ragSettingsTx(ctx, tx, g.WorkspaceID)
+	cfg, e := s.ragGrantSettingsTx(ctx, tx, g)
 	if e != nil {
 		return e
 	}

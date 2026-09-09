@@ -20,6 +20,9 @@ trap cleanup EXIT
 docker image inspect "$MADI_IMAGE" >/dev/null
 test "$(docker image inspect --format '{{.Config.User}}' "$MADI_IMAGE")" = '10001:10001'
 test "$(docker image inspect --format '{{index .Config.Entrypoint 0}}' "$MADI_IMAGE")" = '/usr/local/bin/madi'
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+  --entrypoint sh "$MADI_IMAGE" -c 'cd /usr/share/madi/sources && sha256sum -c SHA256SUMS >/dev/null && test -f tesseract/recipe/APKBUILD && test -f tesseract/tesseract-5.5.2.tar.gz && test -f pdfjs-liberation/liberation-fonts-1.07.4.tar.gz && test -f pdfjs-liberation/REBUILD.txt && test -f pdfjs-liberation/manifest.json && test -f /usr/share/tessdata/eng.traineddata && test -f /usr/share/tessdata/kor.traineddata'
+printf 'PASS bundled corresponding sources and offline OCR model files.\n'
 MADI_ARCH="$(docker image inspect --format '{{.Architecture}}' "$MADI_IMAGE")"
 CGO_ENABLED=0 GOOS=linux GOARCH="$MADI_ARCH" go build -trimpath -o "$MADI_TEMP_DIR/image-smoke" ./tests/image-smoke
 # Client binary has no embedded secrets and is retained for runner cleanup.
@@ -38,7 +41,7 @@ for MADI_ATTEMPT in $(seq 1 40); do
 done
 docker exec "$MADI_DB_CONTAINER" pg_isready -h 127.0.0.1 -U madi -d madi >/dev/null
 MADI_APP_CONTAINER="$(docker run -d --network "$MADI_NETWORK_ID" --network-alias madi \
-  --cpus 2 --memory 4g --memory-swap 4g \
+  --cpus 2 --memory 4g --memory-swap 4g --pids-limit 512 \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=2g --cap-drop ALL --security-opt no-new-privileges \
   -e "POSTGRES_DSN=postgres://madi:${MADI_DB_PASSWORD}@postgres:5432/madi?sslmode=disable" \
   -e BOOTSTRAP_ADMIN=admin@example.internal -e "BOOTSTRAP_ADMIN_PASSWORD=$MADI_ADMIN_PASSWORD" \

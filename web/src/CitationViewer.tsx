@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "./api";
 import { Badge, ErrorBox, Loading, Modal } from "./ui";
+import { positionName, type Position } from "./attachments/types";
 export type CitationSource = {
   id: string;
   title: string;
@@ -11,6 +12,8 @@ export type CitationSource = {
   end_line?: number;
   url?: string;
   citation_url?: string;
+  attachment_id?: string;
+  attachment_position?: Position;
 };
 export default function CitationViewer({
   source,
@@ -76,7 +79,9 @@ export default function CitationViewer({
               <strong>{data.source.title}</strong>
               <Badge>문서 v{data.source.version}</Badge>
               <Badge>
-                {data.source.start_line}–{data.source.end_line}행
+                {data.source.attachment_id
+                  ? positionName(data.source.attachment_position || {})
+                  : `${data.source.start_line}–${data.source.end_line}행`}
               </Badge>
             </div>
             <pre
@@ -96,14 +101,21 @@ export default function CitationViewer({
             </pre>
             <p className="muted">{data.notice}</p>
             <Link
-              to={data.source.url || `/app/documents/${data.source.id}`}
+              to={
+                data.source.url ||
+                (data.source.attachment_id
+                  ? `/app/attachments/${data.source.attachment_id}`
+                  : `/app/documents/${data.source.id}`)
+              }
               className="button primary"
               onClick={() => {
                 onClose();
                 onNavigate();
               }}
             >
-              문서의 해당 줄로 이동
+              {data.source.attachment_id
+                ? "첨부의 원본 위치로 이동"
+                : "문서의 해당 줄로 이동"}
             </Link>
           </>
         )

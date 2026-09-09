@@ -1,10 +1,14 @@
+import { documentTool, documentPanel } from "./document-ui.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { expect } from "playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 const base = process.env.MADI_BASE_URL || "http://127.0.0.1:8080";
-const screenshots = pathToFileURL(resolve(process.env.MADI_SCREENSHOT_DIR || "docs/screenshots") + "/");
+const screenshots = pathToFileURL(
+  resolve(process.env.MADI_SCREENSHOT_DIR || "docs/screenshots") + "/",
+);
 const browser = await chromium.launch(),
   context = await browser.newContext({
     viewport: { width: 1512, height: 1080 },
@@ -57,12 +61,14 @@ async function command(name) {
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox", { name: "문서 또는 명령 검색" });
   await input.fill(name);
+  await expect(page.getByRole("option", { selected: true })).toContainText(
+    name,
+  );
   await input.press("Enter");
 }
 async function saved(id) {
   await page
-    .locator(".collaboration-bar")
-    .filter({ hasText: "모든 변경 저장됨" })
+    .locator('.collaboration-bar [data-save-state="confirmed"]')
     .waitFor();
   return api("/documents/" + id);
 }
@@ -192,8 +198,18 @@ try {
   await page.keyboard.press("Control+p");
   const combo = page.getByRole("combobox", { name: "문서 또는 명령 검색" });
   await combo.fill("프로젝트 지식");
+  await expect(page.getByRole("option", { selected: true })).toContainText(
+    "프로젝트 지식",
+  );
   await combo.press("Enter");
   await page.waitForURL("**/documents/" + parent.id);
+  await expect(page.locator(".document-main")).toHaveAttribute(
+    "data-document-id",
+    parent.id,
+  );
+  await expect(page.getByLabel("문서 제목", { exact: true })).toHaveValue(
+    "프로젝트 지식",
+  );
   await page.keyboard.press("Control+/");
   await page.getByRole("dialog", { name: "키보드로 더 빠르게" }).waitFor();
   await page.keyboard.press("Escape");
@@ -201,7 +217,8 @@ try {
   assert.ok(page.url().includes("view=focus"));
   await page.reload();
   await page.locator(".focus-mode").waitFor();
-  await page.getByRole("button", { name: "집중 모드", exact: true }).click();
+  await documentTool(page, "집중 모드");
+  await expect(page.locator(".document-page")).not.toHaveClass(/focus-mode/);
   await command("프레젠테이션 보기");
   await page
     .getByRole("dialog", { name: "프로젝트 지식", exact: true })

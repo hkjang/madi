@@ -22,16 +22,24 @@ func (s *Server) getRAGIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, e := s.effectiveSettings(r.Context(), wid)
+	var generation string
+	if e == nil {
+		generation, e = ragSelectedGeneration(r.Context(), s.DB, wid, r.URL.Query().Get("generation_id"))
+	}
+	if e == nil {
+		cfg, e = s.ragGenerationConfig(r.Context(), s.DB, cfg, wid, generation)
+	}
 	if e != nil {
 		ragIndexError(w, e)
 		return
 	}
 	can := write && hasIntegrationScope(p, "ai:execute") && hasIntegrationScope(p, "document:write")
 	out := map[string]any{"document_id": id, "document_version": version, "title": title, "visibility": visibility, "can_index": can, "enabled": boolean(cfg, "rag_enabled"), "provider": nil, "grant": nil, "index": nil, "notice": "색인은 문서 본문을 선택한 임베딩 공급자에 전송합니다. 비공개 문서도 예외가 아닙니다. 동의 철회는 madi의 파생 벡터와 후속 전송을 중단하며 이미 공급자에 전송된 내용은 회수할 수 없습니다."}
+	out["generation_id"] = generation
 	if can {
 		out["provider"] = map[string]any{"configured": str(cfg, "rag_embedding_base_url") != "" && str(cfg, "rag_embedding_model") != "", "base_url": ragDisplayURL(str(cfg, "rag_embedding_base_url")), "model": str(cfg, "rag_embedding_model"), "fingerprint": ragProviderFingerprint(cfg), "rerank": map[string]any{"enabled": boolean(cfg, "rag_rerank_enabled"), "base_url": ragDisplayURL(str(cfg, "rag_rerank_base_url")), "model": str(cfg, "rag_rerank_model"), "fingerprint": ragRerankFingerprint(cfg)}}
 	}
-	g, e := ragGrantTx(r.Context(), s.DB, id, false)
+	g, e := ragGrantForGenerationTx(r.Context(), s.DB, id, generation, false)
 	if errors.Is(e, pgx.ErrNoRows) {
 		respond(w, out, nil)
 		return
@@ -102,6 +110,13 @@ func (s *Server) createRAGIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, e := s.ragSettingsTx(ctx, tx, wid)
+	var generation string
+	if e == nil {
+		generation, e = ragSelectedGeneration(ctx, tx, wid, r.URL.Query().Get("generation_id"))
+	}
+	if e == nil {
+		cfg, e = s.ragGenerationConfig(ctx, tx, cfg, wid, generation)
+	}
 	if e != nil {
 		ragIndexError(w, e)
 		return
@@ -123,7 +138,7 @@ func (s *Server) createRAGIndex(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, "색인할 문서 본문이 없습니다")
 		return
 	}
-	g, e := ragGrantTx(ctx, tx, id, true)
+	g, e := ragGrantForGenerationTx(ctx, tx, id, generation, true)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		ragIndexError(w, e)
 		return
@@ -162,7 +177,7 @@ func (s *Server) createRAGIndex(w http.ResponseWriter, r *http.Request) {
 	if g.ID == "" {
 		g.ID = newID()
 	}
-	e = tx.QueryRow(ctx, `INSERT INTO rag_index_grants(id,document_id,workspace_id,actor_id,token_id,actor_constraints,provider_fingerprint,rerank_fingerprint,expected_version,auto_reindex) VALUES($1,$2,$3,$4,NULLIF($5,'')::uuid,$6,$7,$8,$9,$10) ON CONFLICT(document_id) DO UPDATE SET actor_id=EXCLUDED.actor_id,token_id=EXCLUDED.token_id,actor_constraints=EXCLUDED.actor_constraints,revision=rag_index_grants.revision+1,active=true,auto_reindex=EXCLUDED.auto_reindex,provider_fingerprint=EXCLUDED.provider_fingerprint,rerank_fingerprint=EXCLUDED.rerank_fingerprint,expected_version=EXCLUDED.expected_version,updated_at=now() RETURNING revision`, g.ID, id, wid, p.ID, p.TokenID, jsonValue(constraintsFor(p)), in.Provider, rerank, version, in.Auto).Scan(&g.Revision)
+	e = tx.QueryRow(ctx, `INSERT INTO rag_index_grants(id,document_id,workspace_id,actor_id,token_id,actor_constraints,provider_fingerprint,rerank_fingerprint,expected_version,auto_reindex,generation_id) VALUES($1,$2,$3,$4,NULLIF($5,'')::uuid,$6,$7,$8,$9,$10,NULLIF($11,'')::uuid) ON CONFLICT(document_id,generation_id) DO UPDATE SET actor_id=EXCLUDED.actor_id,token_id=EXCLUDED.token_id,actor_constraints=EXCLUDED.actor_constraints,revision=rag_index_grants.revision+1,active=true,auto_reindex=EXCLUDED.auto_reindex,provider_fingerprint=EXCLUDED.provider_fingerprint,rerank_fingerprint=EXCLUDED.rerank_fingerprint,expected_version=EXCLUDED.expected_version,updated_at=now() RETURNING revision`, g.ID, id, wid, p.ID, p.TokenID, jsonValue(constraintsFor(p)), in.Provider, rerank, version, in.Auto, generation).Scan(&g.Revision)
 	if e != nil {
 		ragIndexError(w, e)
 		return
@@ -175,10 +190,10 @@ func (s *Server) createRAGIndex(w http.ResponseWriter, r *http.Request) {
 		_, e = tx.Exec(ctx, `UPDATE rag_index_grants SET last_job_id=$2 WHERE id=$1`, g.ID, jobID)
 	}
 	if e == nil {
-		_, e = tx.Exec(ctx, `DELETE FROM rag_vector_indexes WHERE document_id=$1`, id)
+		_, e = tx.Exec(ctx, `DELETE FROM rag_vector_indexes WHERE grant_id=$1`, g.ID)
 	}
 	if e == nil {
-		_, e = tx.Exec(ctx, `DELETE FROM rag_reindex_queue WHERE document_id=$1`, id)
+		_, e = tx.Exec(ctx, `DELETE FROM rag_reindex_queue WHERE document_id=$1 AND NULLIF($2,'')::uuid IS NOT DISTINCT FROM (SELECT active_id FROM rag_generation_state WHERE workspace_id=$3)`, id, generation, wid)
 	}
 	if e == nil {
 		e = tx.Commit(ctx)
@@ -224,7 +239,12 @@ func (s *Server) stopRAGIndex(w http.ResponseWriter, r *http.Request, revoke boo
 		ragIndexError(w, e)
 		return
 	}
-	g, e := ragGrantTx(ctx, tx, id, true)
+	generation, e := ragSelectedGeneration(ctx, tx, wid, r.URL.Query().Get("generation_id"))
+	if e != nil {
+		ragIndexError(w, e)
+		return
+	}
+	g, e := ragGrantForGenerationTx(ctx, tx, id, generation, true)
 	if e != nil {
 		ragIndexError(w, e)
 		return
@@ -238,10 +258,10 @@ func (s *Server) stopRAGIndex(w http.ResponseWriter, r *http.Request, revoke boo
 		_, e = tx.Exec(ctx, `UPDATE rag_index_grants SET active=CASE WHEN $2 THEN false ELSE active END,auto_reindex=false,revision=revision+1,updated_at=now() WHERE id=$1`, g.ID, revoke)
 	}
 	if e == nil {
-		_, e = tx.Exec(ctx, `DELETE FROM rag_reindex_queue WHERE document_id=$1`, id)
+		_, e = tx.Exec(ctx, `DELETE FROM rag_reindex_queue WHERE document_id=$1 AND NULLIF($2,'')::uuid IS NOT DISTINCT FROM (SELECT active_id FROM rag_generation_state WHERE workspace_id=$3)`, id, generation, wid)
 	}
 	if e == nil && revoke {
-		_, e = tx.Exec(ctx, `DELETE FROM rag_vector_indexes WHERE document_id=$1`, id)
+		_, e = tx.Exec(ctx, `DELETE FROM rag_vector_indexes WHERE grant_id=$1`, g.ID)
 	}
 	if e == nil {
 		e = tx.Commit(ctx)

@@ -16,9 +16,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var version = "0.1.0"
+var version = "0.2.0"
 
 func main() {
+	if handled, code := server.RunAttachmentWorker(os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -66,6 +69,7 @@ func main() {
 	app.StartGitSync(ctx)
 	app.StartOperations(ctx)
 	app.StartExports(ctx)
+	app.StartAttachmentExtraction(ctx)
 	srv := &http.Server{Addr: ":8080", Handler: app, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	go func() {
 		slog.Info("madi 시작", "version", version, "address", srv.Addr)
@@ -75,6 +79,7 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
+	app.CloseCollaboration()
 	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if e = srv.Shutdown(shutdown); e != nil {

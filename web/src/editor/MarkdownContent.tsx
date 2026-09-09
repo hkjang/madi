@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import DiagramPreview from "../DiagramPreview";
 import PluginBlockPreview from "../PluginBlockPreview";
+import DocumentQueryBlock from "../query/DocumentQueryBlock";
 import MathPreview from "./MathPreview";
 import { BookmarkCard, SyncedContent } from "./SyncedContent";
 import {
@@ -18,10 +19,12 @@ export function MarkdownContent({
   markdown,
   documents = [],
   metadata,
+  documentId,
 }: {
   markdown: string;
   documents?: DocSummary[];
   metadata?: Doc["block_metadata"];
+  documentId?: string;
 }) {
   const container = useRef<HTMLDivElement>(null),
     location = useLocation();
@@ -204,7 +207,9 @@ export function MarkdownContent({
           );
         return (
           <div key={key} id={id}>
-            {a.language === "madi-plugin" ? (
+            {a.language === "madi-query" ? (
+              <DocumentQueryBlock source={source} documentId={documentId} />
+            ) : a.language === "madi-plugin" ? (
               <PluginBlockPreview source={source} />
             ) : (
               <ReactMarkdown

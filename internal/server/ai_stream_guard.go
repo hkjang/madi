@@ -71,5 +71,8 @@ func (s *Server) validateAIStream(r *http.Request, initial *Principal, wid strin
 	if e := s.validateRAGSourceGrants(ctx, sources, fresh); e != nil {
 		return errAIStreamChanged
 	}
+	if e := s.validateAttachmentAISources(ctx, p, sources); e != nil {
+		return errAIStreamChanged
+	}
 	return nil
 }

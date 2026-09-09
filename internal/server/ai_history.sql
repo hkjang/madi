@@ -20,6 +20,7 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
  JOIN workspace_members wm ON wm.workspace_id=c.workspace_id AND wm.user_id=actor
  WHERE c.id=target AND c.owner_id=actor AND NOT EXISTS(
   SELECT 1 FROM ai_messages m CROSS JOIN LATERAL jsonb_array_elements(m.sources) ref
-  WHERE m.conversation_id=c.id AND NOT EXISTS(SELECT 1 FROM documents d
-   WHERE d.id=NULLIF(ref->>'id','')::uuid AND d.workspace_id=c.workspace_id AND d.deleted_at IS NULL AND madi_document_allowed(actor,d.id,false))))
+  WHERE m.conversation_id=c.id AND (NOT EXISTS(SELECT 1 FROM documents d
+   WHERE d.id=NULLIF(ref->>'id','')::uuid AND d.workspace_id=c.workspace_id AND d.deleted_at IS NULL AND madi_document_allowed(actor,d.id,false))
+   OR (NULLIF(ref->>'attachment_id','') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM attachments a WHERE a.id=(ref->>'attachment_id')::uuid AND a.document_id=(ref->>'id')::uuid)))))
 $$;

@@ -156,7 +156,7 @@ try {
     });
   await page.goto(`${base}/app/databases/${db.id}`);
   await page.getByRole("heading", { name: db.name, exact: true }).waitFor();
-  await page.getByRole("cell", { name: "121", exact: true }).waitFor();
+  await page.getByRole("gridcell").filter({ hasText: /^121$/ }).waitFor();
   assert.equal(await page.locator(".editable-table tbody tr").count(), 3);
   assert.equal(await page.locator(".computed-error").count(), 0);
   console.log("PASS relation labels, rollup and formula rendering");
@@ -191,11 +191,14 @@ try {
       .computed_values[annualProperty.id],
     1320,
   );
-  await page.getByRole("cell", { name: "1320", exact: true }).waitFor();
+  await page
+    .getByRole("gridcell", { name: /연간 예상/ })
+    .filter({ hasText: "1320" })
+    .waitFor();
   console.log("PASS advanced property native select and formula save");
 
   await page
-    .getByRole("button", { name: "지식 플랫폼 구축", exact: true })
+    .getByRole("button", { name: "1행 항목 상세", exact: true })
     .click();
   const rowDialog = page.getByRole("dialog", { name: "항목 편집" });
   await rowDialog.getByLabel("상태", { exact: true }).selectOption("진행 중");
@@ -246,7 +249,7 @@ try {
     () => document.querySelectorAll(".editable-table tbody tr").length === 1,
   );
   await page.reload();
-  await page.getByRole("cell", { name: "121", exact: true }).waitFor();
+  await page.getByRole("gridcell").filter({ hasText: /^121$/ }).waitFor();
   assert.equal(await page.locator(".editable-table tbody tr").count(), 1);
   console.log("PASS typed formula filter, descending sort and refresh state");
   await page.getByRole("button", { name: /필터 \/ 정렬/ }).click();

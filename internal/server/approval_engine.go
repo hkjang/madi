@@ -100,8 +100,8 @@ func approvalPolicyTx(ctx context.Context, tx pgx.Tx, cfg map[string]any, wid, s
  WHERE p.workspace_id=$1 AND p.resource_kind=$3 AND p.enabled AND (p.space_id IS NULL OR p.space_id IN(SELECT id FROM ancestors))
  ORDER BY COALESCE((SELECT depth FROM ancestors WHERE id=p.space_id),101),p.id LIMIT 1 FOR SHARE OF p`, wid, space, kind).Scan(&out.ID, &out.WorkspaceID, &out.SpaceID, &out.ResourceKind, &out.Name, &out.Enabled, &out.Version, &stages)
 	if errors.Is(e, pgx.ErrNoRows) {
-		if kind == "runbook" {
-			return out, approvalProblem(409, "실행형 리소스에는 관리자가 명시적인 승인 정책을 설정해야 합니다")
+		if oneOf(kind, "runbook", "impact_exception", "knowledge_distribution", "learning_step") {
+			return out, approvalProblem(409, "이 리소스에는 관리자가 명시적인 승인 정책을 설정해야 합니다")
 		}
 		return approvalPolicy{WorkspaceID: wid, ResourceKind: kind, Name: "기본 문서 검토", Enabled: true, Stages: []approvalStage{{Name: "검토 및 승인", Mode: "all", Gates: []approvalGate{{Name: "다른 검토 담당자", Kind: "role", Role: str(cfg, "reviewer_role")}}}}}, nil
 	}
@@ -117,7 +117,7 @@ func approvalPolicyTx(ctx context.Context, tx pgx.Tx, cfg map[string]any, wid, s
 
 func approvalValidatePolicy(policy *approvalPolicy) error {
 	policy.Name = strings.TrimSpace(policy.Name)
-	if !validID(policy.WorkspaceID) || (policy.SpaceID != "" && !validID(policy.SpaceID)) || !oneOf(policy.ResourceKind, "document", "runbook", "sql_query_plan") || policy.Name == "" || len(policy.Name) > 250 {
+	if !validID(policy.WorkspaceID) || (policy.SpaceID != "" && !validID(policy.SpaceID)) || !oneOf(policy.ResourceKind, "document", "runbook", "sql_query_plan", "impact_exception", "knowledge_distribution", "learning_step") || policy.Name == "" || len(policy.Name) > 250 {
 		return approvalProblem(400, "정책 이름·워크스페이스·공간·대상 유형을 확인하세요")
 	}
 	if len(policy.Stages) == 0 || len(policy.Stages) > 20 {

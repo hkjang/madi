@@ -157,6 +157,87 @@ try {
     .getByText("플랫폼 운영 주간 회의", { exact: true })
     .waitFor();
   assert.equal(new URL(page.url()).searchParams.get("month"), "2026-09");
+  await api("/tasks/calendar/events", "POST", {
+    workspace_id: ws.id,
+    title: "연결하지 않은 별도 일정",
+    kind: "meeting",
+    start_date: "2026-09-10",
+    end_date: "2026-09-10",
+    visibility: "private",
+  });
+  const documentBoardResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/v1/tasks/board" &&
+      url.searchParams.get("document_id") === doc.id
+    );
+  });
+  const documentCalendarResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/v1/tasks/calendar" &&
+      url.searchParams.get("document_id") === doc.id
+    );
+  });
+  await page.goto(
+    `${base}/app/tasks?view=calendar&month=2026-09&document_id=${doc.id}&task=${task.task_id}`,
+  );
+  const scopedBoard = await (await documentBoardResponse).json(),
+    scopedCalendar = await (await documentCalendarResponse).json();
+  assert.equal(
+    scopedBoard.items.length,
+    1,
+    "task deep link remains a task selection",
+  );
+  assert.equal(scopedBoard.items[0].task_id, task.task_id);
+  assert.equal(scopedBoard.total_documents_exact, true);
+  assert.equal(
+    scopedCalendar.events.length,
+    3,
+    "calendar contains two source tasks and one linked meeting, not a global task filter",
+  );
+  assert.ok(
+    scopedCalendar.events.every(
+      (event) => event.document_id === doc.id && event.kind !== "database",
+    ),
+  );
+  await page
+    .locator(".task-calendar-list")
+    .getByText("플랫폼 운영 주간 회의", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator(".task-calendar-list")
+      .getByText("배포 일정 · 지식 플랫폼 배포", { exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .locator(".task-calendar-list")
+      .getByText("연결하지 않은 별도 일정", { exact: true })
+      .count(),
+    0,
+  );
+  await page.reload();
+  await page
+    .locator(".task-calendar-list")
+    .getByText("플랫폼 운영 주간 회의", { exact: true })
+    .waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("document_id"), doc.id);
+  await page.goto(`${base}/app/tasks?document_id=invalid`);
+  await page
+    .getByText(
+      "문서 ID를 확인하세요. 잘못된 문서 조건으로 전체 할 일을 조회하지 않습니다.",
+      { exact: true },
+    )
+    .waitFor();
+  assert.equal(await page.locator(".managed-task").count(), 0);
+  await page.goto(`${base}/app/tasks?view=list`);
+  await page.getByLabel("할 일 범위", { exact: true }).waitFor();
+  console.log(
+    "PASS server document scope, independent calendar exclusion, task selection, reload and invalid-scope recovery",
+  );
   await page.getByRole("button", { name: "목록", exact: true }).click();
   await page.getByLabel("할 일 범위", { exact: true }).selectOption("mine");
   await page.getByLabel("할 일 검색", { exact: true }).fill("운영 점검");

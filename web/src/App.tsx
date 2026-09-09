@@ -1,3 +1,12 @@
+import {
+  WorkspaceNavigation,
+  workspaceNavigation,
+} from "./navigation/WorkspaceNavigation";
+import {
+  NavigationReturn,
+  useNavigationMemory,
+} from "./navigation/NavigationMemory";
+import MobileActions from "./navigation/MobileActions";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
@@ -65,11 +74,73 @@ const InboxPage = React.lazy(() => import("./InboxPage"));
 const TasksPage = React.lazy(() => import("./TaskPage"));
 const SearchPage = React.lazy(() => import("./SearchPage"));
 const GraphPage = React.lazy(() => import("./GraphPage"));
+const WorksetsPage = React.lazy(() => import("./worksets/WorksetsPage"));
+const KnowledgeQuestionsPage = React.lazy(
+  () => import("./evidence/KnowledgeQuestionsPage"),
+);
+const KnowledgeConflictsPage = React.lazy(
+  () => import("./conflicts/KnowledgeConflictsPage"),
+);
+const KnowledgePathsPage = React.lazy(
+  () => import("./learning/KnowledgePathsPage"),
+);
+const StructuredDraftsPage = React.lazy(
+  () => import("./structured/StructuredDraftsPage"),
+);
 const GraphAIPage = React.lazy(() =>
   import("./graph-ai/GraphAIPage").then((m) => ({ default: m.GraphAIPage })),
 );
 const TemplatesPage = React.lazy(() => import("./templates/TemplatesPage"));
 const AIHistoryPage = React.lazy(() => import("./AIHistory"));
+const FocusedHome = React.lazy(() => import("./navigation/FocusedHome"));
+const MyWorkPage = React.lazy(() =>
+  import("./navigation/FocusedHome").then((m) => ({ default: m.MyWorkPage })),
+);
+const EvidencePage = React.lazy(() => import("./evidence/EvidencePage"));
+const KnowledgePackagesPage = React.lazy(
+  () => import("./evidence/KnowledgePackagesPage"),
+);
+const KnowledgeImpactPage = React.lazy(
+  () => import("./evidence/KnowledgeImpactPage"),
+);
+const KnowledgeProposalsPage = React.lazy(
+  () => import("./evidence/KnowledgeProposalsPage"),
+);
+const KnowledgeTimePage = React.lazy(
+  () => import("./evidence/KnowledgeTimePage"),
+);
+const KnowledgeDistributionPage = React.lazy(
+  () => import("./evidence/KnowledgeDistributionPage"),
+);
+const DistributionPolicyPage = React.lazy(
+  () => import("./evidence/DistributionPolicyPage"),
+);
+const AttachmentPage = React.lazy(() => import("./attachments/AttachmentPage"));
+const ExtractionPolicyPage = React.lazy(
+  () => import("./attachments/ExtractionPolicyPage"),
+);
+const SystemStatusPage = React.lazy(
+  () => import("./system-status/SystemStatusPage"),
+);
+const SystemStatusAdminPage = React.lazy(
+  () => import("./system-status/SystemStatusAdminPage"),
+);
+const SearchOperationsPage = React.lazy(() => import("./SearchOperationsPage"));
+const RAGGenerationsPage = React.lazy(() => import("./RAGGenerationsPage"));
+const DocumentRecovery = React.lazy(() => import("./review/DocumentRecovery"));
+const AccessRequestsPage = React.lazy(
+  () => import("./review/AccessRequestsPage"),
+);
+const KnowledgePackagePolicyPage = React.lazy(() =>
+  import("./evidence/KnowledgePackagesPage").then((m) => ({
+    default: m.KnowledgePackagePolicyPage,
+  })),
+);
+const EvidencePolicyPage = React.lazy(() =>
+  import("./evidence/EvidencePage").then((m) => ({
+    default: m.EvidencePolicyPage,
+  })),
+);
 const GitSyncPage = React.lazy(() =>
   import("./git/GitSyncPages").then((module) => ({
     default: module.GitSyncPage,
@@ -335,7 +406,11 @@ function Login({
             <img src="/favicon.svg" alt="" />
             <span>
               {info.name || "madi"}{" "}
-              <b>v{String(info.version || "0.1.0").replace(/^v/, "")}</b>
+              <b>
+                {info.version
+                  ? `v${String(info.version).replace(/^v/, "")}`
+                  : "버전 확인 중"}
+              </b>
             </span>
           </div>
         </div>
@@ -345,6 +420,7 @@ function Login({
 }
 
 function Shell() {
+  useNavigationMemory();
   const app = useApp();
   const {
     user,
@@ -413,7 +489,21 @@ function Shell() {
     [newWorkspace, setNewWorkspace] = useState(false),
     [wsName, setWsName] = useState(""),
     [busy, setBusy] = useState(false);
+  const openAI = () => {
+    if (/^\/app\/documents\/[^/]+$/.test(location.pathname))
+      window.dispatchEvent(new Event("madi:document-ai"));
+    else setAI(true);
+  };
   const [collapsed, setCollapsed] = useSidebarState();
+  useEffect(() => {
+    if (!mobile) return;
+    const frame = requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLButtonElement>(".sidebar-mobile-close")
+        ?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [mobile]);
   useEffect(() => {
     setMobile(false);
     if (
@@ -442,7 +532,7 @@ function Shell() {
     quickOpen: () => setCommand(true),
     search: () => navigate("/app/search"),
     create: () => setNewDoc(true),
-    ai: () => setAI(true),
+    ai: openAI,
   });
   const routes = admin
     ? [
@@ -454,6 +544,11 @@ function Shell() {
         ["/admin/operations", "서비스 운영", Settings],
         ["/admin/support", "읽기 전용 지원 진단", ShieldCheck],
         ["/admin/information-protection", "정보보호 정책", ShieldCheck],
+        ["/admin/evidence", "AI 근거 보관", ShieldCheck],
+        ["/admin/knowledge-packages", "지식 패키지 정책", Boxes],
+        ["/admin/knowledge-distribution", "망별 지식 배포 정책", Boxes],
+        ["/admin/attachment-extraction", "첨부 본문 추출", FileText],
+        ["/admin/system-status", "운영 현황 카드 정책", LayoutDashboard],
         ["/admin/audit", "감사 로그", History],
         ["/admin/backup", "백업 및 복원", HardDrive],
         ["/admin/storage", "파일 저장소", HardDrive],
@@ -487,6 +582,13 @@ function Shell() {
         ["/app/knowledge-health", "지식 품질 관리", ShieldCheck],
       ];
   const currentLabel =
+    (!admin &&
+      workspaceNavigation.find(
+        (r) =>
+          r.path === location.pathname ||
+          r.aliases?.includes(location.pathname) ||
+          (r.path !== "/app" && location.pathname.startsWith(r.path + "/")),
+      )?.label) ||
     routes.find(
       (r) =>
         r[0] === location.pathname ||
@@ -520,11 +622,67 @@ function Shell() {
       {mobile && (
         <button
           className="sidebar-backdrop"
-          aria-label="메뉴 닫기"
-          onClick={() => setMobile(false)}
+          aria-label="메뉴 바깥 영역 닫기"
+          onClick={() => {
+            setMobile(false);
+            requestAnimationFrame(() =>
+              document
+                .querySelector<HTMLButtonElement>(".mobile-toggle")
+                ?.focus(),
+            );
+          }}
         />
       )}
-      <aside className="sidebar">
+      <aside
+        className="sidebar"
+        onKeyDown={(e) => {
+          if (!mobile) return;
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setMobile(false);
+            requestAnimationFrame(() =>
+              document
+                .querySelector<HTMLButtonElement>(".mobile-toggle")
+                ?.focus(),
+            );
+          }
+          if (e.key === "Tab") {
+            const controls = [
+              ...e.currentTarget.querySelectorAll<HTMLElement>(
+                'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),[tabindex="0"]',
+              ),
+            ].filter(
+              (el) =>
+                el.getClientRects().length &&
+                getComputedStyle(el).visibility !== "hidden",
+            );
+            const first = controls[0],
+              last = controls.at(-1);
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        }}
+      >
+        <button
+          type="button"
+          className="icon-button sidebar-mobile-close"
+          aria-label="메뉴 닫기"
+          onClick={() => {
+            setMobile(false);
+            requestAnimationFrame(() =>
+              document
+                .querySelector<HTMLButtonElement>(".mobile-toggle")
+                ?.focus(),
+            );
+          }}
+        >
+          <X size={21} />
+        </button>
         <SidebarResize />
         <Link to="/app" className="brand">
           <img src={presentation.logo_url || "/favicon.svg"} alt="" />
@@ -579,37 +737,24 @@ function Shell() {
           </div>
         )}
         <div className="sidebar-scroll">
-          <div className="sidebar-section-label">
-            {admin ? "관리 콘솔" : "워크스페이스"}
-          </div>
-          <nav>
-            {routes
-              .filter(([path]) => {
-                const feature = (
-                  {
-                    "/app/canvases": "canvas",
-                    "/app/agents": "workspace-agents",
-                    "/app/graph-ai": "ai-graph",
-                  } as Record<string, string>
-                )[String(path)];
-                return (
-                  !feature || presentation.feature_flags?.[feature] !== false
-                );
-              })
-              .map(([path, label, Icon]) => (
-                <NavLink
-                  end={path === "/app" || path === "/admin"}
-                  key={String(path)}
-                  to={String(path)}
-                >
-                  {typeof Icon !== "string" && <Icon size={19} />}
-                  <span>{String(label)}</span>
-                  {path === "/app/search" && <kbd>⌘ K</kbd>}
-                </NavLink>
-              ))}
-          </nav>
-          {!admin && (
+          {admin ? (
             <>
+              <div className="sidebar-section-label">관리 콘솔</div>
+              <nav>
+                {routes.map(([path, label, Icon]) => (
+                  <NavLink
+                    end={path === "/admin"}
+                    key={String(path)}
+                    to={String(path)}
+                  >
+                    {typeof Icon !== "string" && <Icon size={19} />}
+                    <span>{String(label)}</span>
+                  </NavLink>
+                ))}
+              </nav>
+            </>
+          ) : (
+            <WorkspaceNavigation flags={presentation.feature_flags}>
               <div className="sidebar-section-label section-spaced">
                 <span>내 문서</span>
                 <button
@@ -621,133 +766,12 @@ function Shell() {
                 </button>
               </div>
               <DocumentTree />
-              <div className="sidebar-section-label section-spaced">도구</div>
-              <nav>
-                <NavLink to="/app/inbox">
-                  <Inbox size={18} />내 수집함
-                </NavLink>
-                {publicInfo.approval_enabled && (
-                  <NavLink to="/app/approvals">
-                    <CheckCircle2 size={18} />
-                    검토·승인함
-                  </NavLink>
-                )}
-                <NavLink to="/app/templates">
-                  <Boxes size={18} />
-                  템플릿
-                </NavLink>
-                <NavLink to="/app/import">
-                  <Import size={18} />
-                  데이터 가져오기
-                </NavLink>
-                <NavLink to="/app/export">
-                  <Import size={18} />
-                  데이터 내보내기
-                </NavLink>
-                <NavLink to="/app/migrations">
-                  <Import size={18} />
-                  데이터 이관 센터
-                </NavLink>
-                {presentation.feature_flags?.plugins !== false && (
-                  <NavLink to="/app/plugins">
-                    <Boxes size={18} />
-                    플러그인
-                  </NavLink>
-                )}
-                <NavLink to="/app/connectors">
-                  <Network size={18} />
-                  외부 지식 커넥터
-                </NavLink>
-                <NavLink to="/app/data-sources">
-                  <Database size={18} />
-                  외부 데이터 소스
-                </NavLink>
-                <NavLink to="/app/members">
-                  <Users size={18} />
-                  워크스페이스 멤버
-                </NavLink>
-                <NavLink to="/app/teams">
-                  <Users size={18} />
-                  팀과 멘션 그룹
-                </NavLink>
-                <NavLink to="/app/enterprise">
-                  <Network size={18} />
-                  기업 지식 탐색
-                </NavLink>
-                <NavLink to="/app/entities">
-                  <Boxes size={18} />
-                  엔터티 사전
-                </NavLink>
-                <NavLink to="/app/organizations">
-                  <Users size={18} />
-                  조직
-                </NavLink>
-                <NavLink to="/app/automations">
-                  <Boxes size={18} />
-                  자동화
-                </NavLink>
-                <NavLink to="/app/jobs">
-                  <CheckCircle2 size={18} />
-                  작업 이력
-                </NavLink>
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/webhooks">
-                      <Network size={18} />
-                      Webhook
-                    </NavLink>
-                  )}
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/workspace-settings">
-                      <Settings size={18} />
-                      워크스페이스 설정
-                    </NavLink>
-                  )}
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/workspace-audit">
-                      <History size={18} />
-                      워크스페이스 감사
-                    </NavLink>
-                  )}
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/workspace-operations">
-                      <Settings size={18} />팀 운영 설정
-                    </NavLink>
-                  )}
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/search-ai-settings">
-                      <Search size={18} />
-                      AI 검색 설정
-                    </NavLink>
-                  )}
-                {workspace &&
-                  ["owner", "admin"].includes(workspace.role) &&
-                  user.role !== "viewer" && (
-                    <NavLink to="/app/storage">
-                      <HardDrive size={18} />
-                      저장소 설정
-                    </NavLink>
-                  )}
-                <NavLink to="/app/trash">
-                  <Trash2 size={18} />
-                  휴지통
-                </NavLink>
-              </nav>
-            </>
+            </WorkspaceNavigation>
           )}
         </div>
         <div className="sidebar-bottom">
           {!admin && (
-            <button className="ai-launch" onClick={() => setAI(true)}>
+            <button className="ai-launch" onClick={openAI}>
               <Sparkles size={20} />
               <span>
                 지식에 AI를 더하세요
@@ -807,11 +831,21 @@ function Shell() {
                 <div className="menu-version">
                   madi{" "}
                   <Badge>
-                    v{String(publicInfo.version || "0.1.0").replace(/^v/, "")}
+                    {publicInfo.version
+                      ? `v${String(publicInfo.version).replace(/^v/, "")}`
+                      : "버전 확인 중"}
                   </Badge>
                   <Dropdown.Item asChild>
-                    <a href="/licenses.txt" target="_blank" rel="noopener noreferrer"
-                      style={{ marginLeft: "auto", fontSize: "13px", padding: "4px" }}>
+                    <a
+                      href="/licenses.txt"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: "13px",
+                        padding: "4px",
+                      }}
+                    >
                       오픈소스 고지
                     </a>
                   </Dropdown.Item>
@@ -868,7 +902,7 @@ function Shell() {
               className="icon-button"
               title="AI 도우미"
               aria-label="AI 도우미"
-              onClick={() => setAI(true)}
+              onClick={openAI}
             >
               <Sparkles size={20} />
             </button>
@@ -876,10 +910,57 @@ function Shell() {
           </div>
         </header>
         <div className="page-content">
+          <NavigationReturn />
           <React.Suspense fallback={<Loading />}>
             <Routes>
-              <Route path="/app" element={<HomePage />} />
+              <Route path="/app" element={<FocusedHome />} />
+              <Route path="/app/my-work" element={<MyWorkPage />} />
               <Route path="/app/documents" element={<DocumentList />} />
+              <Route path="/app/worksets/*" element={<WorksetsPage />} />
+              <Route
+                path="/app/knowledge-questions"
+                element={<KnowledgeQuestionsPage />}
+              />
+              <Route
+                path="/app/knowledge-conflicts"
+                element={<KnowledgeConflictsPage />}
+              />
+              <Route
+                path="/app/knowledge-paths"
+                element={<KnowledgePathsPage />}
+              />
+              <Route
+                path="/app/structured-drafts"
+                element={<StructuredDraftsPage />}
+              />
+              <Route
+                path="/app/system-status"
+                element={<SystemStatusPage key={workspace?.id} />}
+              />
+              <Route
+                path="/admin/system-status"
+                element={
+                  user.role === "admin" ? (
+                    <SystemStatusAdminPage />
+                  ) : (
+                    <Navigate to="/app" />
+                  )
+                }
+              />
+              <Route
+                path="/app/attachments/:id"
+                element={<AttachmentPage key={location.pathname} />}
+              />
+              <Route
+                path="/admin/attachment-extraction"
+                element={
+                  user.role === "admin" ? (
+                    <ExtractionPolicyPage />
+                  ) : (
+                    <Navigate to="/app" />
+                  )
+                }
+              />
               <Route
                 path="/app/documents/:id/runbook"
                 element={<RunbookDocumentPage key={location.pathname} />}
@@ -900,10 +981,52 @@ function Shell() {
               />
               <Route path="/app/search" element={<SearchPage />} />
               <Route
+                path="/app/search/operations"
+                element={<SearchOperationsPage />}
+              />
+              <Route
+                path="/app/search/generations"
+                element={<RAGGenerationsPage />}
+              />
+              <Route
                 path="/app/search-history"
                 element={<SearchHistoryPage />}
               />
               <Route path="/app/ai-history" element={<AIHistoryPage />} />
+              <Route path="/app/evidence" element={<EvidencePage />} />
+              <Route
+                path="/app/access-requests"
+                element={<AccessRequestsPage />}
+              />
+              <Route
+                path="/app/knowledge-proposals"
+                element={<KnowledgeProposalsPage />}
+              />
+              <Route
+                path="/app/knowledge-time"
+                element={<KnowledgeTimePage />}
+              />
+              <Route
+                path="/app/knowledge-distribution"
+                element={<KnowledgeDistributionPage />}
+              />
+              <Route
+                path="/admin/knowledge-distribution"
+                element={<DistributionPolicyPage />}
+              />
+              <Route
+                path="/app/knowledge-impact"
+                element={<KnowledgeImpactPage />}
+              />
+              <Route
+                path="/app/knowledge-packages"
+                element={<KnowledgePackagesPage />}
+              />
+              <Route
+                path="/admin/knowledge-packages"
+                element={<KnowledgePackagePolicyPage />}
+              />
+              <Route path="/admin/evidence" element={<EvidencePolicyPage />} />
               <Route path="/app/git-sync" element={<GitSyncPage />} />
               <Route path="/admin/git-sync" element={<GitSyncPolicyPage />} />
               <Route
@@ -966,7 +1089,7 @@ function Shell() {
               />
               <Route
                 path="/app/documents/:id"
-                element={<DocumentPage onAI={() => setAI(true)} />}
+                element={<DocumentPage onAI={openAI} />}
               />
               <Route path="/app/graph" element={<GraphPage />} />
               <Route path="/app/graph-ai" element={<GraphAIPage />} />
@@ -1236,6 +1359,9 @@ function Shell() {
           </React.Suspense>
         </div>
       </main>
+      <React.Suspense fallback={null}>
+        <DocumentRecovery />
+      </React.Suspense>
       <Modal open={newDoc} onOpenChange={setNewDoc} title="새 문서 만들기">
         <form
           onSubmit={async (e) => {
@@ -1314,7 +1440,10 @@ function Shell() {
         open={command}
         onOpenChange={setCommand}
         onCreate={() => setNewDoc(true)}
-        onAI={() => setAI(true)}
+        onAI={openAI}
+      />
+      <MobileActions
+        blocked={admin || mobile || command || newDoc || newWorkspace || ai}
       />
       {ai && (
         <React.Suspense fallback={<Loading />}>

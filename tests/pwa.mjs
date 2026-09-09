@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { expect } from "playwright/test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -89,14 +90,12 @@ try {
   console.log(
     "PASS explicit offline selection encrypts title/body in IndexedDB",
   );
-  await page.waitForFunction(
-    async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      return !!reg?.active;
-    },
-    {},
-    { timeout: 60000 },
-  );
+  // waitForFunction tests a predicate's truthiness; a Promise is already truthy.
+  // Poll an awaited evaluation so activation and the cache really complete.
+  await expect.poll(() => page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.getRegistration();
+    return reg?.active?.state === "activated";
+  }), { timeout: 60000 }).toBe(true);
   await page.screenshot({
     path: path.join(output, "devices.png"),
     fullPage: true,
@@ -109,7 +108,7 @@ try {
         list.push(new URL(req.url).pathname);
     return list;
   });
-  assert.ok(cachePaths.includes("/offline.html"));
+  assert.ok(cachePaths.includes("/offline.html"), JSON.stringify({cachePaths, state: await page.evaluate(async () => ({url: location.href, registrations: (await navigator.serviceWorker.getRegistrations()).map(r => ({script:r.active?.scriptURL,state:r.active?.state})), caches: await caches.keys()}))}));
   assert.ok(
     !cachePaths.some((value) => /^\/(api|auth|attachments|plugin)/.test(value)),
   );

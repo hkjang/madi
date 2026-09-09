@@ -118,6 +118,46 @@ func integrationScopeAllowed(p *Principal, r *http.Request) bool {
 		return p.TokenID != "" && p.Kind == "service" && !p.ScopeRestricted && hasIntegrationScope(p, scimProvisionScope)
 	case path == "/mcp":
 		return true // Each tool is checked and then dispatched through the REST auth stack.
+	case path == "/knowledge-paths":
+		return r.Method == http.MethodGet && hasIntegrationScope(p, "document:read")
+	case strings.HasPrefix(path, "/knowledge-paths/"):
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		return len(parts) == 2 && validID(parts[1]) && r.Method == http.MethodGet && hasIntegrationScope(p, "document:read")
+	case strings.HasPrefix(path, "/documents/") && (strings.HasSuffix(path, "/queries") || strings.HasSuffix(path, "/queries/execute") || strings.HasSuffix(path, "/queries/check")):
+		return hasIntegrationScope(p, "document:read") && (r.Method == http.MethodGet || r.Method == http.MethodPost)
+	case strings.HasPrefix(path, "/documents/") && (strings.HasSuffix(path, "/system-status") || strings.HasSuffix(path, "/system-status/reports")):
+		return hasIntegrationScope(p, "document:read") && (!write || hasIntegrationScope(p, "document:write"))
+	case strings.HasPrefix(path, "/attachment-extractions/"):
+		if r.Method == http.MethodPost && strings.HasSuffix(path, "/ai") {
+			return hasIntegrationScope(p, "document:read") && hasIntegrationScope(p, "ai:execute")
+		}
+		return hasIntegrationScope(p, "document:read") && (!write || r.Method == http.MethodDelete && hasIntegrationScope(p, "document:write"))
+	case strings.HasPrefix(path, "/attachments/") && strings.HasSuffix(path, "/extractions"):
+		return r.Method == http.MethodPost && hasIntegrationScope(p, "document:read") && hasIntegrationScope(p, "document:write")
+	case strings.HasPrefix(path, "/documents/") && strings.HasSuffix(path, "/ai-selection"):
+		return hasIntegrationScope(p, "ai:execute") && hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/packages" || strings.HasPrefix(path, "/knowledge/packages/"):
+		return hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/impact-check":
+		return hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/time-search":
+		return !write && hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/time-check":
+		return hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/proposals" || strings.HasPrefix(path, "/knowledge/proposals/"):
+		return hasIntegrationScope(p, "document:read") && (!write || hasIntegrationScope(p, "document:write"))
+	case path == "/knowledge/questions" || strings.HasPrefix(path, "/knowledge/questions/"):
+		return hasIntegrationScope(p, "document:read") && (!write || hasIntegrationScope(p, "document:write"))
+	case path == "/knowledge/structured-drafts" || strings.HasPrefix(path, "/knowledge/structured-drafts/"):
+		return !write && hasIntegrationScope(p, "document:read") && hasIntegrationScope(p, "database:read")
+	case strings.HasPrefix(path, "/documents/") && (strings.HasSuffix(path, "/structured-context") || strings.HasSuffix(path, "/structured-draft")):
+		return false
+	case path == "/knowledge/conflicts" || strings.HasPrefix(path, "/knowledge/conflicts/") || strings.HasPrefix(path, "/knowledge/conflict-candidates/"):
+		return !write && hasIntegrationScope(p, "document:read")
+	case strings.HasPrefix(path, "/knowledge/impact-exceptions/"):
+		return r.Method == http.MethodGet && hasIntegrationScope(p, "document:read")
+	case path == "/knowledge/impact-reviews" || strings.HasPrefix(path, "/knowledge/impact-reviews/"):
+		return hasIntegrationScope(p, "document:read") && (!write || hasIntegrationScope(p, "document:write"))
 	case strings.HasPrefix(path, "/ai/"):
 		return hasIntegrationScope(p, "ai:execute")
 	case strings.HasPrefix(path, "/workspaces/") && strings.HasSuffix(path, "/agents"):

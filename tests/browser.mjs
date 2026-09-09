@@ -1,6 +1,8 @@
+import {documentTool,documentPanel} from "./document-ui.mjs";
 import {chromium} from 'playwright';
+import {expect} from 'playwright/test';
 import assert from 'node:assert/strict';
-import {mkdir, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
 // Run against a dedicated disposable madi database. These tests create documents,
@@ -8,6 +10,7 @@ import path from 'node:path';
 const base = process.env.MADI_BASE_URL || 'http://127.0.0.1:8080';
 const email = process.env.MADI_TEST_EMAIL || 'admin@example.test';
 const password = process.env.MADI_TEST_PASSWORD || 'Browser-Test-Password-2026!';
+const expectedVersion = (await readFile(new URL('../VERSION', import.meta.url), 'utf8')).trim();
 const out = path.resolve(process.env.MADI_SCREENSHOT_DIR || 'docs/screenshots');
 await mkdir(out,{recursive:true});
 const browser = await chromium.launch({headless:true});
@@ -41,6 +44,8 @@ async function check(name,fn){try{await fn();console.log(`PASS ${name}`)}catch(e
 try {
  await page.goto(`${base}/login`);
  await page.getByRole('heading',{name:'다시 만나 반가워요'}).waitFor();
+ await page.locator('.login-version').getByText('v'+expectedVersion,{exact:true}).waitFor();
+ assert.equal((await api('/public')).version,expectedVersion,'public metadata must match the candidate VERSION');
  await shot('login');
  await page.getByLabel('이메일',{exact:true}).fill(email);
  await page.getByLabel('비밀번호',{exact:true}).fill(password);
@@ -70,7 +75,7 @@ try {
 
  await check('document edit and refresh',async()=>{
   await page.goto(`${base}/app/documents/${demo.id}`);
-  await page.getByRole('button',{name:'Markdown',exact:true}).click();
+  await documentTool(page,'Markdown 원문');
   const source=page.getByRole('textbox',{name:'Markdown 원문 편집'});
   await source.waitFor();
   const original=await source.inputValue();
@@ -78,7 +83,7 @@ try {
   await page.getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('.save-state').filter({hasText:'저장됨'}).waitFor();
   await page.reload();
-  await page.getByRole('button',{name:'Markdown',exact:true}).click();
+  await documentTool(page,'Markdown 원문');
   assert.ok((await source.inputValue()).includes('브라우저 왕복 저장 확인.'));
   await source.fill(original);
   await page.getByRole('button',{name:'저장',exact:true}).click();
@@ -90,11 +95,31 @@ try {
  });
  const routes=[['workspace','/app'],['documents','/app/documents'],['search','/app/search?q=운영'],['favorites','/app/favorites'],['graph','/app/graph'],['tasks','/app/tasks'],['databases','/app/databases'],['templates','/app/templates'],['trash','/app/trash'],['import','/app/import'],['members','/app/members'],['profile','/app/profile'],['api-keys','/app/keys'],['admin-dashboard','/admin'],['admin-users','/admin/users'],['admin-settings','/admin/settings'],['admin-settings-oidc','/admin/settings?tab=auth'],['admin-settings-ai','/admin/settings?tab=ai'],['admin-settings-security','/admin/settings?tab=security'],['admin-settings-workflow','/admin/settings?tab=workflow'],['admin-settings-storage','/admin/settings?tab=storage'],['admin-settings-history','/admin/settings?tab=history'],['admin-audit','/admin/audit'],['admin-backup','/admin/backup']];
  for(const [name,route] of routes)await check(`route ${name}`,async()=>{
-  await page.goto(base+route);await page.locator('.page-heading h1').waitFor();
-  await page.locator('.loading').waitFor({state:'detached'});
+  await page.goto(base+route);await page.locator('.page-heading h1:visible').waitFor();
+  await expect(page.locator('.loading:visible')).toHaveCount(0,{timeout:30000});
   assert.equal(await page.locator('.notice.error').count(),0,await page.locator('.notice.error').allTextContents());
-  const before=new URL(page.url()).pathname;await page.reload();await page.locator('.page-heading h1').waitFor();assert.equal(new URL(page.url()).pathname,before);
+  const before=new URL(page.url()).pathname;await page.reload();await page.locator('.page-heading h1:visible').waitFor();await expect(page.locator('.loading:visible')).toHaveCount(0,{timeout:30000});assert.equal(new URL(page.url()).pathname,before);
   await shot(name);
+ });
+ await check('SSO email verification policy',async()=>{
+  await page.goto(base+'/admin/settings?tab=auth');
+  const toggle=page.getByRole('checkbox',{name:/^SSO 이메일 검증 필수/});
+  await toggle.waitFor();
+  assert.equal((await api('/admin/settings')).oidc_require_verified_email,false,'default admission does not require email_verified');
+  await expect(toggle).not.toBeChecked();
+  try {
+   await toggle.click();
+   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
+   await expect.poll(async()=>(await api('/admin/settings')).oidc_require_verified_email).toBe(true);
+   await page.reload();
+   await expect(toggle).toBeChecked();
+   await toggle.click();
+   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
+   await expect.poll(async()=>(await api('/admin/settings')).oidc_require_verified_email).toBe(false);
+   await page.reload();
+   await expect(toggle).not.toBeChecked();
+   await shot('admin-settings-oidc');
+  } finally {await api('/admin/settings','PUT',{oidc_require_verified_email:false})}
  });
  await check('database select and multiselect',async()=>{
   await page.goto(`${base}/app/databases/${database.id}`);await page.getByRole('button',{name:'새 항목',exact:true}).waitFor();
@@ -116,7 +141,7 @@ try {
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');await page.reload();await page.getByLabel('테마',{exact:true}).waitFor();assert.equal(await page.getByLabel('글자 크기',{exact:true}).inputValue(),'18');await shot('profile-dark');
   await page.getByLabel('글자 크기',{exact:true}).selectOption('16');await page.getByLabel('테마',{exact:true}).selectOption('light');await page.getByRole('button',{name:'변경사항 저장'}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
  });
- await check('version context menu',async()=>{await page.locator('.profile-trigger').click();await page.locator('.menu-version').waitFor();assert.match(await page.locator('.menu-version').innerText(),/v\d+\.\d+\.\d+/);const notice=page.getByRole('menuitem',{name:'오픈소스 고지',exact:true});assert.equal(await notice.getAttribute('href'),'/licenses.txt');const license=await context.request.get(base+'/licenses.txt');assert.equal(license.status(),200);assert.ok((await license.text()).startsWith('madi — Third-party attribution'));await shot('profile-menu');await page.keyboard.press('Escape')});
+ await check('version context menu',async()=>{await page.locator('.profile-trigger').click();await page.locator('.menu-version').waitFor();await page.locator('.menu-version').getByText('v'+expectedVersion,{exact:true}).waitFor();const notice=page.getByRole('menuitem',{name:'오픈소스 고지',exact:true});assert.equal(await notice.getAttribute('href'),'/licenses.txt');const license=await context.request.get(base+'/licenses.txt');assert.equal(license.status(),200);assert.ok((await license.text()).startsWith('madi — Third-party attribution'));await shot('profile-menu');await page.keyboard.press('Escape')});
  await check('mobile navigation',async()=>{
   await page.setViewportSize({width:390,height:844});await page.goto(base+'/app');await page.locator('.page-heading h1').waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'mobile horizontal overflow');await shot('mobile-workspace');
