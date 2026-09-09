@@ -10,11 +10,11 @@ madi는 Markdown 문서와 위키 링크, 문서 데이터베이스, 지식 그�
 - 전체 기능 범위와 운영 한계: [릴리즈 노트](RELEASE_NOTES.md), [P0~P3 범위](docs/roadmap.md), [상세 매뉴얼](https://hkjang.github.io/madi/manuals.html)
 - [UI 선택과 접근성](docs/ui-guide.md) · [포함된 오픈소스 고지](web/public/licenses.txt)
 
-현재 체크아웃은 **v0.2.0 게시 전 후보**입니다. 최신 `main-By2nz__J.js`의 shared 25개 브라우저 묶음, PG17·18 × 3엔진 호환성, 관련 UI 교차 검사와 문서 경합 전체 2회가 로컬에서 통과했습니다. 수정 후 전체 Go `-race`·35개 독립 브라우저 옵션은 main CI의 최종 재검증을 기다리며, 새 이미지의 폐쇄망 검증·태그·공개 릴리즈는 미완료입니다. 아래 v0.2.0 설치 명령은 해당 릴리즈가 검증·게시된 뒤 사용하는 예시이며, 현재 게시된 파일은 GitHub Releases에서 확인하세요. [배포 검증 상태](docs/deployment-verification.md)
+**[v0.2.0이 게시되었습니다.](https://github.com/hkjang/madi/releases/tag/v0.2.0)** 태그 소스는 `aff3ee1f6d48f895b0d1461dafdf2711638eb0ce`입니다. main CI와 [태그 릴리즈 작업](https://github.com/hkjang/madi/actions/runs/34369441095)에서 전체 Go `-race`·35개 독립 브라우저 옵션·shared25·PG17/18 호환성, 이미지 저장·재반입·폐쇄망 실행을 통과했습니다. 단일 자산 `madi-v0.2.0.tar.gz`는 558,764,847바이트이며 정확한 SHA-256과 검증 범위는 [배포 검증 기록](docs/deployment-verification.md)에서 확인하세요.
 
 ## 빠른 시작
 
-Docker와 별도 PostgreSQL 인스턴스를 준비합니다. 폐쇄망에서는 Docker 자체와 PostgreSQL 인프라도 미리 반입되어 있어야 합니다. v0.2.0 게시 시 서비스 릴리즈 파일은 `madi-v0.2.0.tar.gz` 하나입니다.
+Docker와 별도 PostgreSQL 인스턴스를 준비합니다. 폐쇄망에서는 Docker 자체와 PostgreSQL 인프라도 미리 반입되어 있어야 합니다. v0.2.0 서비스 릴리즈 파일은 `madi-v0.2.0.tar.gz` 하나입니다.
 
 ```sh
 gzip -dc madi-v0.2.0.tar.gz | docker load

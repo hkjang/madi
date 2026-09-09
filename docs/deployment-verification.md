@@ -2,32 +2,51 @@
 
 이미지 생성만으로 폐쇄망 배포 성공을 판단하지 않습니다. 압축 파일을 다시 불러온 뒤 외부 통신이 차단된 Docker 내부 네트워크에서 실제 데이터 왕복을 확인합니다. PostgreSQL은 검증 인프라이며 서비스 릴리즈 아카이브에 포함하지 않습니다.
 
-## v0.2.0 후보의 현재 상태
+## v0.2.0 게시·검증 결과
 
-2026-09-09 기준 커밋 `9096a674695ced8da63a376cd4691d86fb2b0936`의 두 번째 main CI는 UI 시험 2건 실패로 전체 Go 검사를 통과하지 못했습니다. 두 원인을 확인해 제품 저장 상태와 시험의 응답 확인 경계를 각각 수정했고, 새 후보 `main-BPw-YbqO.js`에서 집중 회귀와 shared25 전체를 통과했습니다. 후속 전체 CI는 대기입니다. 이전 커밋의 독립 이미지 빌드·폐쇄망 실행 통과는 보존하되 새 후보의 이미지 검증·압축 파일 저장·재반입·태그·공개 릴리즈 완료로 확대하지 않습니다.
+2026-09-10 01:19:09 KST에 [v0.2.0 정식 릴리즈](https://github.com/hkjang/madi/releases/tag/v0.2.0)가 게시됐습니다. 태그 소스는 `aff3ee1f6d48f895b0d1461dafdf2711638eb0ce`이며 main CI와 [태그 릴리즈 작업 34369441095](https://github.com/hkjang/madi/actions/runs/34369441095)의 전체 3개 작업이 모두 통과했습니다. 호환성 6조합·전체 Go·shared25 재검사, 이미지 저장·재반입·폐쇄망 실행 후 서비스 이미지 아카이브 하나만 게시했습니다. 두 차례 이전 main CI 실패와 후보별 로컬 결과는 아래에 보존합니다.
 
 | 범위 | 확인된 상태 |
 | --- | --- |
-| 최신 후보 웹 번들 | `main-BPw-YbqO.js`. 아래 By2·이전 커밋 결과는 해당 소스의 기록이며 새 후보 전체 검증을 뜻하지 않음 |
+| 태그 소스·웹 번들 | `v0.2.0` → `aff3ee1f6d48f895b0d1461dafdf2711638eb0ce`, `main-BPw-YbqO.js`. By2·이전 커밋 결과는 해당 소스의 기록으로 별도 보존 |
 | 문서 UI 경합 전체 | BPw에서 CI 기본 조건의 `TestBrowserDocumentRaces -race -count=5` 13.97초·13.82초·13.54초·13.47초·13.78초, Go 패키지 69.648초 통과. 저장 후 목록 갱신의 지연·실패·후속 저장·화면 이탈 4경계 단독 시험 5.10초·패키지 6.161초 통과 |
 | DB 편집 응답 확인 회귀 | 실제 DB commit 후 응답을 보류하는 영구 시험과 실제 200·version·읽기 셀·포커스·GET 정본 확인. 기존 고급 DB 검사 포함 PG18 3회 패키지 53.373초, PG17 1회 패키지 20.096초 통과. 제품 코드·timeout·기존 검증 완화 없음 |
 | 관련 UI 교차·탐색 회귀 | AISelection 32.35초·DocumentFoundations 35.81초·UXStructure 60.62초·Worksets 21.23초, 패키지 151.096초 통과. 탐색 3회 126.997초 및 명령 경계·끝슬래시 11.644초 통과 |
 | OIDC 계정 보호 회귀 | 실제 PostgreSQL `-race` 4.359초 통과 |
 | 백엔드 교차 회귀 12개 | E11·OIDC·블록 조회·설정 동시성/CAS 등 117.824초 통과 |
 | 현재 전체 스키마의 운영 백업·복원 | 최신 SSO 설정을 포함한 `TestNativeBackupCurrentFullSchema` 시험 2.96초·Go 패키지 4.022초 통과 |
-| 최신 대표 호환성 6개 조합 | By2 기준 PG17.11·18.6 × Chromium·Firefox·WebKit 통과. Go 패키지 79.435초·43.160초. [호환성 가이드](compatibility-guide.md)에 최신·이전 보고서와 WebKit 요청 취소 2건을 구분 |
-| 공유 서버 브라우저 25개 묶음 | BPw 8차 전부 통과·실패 0·각 묶음 종료 코드 0·실행 전후 번들 일치. 첫 시작~마지막 완료 327.867초. 이전 By2 7차 409.427초는 별도 보존 |
-| 수정 후 전체 Go·독립 브라우저 검사 | [main CI 34356027987](https://github.com/hkjang/madi/actions/runs/34356027987) 전체 Go 2,219.760초, DatabaseEditing·DocumentRaces 2건 실패. 두 원인 수정 후 집중 회귀는 통과했으나 후속 전체 Go·35개 브라우저 검사의 CI 결과는 대기 |
+| 대표 호환성 6개 조합 | 동일 aff3ee1f의 [main 호환성 CI](https://github.com/hkjang/madi/actions/runs/34363815488)에서 PG17.11·18.6 × Chromium·Firefox·WebKit 통과, Go 패키지 46.305초·46.326초. 태그 재검사도 6조합 통과, PG17·18 패키지 47.390초·89.407초. [호환성 가이드](compatibility-guide.md)에 각 실행과 이전 By2 진단을 구분 |
+| 공유 서버 브라우저 25개 묶음 | 태그 릴리즈의 BPw 단일 배치 전부 통과·실행 전후 번들 일치·315.417초. main CI 315.618초·로컬 BPw 8차 327.867초·이전 By2 7차 409.427초는 별도 보존 |
+| 수정 후 전체 Go·독립 브라우저 검사 | [main CI 34363815607](https://github.com/hkjang/madi/actions/runs/34363815607) 서버 Go-race 2,393.809초 통과. 태그 릴리즈에서도 전체 Go·35개 독립 브라우저 옵션 통과, 서버 2,372.699초·추출 검증 2.045초·배포 계약 1.024초 |
 | 문서 조회 예산 후속 회귀 | 후보 권한 조회 최적화 후 PG17 전체 관련 회귀 23.514초·PG18 25.193초 통과. 기존 방식과 전체 JSON·순서·현재 권한 144개 조합 일치. PG17 경계·시간 초과·만료 시험 3회 14.576초 통과. 2초 요청 예산·1,900ms SQL 제한 유지 |
 | 공개 캡처 검증 목록 | 동일 BPw 배치 정상 157장 게시·중복 4건 해결·미승인 0·95경로 캡처 연결 통과. [현재 검증 목록](screenshots/verification-v0.2.0-shared.json)은 이 157장만 기술하며 전체 갤러리를 같은 배치로 인증하지 않음. [이전 By2 목록](screenshots/verification-v0.2.0-By2nz__J.json)은 당시 시각·해시로 별도 보존. 로그인·OIDC 설정 화면 직접 시각 확인 |
 | 최종 로컬 정적·의존성 검사 | BPw `go vet` 통과, 배포 계약 Go-race 1.066초·Node 26개 2.670초 통과. 이전 gofmt·라이선스 423개·웹 production 취약점 0·Go 호출 경로/가져오는 패키지 0의 근거는 보존하며 미호출 의존 모듈 취약점 1건은 별도 한계로 유지 |
-| 로컬 문서 생성·정적 브라우저 검사 | BPw 캡처·문서 반영 후 49매뉴얼·412화면·54사이트맵 재생성, 54페이지·535링크·390px·구조화 데이터·갤러리 필터·외부 자산 0 통과 (`.local/v020-BPw-final-docs.log`). 이전 By2 534링크와 앞선 531링크 기록도 보존 |
-| CI 서비스 이미지 | 동일 `9096a674`의 독립 offline-image 작업 4분 48초 통과. 대응 소스·실제 PDF/선택 OCR·복원·내부망 실행 확인. `madi:ci`의 빌드·실행 결과이며 tar 저장·재반입·릴리즈 통과는 아님 |
-| 공개 v0.2.0 릴리즈 | 아직 게시 완료로 기록하지 않음. 실제 게시 파일의 크기·SHA-256은 릴리즈 작업 결과로 확정 |
+| 로컬 문서 생성·정적 브라우저 검사 | 실제 게시 결과 반영 후 49매뉴얼·412화면·54사이트맵 재생성, 54페이지·537링크·390px·구조화 데이터·갤러리 필터·외부 자산 0 통과 (`.local/v020-post-release-final-docs.log`). 이전 BPw 535링크·By2 534링크·초기 531링크 기록도 보존 |
+| 공개 Pages | 동일 aff3ee1f의 [Pages 34363815423](https://github.com/hkjang/madi/actions/runs/34363815423) 통과. 공개 홈·SSO 가이드·BPw 배포 기록·목록 HTTP 200, 목록의 157개 PNG 모두 실제 크기·SHA-256 일치 |
+| CI 서비스 이미지 | 동일 aff3ee1f의 [offline-image 작업 102507290796](https://github.com/hkjang/madi/actions/runs/34363815607/job/102507290796) 4분 58초 통과. 대응 소스·실제 PDF/선택 OCR·복원·내부망 실행 확인. `madi:ci`의 빌드·실행 결과이며 tar 저장·재반입·릴리즈 통과는 아님 |
+| 공개 v0.2.0 릴리즈 | 정식 게시 완료, draft·prerelease 아님. 자산은 `madi-v0.2.0.tar.gz` 1개. 게시 시각 `2026-09-09T16:19:09Z` |
 
-shared25 최신 근거는 `test-results/regression-shared/report.json`의 BPw 배치 `9ae61b64-ed0c-40e6-9193-4f65482e3410`와 `.local/shared25-final-v020-8.log`입니다. 최초 시작 `2026-09-09T14:16:34.595Z`부터 마지막 완료 `2026-09-09T14:22:02.462Z`까지 327.867초이며, 25개 전부 통과·종료 코드 0·실행 전후 `main-BPw-YbqO.js`가 일치합니다. 이는 서버 빌드·준비 시간을 포함한 스크립트 총 실행시간이나 서비스 응답시간 보증이 아닙니다. 새 공개 목록은 이 배치의 157장만 기술합니다. 이전 By2 배치 `53905e19-80e8-4867-a2d0-53778b501242`의 시작 `2026-09-09T11:57:35.782Z`·완료 `2026-09-09T12:04:25.209Z`·409.427초는 `.local/shared25-final-v020-7.log`와 별도 By2 목록에 보존하며, 기존 `verification.json`도 역사 자료로 유지합니다.
+### 실제 게시 파일
 
-이전 전체 Go 4차 `.local/upgrade-final-go-race-4.jsonl`은 최상위 388개 통과·UXStructure 1개 실패·별도 opt-in 10개 건너뜀, 서버 패키지 1,798.478초였습니다. 추적에서 실제 경로 이탈 타이머가 원문 선택 기록을 덮어쓰는 오류와 높이 변화에 결합된 복원 오류를 확인해 수정했습니다. 후속 실제 URL·로드된 문서 명령 경계와 끝슬래시 guard도 적용했습니다. 이번 로컬 집중 통과가 과거 전체 실패를 지우지는 않으며, 수정 후 전체 회귀는 main CI 성공 후에만 완료로 기록합니다.
+| 항목 | 확정 값 |
+| --- | --- |
+| 릴리즈 | [v0.2.0](https://github.com/hkjang/madi/releases/tag/v0.2.0), ID `385673963` |
+| 단일 자산 | [madi-v0.2.0.tar.gz](https://github.com/hkjang/madi/releases/download/v0.2.0/madi-v0.2.0.tar.gz) |
+| 크기 | 558,764,847바이트 |
+| GitHub 자산 SHA-256 | `f949e323849192fd33f485bf7bc14b3807fc85c7eb1014ce9379cff68ba89ef7` |
+| 원격 재반입 검증 | 이미지 저장 후 재로딩 성공, Docker 내부망에서 실제 PDF·선택 OCR·복원 포함 검증 통과 |
+| 독립 실제 다운로드 | 558,764,847바이트·스트리밍 SHA-256이 GitHub digest 및 릴리즈 본문과 모두 일치, `gzip -t` 통과 |
+| 다운로드 파일의 Docker manifest | 항목 1개, `RepoTags` 정확히 `["madi:v0.2.0"]` |
+
+이 해시는 실제 게시 아카이브의 값이며 아래 CI 이미지 ID나 과거 v0.1.0 후보 해시와 다릅니다. 독립 다운로드 근거는 `.local/release-v020-verified.e2U3QZ/verification.json`입니다. 이 로컬 확인은 파일 무결성·내용 검증이며 Docker 재반입·폐쇄망 실행은 위 원격 릴리즈 작업의 실제 결과로 구분합니다.
+
+태그 릴리즈의 shared25 원본은 단일 배치 `9082ed9a-cefd-497e-86dd-c5dc266ca66f`입니다. 시작 `2026-09-09T16:07:13.305Z`·완료 `2026-09-09T16:12:28.722Z`, 구간315.417초에 25개 모두 통과했고 evidence v2·전후 BPw·timeout 0을 확인했습니다. 원본 캡처161개의 크기·해시·시간 범위도 일치했습니다. 보고서는 `.local/release-actions-34369441095.YA50cF/release-verification/test-results/regression-shared/report.json`, SHA-256은 `f0c147418278d6e12e2ac3da1d70652e128b78302ab0f4d4dbc8672ab8ad9a18`입니다. 이 원격 캡처를 공개157장 목록의 새로운 검증 시각으로 사용하지 않습니다.
+
+최신 원격 main CI의 shared25는 evidence v2 단일 배치 `d3809649-8a54-45e4-aee8-25469524bdcd`입니다. `2026-09-09T15:11:40.038Z`부터 `2026-09-09T15:16:55.656Z`까지 315.618초에 25개 모두 통과했고 실행 전후 BPw 번들이 일치했습니다. 전체 Go와 shared25 근거는 `.local/main-ci-34363815607-passed.log` 및 해당 CI 아티팩트에 보존합니다. 이 배치를 로컬 캡처의 새 검증 시각으로 사용하지 않습니다.
+
+로컬 shared25 근거는 `test-results/regression-shared/report.json`의 BPw 배치 `9ae61b64-ed0c-40e6-9193-4f65482e3410`와 `.local/shared25-final-v020-8.log`입니다. 최초 시작 `2026-09-09T14:16:34.595Z`부터 마지막 완료 `2026-09-09T14:22:02.462Z`까지 327.867초이며, 25개 전부 통과·종료 코드 0·실행 전후 `main-BPw-YbqO.js`가 일치합니다. 두 배치의 시간은 각각 첫 시작~마지막 완료 구간이며 서버 준비 시간을 포함한 총 실행시간이나 서비스 응답시간 보증이 아닙니다. 공개 목록은 이 로컬 배치의 157장만 기술합니다. 이전 By2 배치 `53905e19-80e8-4867-a2d0-53778b501242`의 시작 `2026-09-09T11:57:35.782Z`·완료 `2026-09-09T12:04:25.209Z`·409.427초는 `.local/shared25-final-v020-7.log`와 별도 By2 목록에 보존하며, 기존 `verification.json`도 역사 자료로 유지합니다.
+
+이전 전체 Go 4차 `.local/upgrade-final-go-race-4.jsonl`은 최상위 388개 통과·UXStructure 1개 실패·별도 opt-in 10개 건너뜀, 서버 패키지 1,798.478초였습니다. 추적에서 실제 경로 이탈 타이머가 원문 선택 기록을 덮어쓰는 오류와 높이 변화에 결합된 복원 오류를 확인해 수정했습니다. 후속 실제 URL·로드된 문서 명령 경계와 끝슬래시 guard도 적용했습니다. 이후 main CI 전체 통과를 확인했지만 과거 실패와 당시 실행 시간은 그대로 보존합니다.
 
 문서 경합 전체의 최신 근거는 `test-results/document-save-races-final-ci2.log`이며, 강제 응답 보류·실패 4경계는 `test-results/document-save-refresh-positive.log`입니다. 이전 By2 2회 통과의 `test-results/navigation-command-races-ci-final.log`와 고부하·진단 계측 조건의 저장 5초 대기 실패도 보존합니다. 새 5회 통과를 모든 부하에서의 5초 지연 보장으로 해석하지 않습니다. PG17 WebKit의 동일 출처 프로필 PUT 취소 2건도 [호환성 가이드](compatibility-guide.md)에 남겼습니다. 이전 로컬 문서 검사 `.local/v020-By2nz__J-final-docs.log`와 `.local/v020-docs-final.log`는 새 서비스 이미지 검증을 대신하지 않습니다.
 
@@ -37,9 +56,11 @@ CI의 408 자체는 로컬에서 재현되지 않았습니다. 다만 PG17에서
 
 두 번째 main CI의 `TestBrowserDatabaseEditing`은 수량 셀 입력의 `locator.fill` 30초 대기 시간 초과로 실패했습니다(시험 35.78초, `tests/database-editing.mjs:110`). `TestBrowserDocumentRaces`는 태그 변경 후 저장 중 상태가 저장됨으로 바뀌기를 기다리는 5초 조건에서 실패했습니다(시험 12.27초, `tests/document-races.mjs:225`). 근거는 `.local/main-ci-34356027987-failed.log`입니다. 이 실행의 후속 shared25는 건너뛰었고, [별도 호환성 작업](https://github.com/hkjang/madi/actions/runs/34356028022)과 [Pages 작업](https://github.com/hkjang/madi/actions/runs/34356027953)은 통과했지만 전체 CI 실패를 상쇄하지 않습니다.
 
-후속 추적에서 문서 저장은 실제 canonical PUT 완료 뒤 `await reload()`의 목록 GET이 지연되어 `saving=true`가 남는 제품 오류로 확인했습니다. 목록 갱신을 오류 처리하는 백그라운드 작업으로 분리하는 15줄 수정과 현재 경로·정본·후속 저장 guard를 적용했습니다. 목록 응답 보류, 503 실패, 새 PUT 진행 중 이전 갱신 완료, 화면 이탈 뒤 늦은 오류의 4경계와 CI 기본 조건 전체 5회가 BPw 번들에서 통과했습니다. DB 편집은 활성 select의 option에 이미 ‘완료’ 문구가 있어 시험의 `toContainText`가 ACK 전에 통과한 확인 경계 오류였습니다. 실제 handler의 DB commit 뒤 ACK를 보류하는 회귀를 영구화하고 실제 응답 200·version·읽기 셀·포커스·GET 정본을 기다리도록 시험만 수정했습니다. PG18 3회 및 PG17 근거는 `.local/database-editing-after-ack-fix-count3.log`, `.local/database-editing-after-ack-fix-pg17.log`입니다. timeout과 원래 검증은 완화하지 않았습니다. CI·릴리즈의 `go test -race`에 추가한 `-failfast`는 실패 후 조기 종료를 위한 것이며 성공 시 전체 모듈·35개 옵션을 검사하는 관문은 유지합니다. 로컬 새 shared25 통과와 별개로 후속 원격 CI는 대기입니다.
+후속 추적에서 문서 저장은 실제 canonical PUT 완료 뒤 `await reload()`의 목록 GET이 지연되어 `saving=true`가 남는 제품 오류로 확인했습니다. 목록 갱신을 오류 처리하는 백그라운드 작업으로 분리하는 15줄 수정과 현재 경로·정본·후속 저장 guard를 적용했습니다. 목록 응답 보류, 503 실패, 새 PUT 진행 중 이전 갱신 완료, 화면 이탈 뒤 늦은 오류의 4경계와 CI 기본 조건 전체 5회가 BPw 번들에서 통과했습니다. DB 편집은 활성 select의 option에 이미 ‘완료’ 문구가 있어 시험의 `toContainText`가 ACK 전에 통과한 확인 경계 오류였습니다. 실제 handler의 DB commit 뒤 ACK를 보류하는 회귀를 영구화하고 실제 응답 200·version·읽기 셀·포커스·GET 정본을 기다리도록 시험만 수정했습니다. PG18 3회 및 PG17 근거는 `.local/database-editing-after-ack-fix-count3.log`, `.local/database-editing-after-ack-fix-pg17.log`입니다. timeout과 원래 검증은 완화하지 않았습니다. CI·릴리즈의 `go test -race`에 추가한 `-failfast`는 실패 후 조기 종료를 위한 것이며 성공 시 전체 모듈·35개 옵션을 검사하는 관문은 유지합니다. 수정 후 원격 main CI와 태그 릴리즈의 전체 재검사도 통과했습니다.
 
-[독립 이미지 작업](https://github.com/hkjang/madi/actions/runs/34356027987/job/102480798995)은 같은 커밋에서 4분 48초에 통과했습니다. `.local/main-ci-34356027987-offline-image.log`에서 대응 소스·69개 APK/52개 소스 origin·모델 해시, 실제 PDF 텍스트·명시 선택한 영어/한국어 OCR·위치 조각·본문 검색·원본 불변, 논리 복원·첨부 복구·이전 세션 무효화·자동 외부 작업 중지·파생 추출 본문 폐기를 확인했습니다. CPU 2개·메모리 4GiB·read-only·비루트·내부망·네 런타임 변수 제한도 유지했습니다. CI 이미지 ID는 `sha256:8f64ff6c431af4ca5def8cbc86616f554b62f568314a8327544789c306be26a4`이며, 이 값은 배포용 tar.gz의 SHA-256이 아닙니다. 이미지 아카이브 저장·재반입·공개 릴리즈는 별도 미완료 관문입니다.
+[이전 독립 이미지 작업](https://github.com/hkjang/madi/actions/runs/34356027987/job/102480798995)은 당시 커밋에서 4분 48초에 통과했습니다. `.local/main-ci-34356027987-offline-image.log`에서 대응 소스·69개 APK/52개 소스 origin·모델 해시, 실제 PDF 텍스트·명시 선택한 영어/한국어 OCR·위치 조각·본문 검색·원본 불변, 논리 복원·첨부 복구·이전 세션 무효화·자동 외부 작업 중지·파생 추출 본문 폐기를 확인했습니다. CPU 2개·메모리 4GiB·read-only·비루트·내부망·네 런타임 변수 제한도 유지했습니다. 당시 이미지 ID는 `sha256:8f64ff6c431af4ca5def8cbc86616f554b62f568314a8327544789c306be26a4`이며 배포용 tar.gz의 SHA-256이 아닙니다.
+
+aff3ee1f의 main offline-image 작업은 4분 58초에 같은 대응 소스·PDF/선택 OCR·복원·폐쇄망 실행 검사를 통과했습니다. 실제 로그는 `.local/main-ci-34363815607-offline-image.log`, CI 이미지 ID는 `sha256:ff56c043593fb805284f5a05f4088c3256fdcbe62a66d60790e76b1d7b26ad58`입니다. 이 값은 빌드·실행 검사의 이미지 ID이지 아카이브 해시가 아닙니다. 이후 태그 릴리즈는 UTC `16:12:28~16:18:32` 빌드·저장, `16:18:35~16:18:40` 재로딩, `16:18:40~16:18:53` 폐쇄망 실행 단계가 모두 성공했고, 게시 파일 값은 위 표에 별도로 기록했습니다.
 
 이전 후보의 기능·이미지 시험과 실패 후 수정 기록은 [고도화 검증 장부](https://github.com/hkjang/madi/blob/main/OPERATIONS_UPGRADE.md)에 구분합니다. 아래 v0.1.0 표의 크기·해시는 과거 로컬 후보 값이며 v0.2.0 반입 검증에 사용할 수 없습니다.
 

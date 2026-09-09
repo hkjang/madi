@@ -6,7 +6,7 @@
 <body><a class="skip" href="#main">본문으로 바로가기</a><header class="site-header"><div class="container header-inner"><a class="brand" href="../index.html" aria-label="madi 홈"><img src="../assets/logo.svg" alt="madi" width="113" height="40"></a><button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="navigation" aria-label="탐색 메뉴 열기">☰</button><nav class="nav" id="navigation" aria-label="주 탐색"><a href="../index.html#features">기능</a><a href="../screenshots.html">화면 둘러보기</a><a href="../guide.html">시작 가이드</a><a href="../manuals.html">전체 매뉴얼</a><a href="../api.html">API · MCP</a><a href="https://github.com/hkjang/madi">GitHub ↗</a></nav></div></header>
 <main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>문서 변경 영향 분석. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../change-impact-guide.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#관계를-실제-유지보수-작업에-연결하기">관계를 실제 유지보수 작업에 연결하기</a><a href="#무엇을-감지하며-무엇을-보증하지-않나요">무엇을 감지하며 무엇을 보증하지 않나요?</a><a href="#선택적으로-영향-검토를-운영하기">선택적으로 영향 검토를 운영하기</a><a href="#api">API</a><a href="#운영과-검증">운영과 검증</a></aside><article class="prose manual-prose"><h1 id="문서-변경-영향-분석">문서 변경 영향 분석</h1>
 <blockquote>
-<p>차기 버전 개발 중입니다. 아래 동작은 구현·부분 회귀 시험 범위이며 릴리즈 완료 선언이 아닙니다.</p>
+<p>v0.2.0이 게시되었습니다. main CI·태그 릴리즈의 통합 검사와 이미지 재반입·폐쇄망 검증을 통과했으며, 실제 검증 범위와 한계는 <a href="deployment-verification.html">배포 검증 기록</a>에 구분합니다.</p>
 </blockquote>
 <h2 id="관계를-실제-유지보수-작업에-연결하기">관계를 실제 유지보수 작업에 연결하기</h2>
 <p>그래프에서 문서를 선택한 뒤 ‘관계 연결’로 의존 대상을 등록합니다. 방향은 <strong>사용하는 문서 → 의존하는 대상</strong>입니다. 예를 들어 설치 Runbook이 운영 정책을 따라야 한다면 Runbook에서 정책을 대상으로 ‘정책 의존’을 연결합니다.</p>
