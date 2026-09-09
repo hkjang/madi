@@ -84,7 +84,21 @@ func documentQueryNeedsBody(q documentQueryDefinition) bool {
 	return q.Source == "tasks" || len(q.Properties) > 0
 }
 func documentQueryCandidateSQL(body, tasks bool) string {
-	return `SELECT ` + documentQueryDocJSON(body, tasks) + ` FROM documents d LEFT JOIN knowledge_document_meta k ON k.document_id=d.id WHERE d.workspace_id=$2 AND d.deleted_at IS NULL AND madi_document_allowed($1,d.id,false) AND ($3::uuid IS NULL OR d.space_id=$3) AND (cardinality($4::uuid[])=0 OR d.id=ANY($4::uuid[])) ORDER BY d.updated_at DESC,d.id LIMIT 2001`
+	// The recursive policy repeats workspace/actor and ancestry lookups for
+	// every candidate. As in universalSearchSQL, a document without a parent
+	// or space has no inherited ACL: evaluate its identical read policy using
+	// one current workspace-membership lookup. Never apply this shortcut to
+	// inherited access, or move the visible-candidate limit before the ACL.
+	// Final source hashes/ACL and credential checks still use the full policy.
+	return `WITH active_workspace AS MATERIALIZED (
+ SELECT m.workspace_id FROM users u JOIN workspace_members m ON m.user_id=u.id
+ WHERE u.id=$1 AND NOT u.disabled AND m.workspace_id=$2
+)
+SELECT ` + documentQueryDocJSON(body, tasks) + ` FROM documents d JOIN active_workspace membership ON membership.workspace_id=d.workspace_id LEFT JOIN knowledge_document_meta k ON k.document_id=d.id WHERE d.workspace_id=$2 AND d.deleted_at IS NULL AND
+ CASE WHEN d.parent_id IS NULL AND d.space_id IS NULL THEN
+  (d.visibility='workspace' OR d.owner_id=$1 OR (d.visibility='selected' AND EXISTS(SELECT 1 FROM document_shares sh WHERE sh.document_id=d.id AND sh.user_id=$1)))
+ ELSE madi_document_allowed($1,d.id,false) END
+ AND ($3::uuid IS NULL OR d.space_id=$3) AND (cardinality($4::uuid[])=0 OR d.id=ANY($4::uuid[])) ORDER BY d.updated_at DESC,d.id LIMIT 2001`
 }
 func (s *Server) documentQueryMaterialTx(r *http.Request, tx pgx.Tx, parent documentQueryDocument, q documentQueryDefinition, params map[string]any) (documentQueryMaterial, error) {
 	out := documentQueryMaterial{Rows: []documentQueryRow{}, Documents: map[string]documentQueryDocument{}, Relations: map[string]documentQueryRelationRef{}, Diagnostics: documentQueryDiagnostics{Limits: map[string]int{"candidates": documentQueryMaxCandidates, "scan_bytes": documentQueryScanBytes, "document_body_bytes": documentQueryMaxBodyBytes, "rows": q.Limit, "timeout_ms": 2000}, Notice: "실행 시점의 현재 접근 가능한 후보 안에서 계산합니다. 최근 수정 문서 우선 최대 2,000개·8 MiB만 검사하므로 제한 표시는 전체 검색 결과가 아닙니다. 문자열 포함은 대소문자를 구분하며, 태그는 최대 32개 중 정확히 같은 값을 비교합니다. 동적 결과는 원문·내보내기·승인 근거에 포함되지 않습니다."}}

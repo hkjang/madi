@@ -103,3 +103,55 @@ func TestDeploymentContracts(t *testing.T) {
 		t.Fatal("browser regression must use the disposable service and API-configured test storage")
 	}
 }
+
+func TestMainCIRequiresParallelOfflineImageVerification(t *testing.T) {
+	var workflow struct {
+		Jobs map[string]struct {
+			Needs           any    `yaml:"needs"`
+			If              string `yaml:"if"`
+			ContinueOnError bool   `yaml:"continue-on-error"`
+			Steps           []struct {
+				Uses            string            `yaml:"uses"`
+				Run             string            `yaml:"run"`
+				If              string            `yaml:"if"`
+				ContinueOnError bool              `yaml:"continue-on-error"`
+				With            map[string]string `yaml:"with"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(read(t, ".github/workflows/ci.yml"), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	testJob, ok := workflow.Jobs["test"]
+	if !ok || testJob.If != "" || testJob.ContinueOnError {
+		t.Fatal("main CI must retain its complete required test job")
+	}
+	job, ok := workflow.Jobs["offline-image"]
+	if !ok || job.Needs != nil || job.If != "" || job.ContinueOnError {
+		t.Fatal("offline image verification must be an unconditional required parallel job")
+	}
+	checkout, goSetup, build, verify := -1, -1, -1, -1
+	for n, step := range job.Steps {
+		if step.If != "" || step.ContinueOnError {
+			t.Fatal("offline image steps must not skip or ignore verification failures")
+		}
+		if strings.HasPrefix(step.Uses, "actions/checkout@") {
+			checkout = n
+			if step.With["ref"] != "" {
+				t.Fatal("offline image must use the same event commit as the tests")
+			}
+		}
+		if strings.HasPrefix(step.Uses, "actions/setup-go@") && step.With["go-version-file"] == "go.mod" {
+			goSetup = n
+		}
+		if strings.TrimSpace(step.Run) == "docker build -t madi:ci ." {
+			build = n
+		}
+		if strings.TrimSpace(step.Run) == "bash scripts/verify-image.sh madi:ci" {
+			verify = n
+		}
+	}
+	if checkout < 0 || goSetup <= checkout || build <= goSetup || verify <= build {
+		t.Fatal("offline image job must check out, prepare Go, build and verify in order")
+	}
+}

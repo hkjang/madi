@@ -107,6 +107,17 @@ jobs:
             test-results/
             internal/server/test-results/
           if-no-files-found: ignore
+  # Both jobs use the event commit and must succeed; image verification does not
+  # wait for the full regression job to finish.
+  offline-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: Build service image
         run: docker build -t madi:ci .
       - name: Verify service without external network access
