@@ -7,7 +7,7 @@
 <main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>서비스 이미지 검증 기록과 재현 절차. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../deployment-verification.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#v020-후보의-현재-상태">v0.2.0 후보의 현재 상태</a><a href="#자동-검증">자동 검증</a><a href="#확인-항목">확인 항목</a><a href="#postgresql-운영-백업-별도-검증">PostgreSQL 운영 백업 별도 검증</a><a href="#과거-v010-로컬-이미지-검증">과거 v0.1.0 로컬 이미지 검증</a></aside><article class="prose manual-prose"><h1 id="서비스-이미지-검증-기록과-재현-절차">서비스 이미지 검증 기록과 재현 절차</h1>
 <p>이미지 생성만으로 폐쇄망 배포 성공을 판단하지 않습니다. 압축 파일을 다시 불러온 뒤 외부 통신이 차단된 Docker 내부 네트워크에서 실제 데이터 왕복을 확인합니다. PostgreSQL은 검증 인프라이며 서비스 릴리즈 아카이브에 포함하지 않습니다.</p>
 <h2 id="v020-후보의-현재-상태">v0.2.0 후보의 현재 상태</h2>
-<p>2026-09-09 기준 <code>main-By2nz__J.js</code> 후보의 최종 로컬 집중 검사는 통과했지만, 커밋 <code>bb2590f9e8abfec0ee2a9324e82e890f084bb688</code>의 main CI 전체 Go 검사에서 문서 조회 예산 시험 1건이 실패했습니다. 후보 권한 조회를 최적화한 뒤 PG17·18 집중 회귀는 통과했으며, 수정 후 전체 CI와 새 이미지·태그·공개 릴리즈는 아직 미완료입니다.</p>
+<p>2026-09-09 기준 커밋 <code>9096a674695ced8da63a376cd4691d86fb2b0936</code>의 두 번째 main CI는 UI 시험 2건 실패로 전체 Go 검사를 통과하지 못했습니다. 두 원인을 확인해 제품 저장 상태와 시험의 응답 확인 경계를 각각 수정했고, 새 후보 <code>main-BPw-YbqO.js</code>에서 집중 회귀와 shared25 전체를 통과했습니다. 후속 전체 CI는 대기입니다. 이전 커밋의 독립 이미지 빌드·폐쇄망 실행 통과는 보존하되 새 후보의 이미지 검증·압축 파일 저장·재반입·태그·공개 릴리즈 완료로 확대하지 않습니다.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -16,12 +16,16 @@
 </tr>
 </thead>
 <tbody><tr>
-<td>최종 후보 웹 빌드</td>
-<td><code>main-By2nz__J.js</code>, 56.64초 통과</td>
+<td>최신 후보 웹 번들</td>
+<td><code>main-BPw-YbqO.js</code>. 아래 By2·이전 커밋 결과는 해당 소스의 기록이며 새 후보 전체 검증을 뜻하지 않음</td>
 </tr>
 <tr>
 <td>문서 UI 경합 전체</td>
-<td>진단 계측을 끈 CI 기본 조건의 <code>TestBrowserDocumentRaces</code> 2회 14.15초·14.39초, Go 패키지 29.611초 통과. 저장 확정·권한 회수·초점과 새 명령 경계·끝슬래시 포함</td>
+<td>BPw에서 CI 기본 조건의 <code>TestBrowserDocumentRaces -race -count=5</code> 13.97초·13.82초·13.54초·13.47초·13.78초, Go 패키지 69.648초 통과. 저장 후 목록 갱신의 지연·실패·후속 저장·화면 이탈 4경계 단독 시험 5.10초·패키지 6.161초 통과</td>
+</tr>
+<tr>
+<td>DB 편집 응답 확인 회귀</td>
+<td>실제 DB commit 후 응답을 보류하는 영구 시험과 실제 200·version·읽기 셀·포커스·GET 정본 확인. 기존 고급 DB 검사 포함 PG18 3회 패키지 53.373초, PG17 1회 패키지 20.096초 통과. 제품 코드·timeout·기존 검증 완화 없음</td>
 </tr>
 <tr>
 <td>관련 UI 교차·탐색 회귀</td>
@@ -45,11 +49,11 @@
 </tr>
 <tr>
 <td>공유 서버 브라우저 25개 묶음</td>
-<td>By2 기준 7차 배치 전부 통과·실패 0·각 묶음 종료 코드 0. 첫 시작부터 마지막 완료까지 409.427초</td>
+<td>BPw 8차 전부 통과·실패 0·각 묶음 종료 코드 0·실행 전후 번들 일치. 첫 시작~마지막 완료 327.867초. 이전 By2 7차 409.427초는 별도 보존</td>
 </tr>
 <tr>
 <td>수정 후 전체 Go·독립 브라우저 검사</td>
-<td><a href="https://github.com/hkjang/madi/actions/runs/34350211768">main CI 34350211768</a> 전체 Go 2,363.270초 실행에서 문서 조회 예산 시험 1건 실패. 35개 브라우저 옵션에서 실패가 없었더라도 전체 Go 통과는 아님. 실제 조회 경로 보완·재검증 대기</td>
+<td><a href="https://github.com/hkjang/madi/actions/runs/34356027987">main CI 34356027987</a> 전체 Go 2,219.760초, DatabaseEditing·DocumentRaces 2건 실패. 두 원인 수정 후 집중 회귀는 통과했으나 후속 전체 Go·35개 브라우저 검사의 CI 결과는 대기</td>
 </tr>
 <tr>
 <td>문서 조회 예산 후속 회귀</td>
@@ -57,30 +61,33 @@
 </tr>
 <tr>
 <td>공개 캡처 검증 목록</td>
-<td>동일 By2 배치의 정상 157장 게시·중복 4건 해결·대상 SHA 전부 일치. <a href="../screenshots/verification-v0.2.0-shared.json">새 검증 목록</a>은 이 157장만 대상으로 하며 전체 갤러리의 모든 이미지를 같은 배치로 인증하지 않음. 95경로 캡처 연결 통과</td>
+<td>동일 BPw 배치 정상 157장 게시·중복 4건 해결·미승인 0·95경로 캡처 연결 통과. <a href="../screenshots/verification-v0.2.0-shared.json">현재 검증 목록</a>은 이 157장만 기술하며 전체 갤러리를 같은 배치로 인증하지 않음. <a href="../screenshots/verification-v0.2.0-By2nz__J.json">이전 By2 목록</a>은 당시 시각·해시로 별도 보존. 로그인·OIDC 설정 화면 직접 시각 확인</td>
 </tr>
 <tr>
 <td>최종 로컬 정적·의존성 검사</td>
-<td><code>go vet</code>·gofmt 통과, Node 26개 2.234초 통과, 라이선스 423개 검증. 웹 production 취약점 0, Go 호출 경로/가져오는 패키지 0·미호출 의존 모듈 취약점 1건은 별도 한계로 유지</td>
+<td>BPw <code>go vet</code> 통과, 배포 계약 Go-race 1.066초·Node 26개 2.670초 통과. 이전 gofmt·라이선스 423개·웹 production 취약점 0·Go 호출 경로/가져오는 패키지 0의 근거는 보존하며 미호출 의존 모듈 취약점 1건은 별도 한계로 유지</td>
 </tr>
 <tr>
 <td>로컬 문서 생성·정적 브라우저 검사</td>
-<td>새 캡처 반영 후 49매뉴얼·412화면·54사이트맵 재생성, 54페이지·534링크·390px·구조화 데이터·갤러리 필터·외부 자산 0 통과. 앞선 531링크 검사 기록도 보존</td>
+<td>BPw 캡처·문서 반영 후 49매뉴얼·412화면·54사이트맵 재생성, 54페이지·535링크·390px·구조화 데이터·갤러리 필터·외부 자산 0 통과 (<code>.local/v020-BPw-final-docs.log</code>). 이전 By2 534링크와 앞선 531링크 기록도 보존</td>
 </tr>
 <tr>
-<td>새 서비스 이미지</td>
-<td>최종 소스로 빌드·저장·재반입·폐쇄망 PDF/OCR·복원 검증 필요</td>
+<td>CI 서비스 이미지</td>
+<td>동일 <code>9096a674</code>의 독립 offline-image 작업 4분 48초 통과. 대응 소스·실제 PDF/선택 OCR·복원·내부망 실행 확인. <code>madi:ci</code>의 빌드·실행 결과이며 tar 저장·재반입·릴리즈 통과는 아님</td>
 </tr>
 <tr>
 <td>공개 v0.2.0 릴리즈</td>
 <td>아직 게시 완료로 기록하지 않음. 실제 게시 파일의 크기·SHA-256은 릴리즈 작업 결과로 확정</td>
 </tr>
 </tbody></table></div>
-<p>shared 25개 최신 근거는 <code>test-results/regression-shared/report.json</code>의 배치 <code>53905e19-80e8-4867-a2d0-53778b501242</code>와 <code>.local/shared25-final-v020-7.log</code>입니다. 보고서의 최초 시작은 <code>2026-09-09T11:57:35.782Z</code>, 마지막 완료는 <code>2026-09-09T12:04:25.209Z</code>이며, 25개 모두 실행 전·후 By2 번들이 일치합니다. 409.427초는 이 두 시각의 차이로, 서버 빌드·준비 시간을 포함한 스크립트 총 실행시간이나 서비스 응답시간 보증이 아닙니다. 새 공개 검증 목록에는 실제 게시한 157장의 원본 경로·검증 시각·해시가 있고, 기존 <code>verification.json</code>은 과거 기록으로 그대로 보존합니다.</p>
+<p>shared25 최신 근거는 <code>test-results/regression-shared/report.json</code>의 BPw 배치 <code>9ae61b64-ed0c-40e6-9193-4f65482e3410</code>와 <code>.local/shared25-final-v020-8.log</code>입니다. 최초 시작 <code>2026-09-09T14:16:34.595Z</code>부터 마지막 완료 <code>2026-09-09T14:22:02.462Z</code>까지 327.867초이며, 25개 전부 통과·종료 코드 0·실행 전후 <code>main-BPw-YbqO.js</code>가 일치합니다. 이는 서버 빌드·준비 시간을 포함한 스크립트 총 실행시간이나 서비스 응답시간 보증이 아닙니다. 새 공개 목록은 이 배치의 157장만 기술합니다. 이전 By2 배치 <code>53905e19-80e8-4867-a2d0-53778b501242</code>의 시작 <code>2026-09-09T11:57:35.782Z</code>·완료 <code>2026-09-09T12:04:25.209Z</code>·409.427초는 <code>.local/shared25-final-v020-7.log</code>와 별도 By2 목록에 보존하며, 기존 <code>verification.json</code>도 역사 자료로 유지합니다.</p>
 <p>이전 전체 Go 4차 <code>.local/upgrade-final-go-race-4.jsonl</code>은 최상위 388개 통과·UXStructure 1개 실패·별도 opt-in 10개 건너뜀, 서버 패키지 1,798.478초였습니다. 추적에서 실제 경로 이탈 타이머가 원문 선택 기록을 덮어쓰는 오류와 높이 변화에 결합된 복원 오류를 확인해 수정했습니다. 후속 실제 URL·로드된 문서 명령 경계와 끝슬래시 guard도 적용했습니다. 이번 로컬 집중 통과가 과거 전체 실패를 지우지는 않으며, 수정 후 전체 회귀는 main CI 성공 후에만 완료로 기록합니다.</p>
-<p>문서 경합 전체의 최신 근거는 <code>test-results/navigation-command-races-ci-final.log</code>입니다. 고부하·진단 계측 조건에서 발생한 저장 5초 대기 실패도 별도 기록으로 보존하며, CI 기본 조건 2회 통과를 모든 부하에서의 5초 지연 보장으로 해석하지 않습니다. PG17 WebKit의 동일 출처 프로필 PUT 취소 2건도 <a href="compatibility-guide.html">호환성 가이드</a>에 남겼습니다. 최종 로컬 문서 검사 <code>.local/v020-By2nz__J-final-docs.log</code>와 앞선 <code>.local/v020-docs-final.log</code>는 공개 Pages나 새 서비스 이미지 검증을 대신하지 않습니다.</p>
+<p>문서 경합 전체의 최신 근거는 <code>test-results/document-save-races-final-ci2.log</code>이며, 강제 응답 보류·실패 4경계는 <code>test-results/document-save-refresh-positive.log</code>입니다. 이전 By2 2회 통과의 <code>test-results/navigation-command-races-ci-final.log</code>와 고부하·진단 계측 조건의 저장 5초 대기 실패도 보존합니다. 새 5회 통과를 모든 부하에서의 5초 지연 보장으로 해석하지 않습니다. PG17 WebKit의 동일 출처 프로필 PUT 취소 2건도 <a href="compatibility-guide.html">호환성 가이드</a>에 남겼습니다. 이전 로컬 문서 검사 <code>.local/v020-By2nz__J-final-docs.log</code>와 <code>.local/v020-docs-final.log</code>는 새 서비스 이미지 검증을 대신하지 않습니다.</p>
 <p>main CI의 실패는 <code>TestPostgresDocumentQueryBoundsTimeoutAndExpiredSession</code>에서 정상 문서 2,100개 중 최대 후보 2,000개를 조회하는 경로가 2초 예산을 넘어 HTTP 408을 반환한 사례입니다. 이 실행에서는 35개 독립 브라우저 옵션의 실패는 없었지만 전체 Go 단계가 실패해 뒤의 shared25와 이미지 단계는 건너뛰었습니다. 기존 로컬 shared25 통과와 원격 전체 실패를 구분해 보존합니다. CI 구성은 동일 커밋의 <code>test</code>와 <code>offline-image</code>를 독립 병렬 작업으로 나눠 이미지 문제도 먼저 확인하도록 변경했으며, 전체 CI 성공에는 두 작업 모두의 성공이 필요합니다. 기존 시험의 시간 제한·옵션·이미지 보안 검사는 완화하지 않았습니다.</p>
 <p>CI의 408 자체는 로컬에서 재현되지 않았습니다. 다만 PG17에서 재귀 권한 함수의 반복 비용을 확인해 상위 문서·공간이 없는 후보에 기존 검색과 동등한 현재 사용자·워크스페이스 권한 검사를 적용했습니다. 상속 권한과 최종 ACL·원문 해시·세션·정보보호 재검증은 그대로입니다. 같은 2,100문서 진단의 후보 SQL은 PG17 통계 갱신 전/후 850.679/1,029.556ms에서 24.857/25.339ms, PG18 352.349/327.163ms에서 25.668/25.166ms로 감소했습니다. PG17 실제 정상 요청 3회는 252/235/254ms였고 강제 SQL 잠금은 기존 약 1.910초에 408, 만료 세션은 403을 반환했습니다. 이는 해당 표본의 측정이며 일반 운영 SLA나 원래 CI 실패의 직접 재현을 뜻하지 않습니다. 실행 계획의 custom/generic 모드도 비교했지만 운영 모드를 강제하지 않습니다.</p>
+<p>두 번째 main CI의 <code>TestBrowserDatabaseEditing</code>은 수량 셀 입력의 <code>locator.fill</code> 30초 대기 시간 초과로 실패했습니다(시험 35.78초, <code>tests/database-editing.mjs:110</code>). <code>TestBrowserDocumentRaces</code>는 태그 변경 후 저장 중 상태가 저장됨으로 바뀌기를 기다리는 5초 조건에서 실패했습니다(시험 12.27초, <code>tests/document-races.mjs:225</code>). 근거는 <code>.local/main-ci-34356027987-failed.log</code>입니다. 이 실행의 후속 shared25는 건너뛰었고, <a href="https://github.com/hkjang/madi/actions/runs/34356028022">별도 호환성 작업</a>과 <a href="https://github.com/hkjang/madi/actions/runs/34356027953">Pages 작업</a>은 통과했지만 전체 CI 실패를 상쇄하지 않습니다.</p>
+<p>후속 추적에서 문서 저장은 실제 canonical PUT 완료 뒤 <code>await reload()</code>의 목록 GET이 지연되어 <code>saving=true</code>가 남는 제품 오류로 확인했습니다. 목록 갱신을 오류 처리하는 백그라운드 작업으로 분리하는 15줄 수정과 현재 경로·정본·후속 저장 guard를 적용했습니다. 목록 응답 보류, 503 실패, 새 PUT 진행 중 이전 갱신 완료, 화면 이탈 뒤 늦은 오류의 4경계와 CI 기본 조건 전체 5회가 BPw 번들에서 통과했습니다. DB 편집은 활성 select의 option에 이미 ‘완료’ 문구가 있어 시험의 <code>toContainText</code>가 ACK 전에 통과한 확인 경계 오류였습니다. 실제 handler의 DB commit 뒤 ACK를 보류하는 회귀를 영구화하고 실제 응답 200·version·읽기 셀·포커스·GET 정본을 기다리도록 시험만 수정했습니다. PG18 3회 및 PG17 근거는 <code>.local/database-editing-after-ack-fix-count3.log</code>, <code>.local/database-editing-after-ack-fix-pg17.log</code>입니다. timeout과 원래 검증은 완화하지 않았습니다. CI·릴리즈의 <code>go test -race</code>에 추가한 <code>-failfast</code>는 실패 후 조기 종료를 위한 것이며 성공 시 전체 모듈·35개 옵션을 검사하는 관문은 유지합니다. 로컬 새 shared25 통과와 별개로 후속 원격 CI는 대기입니다.</p>
+<p><a href="https://github.com/hkjang/madi/actions/runs/34356027987/job/102480798995">독립 이미지 작업</a>은 같은 커밋에서 4분 48초에 통과했습니다. <code>.local/main-ci-34356027987-offline-image.log</code>에서 대응 소스·69개 APK/52개 소스 origin·모델 해시, 실제 PDF 텍스트·명시 선택한 영어/한국어 OCR·위치 조각·본문 검색·원본 불변, 논리 복원·첨부 복구·이전 세션 무효화·자동 외부 작업 중지·파생 추출 본문 폐기를 확인했습니다. CPU 2개·메모리 4GiB·read-only·비루트·내부망·네 런타임 변수 제한도 유지했습니다. CI 이미지 ID는 <code>sha256:8f64ff6c431af4ca5def8cbc86616f554b62f568314a8327544789c306be26a4</code>이며, 이 값은 배포용 tar.gz의 SHA-256이 아닙니다. 이미지 아카이브 저장·재반입·공개 릴리즈는 별도 미완료 관문입니다.</p>
 <p>이전 후보의 기능·이미지 시험과 실패 후 수정 기록은 <a href="https://github.com/hkjang/madi/blob/main/OPERATIONS_UPGRADE.md">고도화 검증 장부</a>에 구분합니다. 아래 v0.1.0 표의 크기·해시는 과거 로컬 후보 값이며 v0.2.0 반입 검증에 사용할 수 없습니다.</p>
 <h2 id="자동-검증">자동 검증</h2>
 <pre><code class="language-sh"># 인터넷 연결 빌드 환경에서 실행합니다. 외부 GitHub 게시 작업은 하지 않습니다.

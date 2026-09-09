@@ -1034,7 +1034,20 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
             "민감정보가 탐지되었습니다. 문서의 공개 범위와 내용을 확인하세요.",
           );
         else if (!silent) notify("문서를 저장했습니다.");
-        await reload();
+        // Canonical PUT/CRDT confirmation completes this save. A sidebar list
+        // refresh must not keep it pending or turn it into a failed save.
+        const refreshCurrent = actionGuard();
+        void reload().catch(() => {
+          if (
+            refreshCurrent() &&
+            currentDocument.current?.version === canonical.version &&
+            !savingRef.current
+          )
+            notify(
+              "문서 목록을 새로 읽지 못했습니다. 목록을 새로고침해 주세요.",
+              "error",
+            );
+        });
         return true;
       } catch (e) {
         if (

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "checked_at": "2026-09-09T12:06:29.397Z",
+  "checked_at": "2026-09-09T14:22:19.304Z",
   "application_route_source": "web/src/App.tsx",
   "declared_routes": 94,
   "additional_login_entry": true,
@@ -165,25 +165,25 @@
           "file": "block-organizer.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "f215d1fbbe73bb977a9df42fc753bd1420b37ba7a0fc460b72ffe2a9d4c9e517"
+          "sha256": "395df9ee61b3db236ec0a64e68a217a28ae157dc48bdc1121d357abfaaf62bf3"
         },
         {
           "file": "document-history.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "07611e02bcc67b072eabc888c391280d8b0e1127dca1e9ea546e14473e1e3161"
+          "sha256": "c66db3eb3af16ee1f52a0a0153d74606ff4357ddde5a88c72336b350748d3ebc"
         },
         {
           "file": "document-diff.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "7a4a2bc9d89d5bc139cbf4df6d1c6f4330828f68bc1749895f9f8d76499e05d8"
+          "sha256": "d68cd71eb84cb9fe506dc6afcdfbaca64ac4cf5246c49b9bb99e54d94afb1108"
         },
         {
           "file": "document-discussion.png",
           "width": 1512,
           "height": 1267,
-          "sha256": "36608e4ba445ef2346f8447f7b8243955d0f20814d282ca6d67202c4d9674697"
+          "sha256": "17e68f1ef7803f2098c0d74b770301f8eedee1f7a22966ac7b1f0861185669d8"
         },
         {
           "file": "document-rag-index.png",
@@ -1040,26 +1040,26 @@
         {
           "file": "admin-operations.png",
           "width": 1512,
-          "height": 1493,
-          "sha256": "bc9cf439eac61cf038630358b9819e83500649aa5aeb6f0ac085cdcce4b75eae"
+          "height": 1387,
+          "sha256": "9472191012ba63fb8a0bcab55d7229182a0ecf19c32da4023dbfffaf89f53d05"
         },
         {
           "file": "admin-telemetry.png",
           "width": 1512,
           "height": 1613,
-          "sha256": "1e9741c4fa91baab2bb1ae19abd467ef00f6dc82781a5f72b31116c0034f6d94"
+          "sha256": "2b037078e9d15a77865c4910054438699027bc2d2abd0171c0ecf14fab8e8eb7"
         },
         {
           "file": "admin-user-features.png",
           "width": 1512,
           "height": 1816,
-          "sha256": "59168e5513f3fe74bf6396c882368f54bd60b849655e32d8d1ba979ed8d929f2"
+          "sha256": "d14873c16409c2082c290816e5d7348ed5ed382b5e4d1833d3b787eb34987807"
         },
         {
           "file": "mobile-operations.png",
           "width": 390,
-          "height": 2106,
-          "sha256": "126b78a81e3c8d2d43983190da47b8452ed040702b5e24a6e49cfd10369332af"
+          "height": 2001,
+          "sha256": "a042590554babdeedcad2c962bbe36e277f6c8bdb0e00d870adfb75f82194486"
         }
       ]
     },
@@ -1215,7 +1215,7 @@
           "file": "favorites.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "bcd09a30b53c76367e4d12fb6f710d628ae1c683efabe0bd70fa2bc25d1702eb"
+          "sha256": "25804fa218821dacf63629db9c230bd5d2c0dc2633e905f55c65eb3a7accfc86"
         }
       ]
     },
@@ -1239,13 +1239,13 @@
           "file": "graph.png",
           "width": 1512,
           "height": 2054,
-          "sha256": "4fa6b09d1bfc8d97ef6812c781452712d5e5a1cf253e4c1a713aad0d2f1ed8e8"
+          "sha256": "caad37cd2647f893a4b94d7150c97c90be480f3cefb264343fb7eb707657e09c"
         },
         {
           "file": "graph-local.png",
           "width": 1512,
           "height": 1889,
-          "sha256": "42628d61072d2d6354a664d6065bca51bffc216aefe42ec21afb5672c3c3754d"
+          "sha256": "5ac20528976e66a8d7d2b334f0aaee5ac05886379388eb968deed5888905c130"
         },
         {
           "file": "mobile-graph.png",
@@ -1323,19 +1323,19 @@
           "file": "document-lifecycle.png",
           "width": 1512,
           "height": 1652,
-          "sha256": "6fed226c9e921c6e9999c302b0ca3187e111071d0817c35e984ec85331e86a7e"
+          "sha256": "0961a7a9258fb81d66a465bf886a5be967658f031869c1805b13107cd163f0f9"
         },
         {
           "file": "document-knowledge-policy.png",
           "width": 1512,
           "height": 1652,
-          "sha256": "812b06fd509d5f8aad0f88e90c647ab57c94e4fff1a26692b540d21d99b84431"
+          "sha256": "ec5bb5b3b317b61db9ccbf6b740fbd28907fab993aaff981d185dd9ab786bae3"
         },
         {
           "file": "document-knowledge-history.png",
           "width": 1512,
           "height": 2030,
-          "sha256": "06b83498dd5c736de56f47af340edbb056b3cdf1f6c39780ad01eb21d3069395"
+          "sha256": "6bd93004a5ff7690609e2f90656ff7a3fed2f06400b271fe28bdf325ddda6172"
         }
       ]
     },
@@ -1347,7 +1347,7 @@
           "file": "tasks-list.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "a5129a594ff16ed0f5ca23b35eba109e5783dd152a81f2ddd454b5bdccde3c0e"
+          "sha256": "65eb8de84fc2cd033265ddbd3a960e10960c7efc4fc5882fd698825afd439a56"
         },
         {
           "file": "tasks-kanban.png",
@@ -1365,7 +1365,7 @@
           "file": "task-properties.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "26753e95dccbd19ab64ff6b0feae6eb6f133183c4c94cacf8feebd3f5098cf9c"
+          "sha256": "4a6fa4570c1bf7d8df0d45df8b46c9b3380e0a551399a177dec137051340adaa"
         },
         {
           "file": "mobile-tasks-calendar.png",
@@ -1418,14 +1418,14 @@
         {
           "file": "enterprise.png",
           "width": 1440,
-          "height": 1000,
-          "sha256": "a4b588032dc5e41a048ccb0fdf80aa564002ece0fa29a642151a9c52892ef300"
+          "height": 1767,
+          "sha256": "27b4481a196f53b01479351e96020dee79d788c04cb048cb704c82df26ecf45b"
         },
         {
           "file": "enterprise-mobile.png",
           "width": 390,
           "height": 1923,
-          "sha256": "205d783ef313f80c0e9ed4bf908684723b7926d61fd071875ec7229ca089a284"
+          "sha256": "497584ccd8e6e2ab7105bd6b58dca1099d76473d5ed4ff07acbc75219fc279ba"
         }
       ]
     },
@@ -1437,13 +1437,13 @@
           "file": "entities.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "5f3a9a636d4ac878428e182754304f28a7541af434c014a1f02a4fdba7d1ab87"
+          "sha256": "ef471ee380374783dfa691e6ac11dbca75c58d9babfe36ef7f078f5107bb9704"
         },
         {
           "file": "entity-create.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "7ee07db7d2c6698af80307f770c56913ab0897df45bb7580e357d3029db703d0"
+          "sha256": "e61891b83ef424218f6a474f5bb5f8fee55c695d682af60a554a957c44b11608"
         }
       ]
     },
@@ -1454,8 +1454,8 @@
         {
           "file": "entity-profile.png",
           "width": 1440,
-          "height": 1000,
-          "sha256": "01d01c2bffbe2f4ab0008541a714aa98bf7428676cd0307c98e535f19e02e43f"
+          "height": 1194,
+          "sha256": "f886c8a563e86067987ba5ae5a91fa3873ae6d0905a0e033648b3f54a0da1124"
         },
         {
           "file": "entity-profile-mobile.png",
@@ -1497,25 +1497,25 @@
           "file": "template-library.png",
           "width": 1512,
           "height": 2277,
-          "sha256": "a25ce01ed0c95140cf8044967452c78a161323efadd04e6f6aa4b63317231af3"
+          "sha256": "84a607a2c42dfc4e3cdbb4f12f8720cd752e82a29429866b2383c1714e59eadd"
         },
         {
           "file": "template-editor.png",
           "width": 390,
           "height": 5198,
-          "sha256": "0e0bcb707a25020a313a9445dc58ea913d4ebecca547f8929af7ec9259ba81e7"
+          "sha256": "e9163536fce6e4f01a9ae1fa430c8bd989eb6288b75351c4a64f415dc65cd74b"
         },
         {
           "file": "template-history.png",
           "width": 1512,
           "height": 1707,
-          "sha256": "841d85b1a3be82532e4724dafb2b1fa49bc5e02736363eb9f6f77ca9c28b124c"
+          "sha256": "926e9ad27d37cc100f8d948c118fe85f7e306b0913d539dc59f9f9ee03d27b29"
         },
         {
           "file": "mobile-templates.png",
           "width": 390,
           "height": 5198,
-          "sha256": "49d92cded060ea7fe1edaec6a5c13993111226a771d9f8f794959109825299bb"
+          "sha256": "568cec7e701d9c9e21005c445887d96aa1b1fcf178c12f50d892e3f5eeea56f9"
         }
       ]
     },
@@ -1527,19 +1527,19 @@
           "file": "notification-preferences.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "68af815210a995593ceb00116db610f3cd58ac9a68bd69d67363addcc4e3e6c4"
+          "sha256": "d30e98d8612becf8a164ccd28d8b05c30789135a935ed4a1d11f5d349f38765d"
         },
         {
           "file": "notification-delivery-history.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "b5e116d6e81d9e0aa0cd35bb279261f3ed1fc60f29638e505c930a822bdb0b3c"
+          "sha256": "b8d60427186a851764f1144fcf9e582a1c2d5c2249f8054c2e1ea56a47aead16"
         },
         {
           "file": "notification-preferences-mobile.png",
           "width": 390,
           "height": 952,
-          "sha256": "b25902c8162ad01ff64c25f365bcd4bec7f9a9cab669b7eccbe51430d34e375a"
+          "sha256": "faec80274011ea64ec3f48b5c4f034d21f7a24e0135cc988ca0086cacb63d71f"
         }
       ]
     },
@@ -1551,13 +1551,13 @@
           "file": "admin-notification-channels.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "15aebd53939bf25b107ac0bf1ed3221bf62666ecf76f12e43fb6a6a738a2ab3e"
+          "sha256": "672c70161b560aafc88f8829636e75c76b5d63e06f1455f6ae57375b042b2a7e"
         },
         {
           "file": "notification-channel-editor.png",
           "width": 1440,
           "height": 1107,
-          "sha256": "99681fd5c412aa9b3fac9e99ababc0e1feae1c523195e838455d7d50103c5dcd"
+          "sha256": "a8c1ab9137df400bb85b34f9a93a587436d229f4cc77218ca561e56c7c520045"
         }
       ]
     },
@@ -1581,7 +1581,7 @@
           "file": "database-board.png",
           "width": 1512,
           "height": 1185,
-          "sha256": "fb697fd2e000eea1e5e2e42cc7859652fee44c24d518cf4ad2763e98943d3f8f"
+          "sha256": "216a444a5977e26b733ded4d4fab1f0a3b5cc1b9212c744e50f3b896b841f44a"
         },
         {
           "file": "database-calendar.png",
@@ -1665,25 +1665,25 @@
           "file": "inbound-capture-history.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "e0b449f3ef347f4f142dc929e544de343745abedb96639906168daec11674aff"
+          "sha256": "0d9d7d10ac75119b4bd33966f33897561b4034c3f8d0b494c3f2673e3f757b1e"
         },
         {
           "file": "imap-capture-editor.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "497ead39d36f07eb95ac5607bf114f5a1cb4a49ed93f5b8c44891af4266c1de9"
+          "sha256": "631b0c284db55a4af2d927f3aaa803cc70bc5dfa245208a4bda2b7de3dfb769e"
         },
         {
           "file": "captured-private-document.png",
           "width": 1440,
           "height": 1563,
-          "sha256": "71850c67892dd3ae22973ece78c45b4737ec158a48fecf7ff8a1aef054715dd4"
+          "sha256": "3d797fb8882dcc5bda1d04634521718d887767b3a8cc46b614cff1e77635bc5c"
         },
         {
           "file": "inbound-capture-mobile.png",
           "width": 390,
           "height": 1194,
-          "sha256": "5cd5476d827c2f2d29ef389e32f54676e3658979e12268e0114ae110203992b0"
+          "sha256": "a3578decf26b1682d2f56190188fa64a71c98f5188c7efc84d7d1d97829bf7ab"
         }
       ]
     },
@@ -1719,13 +1719,13 @@
           "file": "canvas.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "f7298fae11b5641b673ec325aed9249c5f5b518ed6c289692625d2b6ed9d6fec"
+          "sha256": "7cb155b95c385234e8fd94bb704c1c64386227b2bea93b323622c99570eb0560"
         },
         {
           "file": "mobile-canvas.png",
           "width": 390,
           "height": 1198,
-          "sha256": "d3f33e07da6200c93e2c5bc63f62605ee362f8d7c26a0d3a5a3576d5c5aacefa"
+          "sha256": "92dd72067b963236dfd8da96b497926668ba1225bcd1588d0c7f22cef37a03a9"
         }
       ]
     },
@@ -1737,7 +1737,7 @@
           "file": "migration-center.png",
           "width": 1440,
           "height": 2205,
-          "sha256": "035ba5d08aa5aaa8079253ea61dc013e839df82d11cf8b7f1f5bb7fcdb777e20"
+          "sha256": "9535556acd5dc577e1d694370db1a78f00c31546f12dba11c206612e9eafcd0a"
         },
         {
           "file": "migration-resume-source.png",
@@ -1791,19 +1791,19 @@
           "file": "export-center.png",
           "width": 1480,
           "height": 1693,
-          "sha256": "9caedd17911301c4bee46031a07a295854459e04a5eb80ce34195870e7f48e03"
+          "sha256": "7a027f7a3aa882812a93f7294f3ae495d31650344586fa8115bd7c01c1e706dc"
         },
         {
           "file": "export-results.png",
           "width": 1480,
           "height": 1505,
-          "sha256": "93f4d8c8e3073683e44b3c31ed6b358e6aaceb1ee7f87e3d8f41c239186062ca"
+          "sha256": "069f68fef8cc7216cc2c34ce9b6937b9d49b98bc22581ea3e56b011caddb6f85"
         },
         {
           "file": "mobile-export.png",
           "width": 390,
           "height": 3220,
-          "sha256": "9c9ecb434e2dbd899a1f30e640a5744ed8754b2a493c0005d3562367c67ee87b"
+          "sha256": "9f71529711a899823b561df94c1b42362cfceb9b52e47ab90324782292794137"
         }
       ]
     },
@@ -2001,7 +2001,7 @@
           "file": "admin-plugins.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "1f8e38482ace199d9cb60d9f5769afd2f5a846f28179fa1392409d426f8c3d80"
+          "sha256": "bf2477a7a0373e4fd37b7f535f7ba510c746a04083a1282770f80c70d65a452c"
         }
       ]
     },
@@ -2013,31 +2013,31 @@
           "file": "migration-center.png",
           "width": 1440,
           "height": 2205,
-          "sha256": "035ba5d08aa5aaa8079253ea61dc013e839df82d11cf8b7f1f5bb7fcdb777e20"
+          "sha256": "9535556acd5dc577e1d694370db1a78f00c31546f12dba11c206612e9eafcd0a"
         },
         {
           "file": "migration-preview.png",
           "width": 1440,
           "height": 2045,
-          "sha256": "e52694a732b66f2f2fad5fbbcc28f72ed32c7667e56c4173d44f18cd65fafff0"
+          "sha256": "b405be9bc11abedff4456042fa737ee4d1785d40e5e824ec165b499659961ad8"
         },
         {
           "file": "migration-result.png",
           "width": 1440,
           "height": 2149,
-          "sha256": "59e29d5085a22fc5a8a42b159b25bb2f3899cd7ebd1fc909d304919779800171"
+          "sha256": "5c3c7c268406adee24821c2d733ed8d790056a9fd9774431696a315edaba49d1"
         },
         {
           "file": "migration-center-mobile.png",
           "width": 390,
           "height": 2840,
-          "sha256": "98957fd87bd4b864c1a76b807e21dc6c086de9bc3ccbd53786cf973b623a5503"
+          "sha256": "dc2e9049075782e0881c67bb1946e211ab425527b70f01d2b25853f1b268b882"
         },
         {
           "file": "migration-history-mobile-actions.png",
           "width": 390,
           "height": 844,
-          "sha256": "30a98925e16d600a56b97f516b597b07388610ecbb70424b6d04b58622975092"
+          "sha256": "57dd36ed92f706a41918e98ac8d46a11a5b7b6c1b20b2f83c26b0f4270c433af"
         }
       ]
     },
@@ -2049,7 +2049,7 @@
           "file": "admin-migration.png",
           "width": 1440,
           "height": 2149,
-          "sha256": "bd199023142e5115ed82e39110d110c856d7a0352f38eebb3d3ae3b0e6af9e16"
+          "sha256": "4b87a52832c6c407804badd7e240a817c6b12742301b157cc337b2bcb5f2e4d0"
         }
       ]
     },
@@ -2073,7 +2073,7 @@
           "file": "teams.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "23cc4026a638f66726ed52e2ee128684db330cc796d647062acf65f066673a30"
+          "sha256": "4568a6e00c28080925abd98c8b03b808a46aa5573ee9855fb4939e1695dfd89c"
         },
         {
           "file": "mobile-teams.png",
@@ -2091,13 +2091,13 @@
           "file": "spaces.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "92a16cff3b85fd60cfd6892ee9e82ff984cf0a9ee7aa4c00d69ca4cff339e227"
+          "sha256": "7063800eef992a4d296102a9ec6fdc120dfd1003e1e49baebbcb76f2c9b86888"
         },
         {
           "file": "space-members.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "9ce0c8ecac2c7e1f53b8884b94997c2931d1f7e4fd4f23cc9cf77bab7f95bfe7"
+          "sha256": "1c083f14fb050f42dbf9f988df68b7f1e5156ef03a71644964b267e5561ef741"
         },
         {
           "file": "mobile-spaces.png",
@@ -2115,7 +2115,7 @@
           "file": "organizations.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "f15c14e0388c6899c5c486905b0dee85d4ea2d791ed039cfe7b8ef2c0630df41"
+          "sha256": "296be2b51ee6bbb3ce24c7a62f488ef3758008eeaa5fb83cf092fca28e8ec042"
         }
       ]
     },
@@ -2127,13 +2127,13 @@
           "file": "workspace-settings.png",
           "width": 1512,
           "height": 1088,
-          "sha256": "2dc010bd00574e10a75090b9b3e87a7ae0714bbf300f1b38711c0578f611528c"
+          "sha256": "a7cc376ec46327ece6adc0be348ec97ad1973e5cf134117647b65aee73e763f2"
         },
         {
           "file": "mobile-workspace-settings.png",
           "width": 390,
-          "height": 1155,
-          "sha256": "4f3c9f83ae489d8c2aefa8b58f4a83a56f0eeae41b4fec4dd0c3d5da81e979c4"
+          "height": 1178,
+          "sha256": "93dfc8c8913a94a3130983a3fbb876595593b046452cb91d54848c9b4144116c"
         }
       ]
     },
@@ -2145,13 +2145,13 @@
           "file": "workspace-audit.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "cdc666e7ce2be1bacf52bf8d7400ebf9cb236e69d84556bdc20815c4b47727de"
+          "sha256": "e4c6c92bf788fb98b4b605586067ae14b2a0a8a189a22d9a37e2125515ef3302"
         },
         {
           "file": "mobile-workspace-audit.png",
           "width": 390,
           "height": 1700,
-          "sha256": "b3a807737dfc3d953ab2a2b9b29bb3201c5ab0079343bd4c61952efb31db16b2"
+          "sha256": "02604c83eaf72794bf94a316f6f961c587b6575b3b09660ca6cd780cc6cccca8"
         }
       ]
     },
@@ -2163,19 +2163,19 @@
           "file": "automations.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "b14208ed0add6697c9841a5585c693f1d1e065fb85c7becb9ddeb89e735db8ec"
+          "sha256": "a451f118cb7f6aa5089a9112901ce4d871cbd7ede8110d090851d313b5167c72"
         },
         {
           "file": "automation-editor.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "d85bb54d3556a2744ac7db9ebcf93c3be2f1d3cc63b4717f6a00a11edb56397a"
+          "sha256": "2c8f96d58254b1b489a8f1a89f81500416fe71aab1f43d00d2a5e1b9c050312c"
         },
         {
           "file": "automations-mobile.png",
           "width": 390,
           "height": 844,
-          "sha256": "02b9e65d6ed501ea0a18332d96cee21425837a4d9c47fbfdeb948654888952af"
+          "sha256": "427460748dbb70bc34222509d04a50194d4105da82dd8cffa11d6668c84d7aff"
         }
       ]
     },
@@ -2187,19 +2187,19 @@
           "file": "webhooks.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "0af438d0f4f2fabe47fc39f4e2c0b225c82e55ac45c34cfe9b21cbcae8e1496b"
+          "sha256": "384734917a1a549e0307735526f981b704cf767bc60a66ff9cca63d8c3aac69a"
         },
         {
           "file": "webhook-editor.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "0ebc272f9ae0f68516418d190532e9024b4828589176551772b390713dfb08c7"
+          "sha256": "0b54a04ac97348c60f25fd708dbc5b2c576b23f7593c713ae6f000760ccf46af"
         },
         {
           "file": "webhooks-mobile.png",
           "width": 390,
-          "height": 1158,
-          "sha256": "7f880fc94f96de951f82212071344bfd6c1e005e491fd6dacc692534f7974f11"
+          "height": 998,
+          "sha256": "af2995b185ba88b22bbab6724606b4d3e7117dca39801577c6e987d2a670e528"
         }
       ]
     },
@@ -2211,25 +2211,25 @@
           "file": "jobs.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "110a0f04babb1e5adee78ecf0d66e085918b21fbbadf8e2e246bf7ecf98e061f"
+          "sha256": "0de1950e8cf7c405ef2cc1f8bd3bafa6f3bf68e1e911e4dc4eb19274fd685493"
         },
         {
           "file": "job-detail.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "a888716ecad649d56a15fd740d7842444a964646accf8b8dd86ed5e2b5d80b54"
+          "sha256": "4b6242a6b62574a819e4752c2380ea5b07f08d8e13002c9b3e1f0baec50f663c"
         },
         {
           "file": "jobs-mobile.png",
           "width": 390,
           "height": 844,
-          "sha256": "20ea0a974b33142ea2d11799b1b58005678429e53ddd0ec97e507948a1a034fb"
+          "sha256": "50abc57e1b77cdf64731a1c8a1bee936e15130e1d50f4443cc8a9ddcc8cef309"
         },
         {
           "file": "jobs-mobile-actions.png",
           "width": 390,
           "height": 844,
-          "sha256": "59229968bf5e70f5594430ef97dea2fa67c3c1b6bba4933fae9f7cd5359b2f2f"
+          "sha256": "023d2ef1a499873f29928940c27e3ca10728d7e5c852add09b7a86124adb443c"
         }
       ]
     },
@@ -2241,13 +2241,13 @@
           "file": "workspace-storage.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "3e064888a7c3bd229428ec0fb0affdaba3c8810f131547d8c35e85f644c25361"
+          "sha256": "3e4dcb66d797a1ededbd86e40abcdc323af976864a1671b5d9d2fcf269c22fa0"
         },
         {
           "file": "workspace-storage-mobile.png",
           "width": 390,
           "height": 1493,
-          "sha256": "5a13a1172487ee805eeeefcd804d4fe480fa4f615b03e96df0bf2c9f12cc2df3"
+          "sha256": "dab3a976e4072a8d6b451a3214032894f591defa96df4577de15eb068227799d"
         }
       ]
     },
@@ -2259,25 +2259,25 @@
           "file": "admin-storage.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "23719f770a50eda72bc3fc46c364b1a909654dc80218509c9e02537006fcc31e"
+          "sha256": "bec0b285543485ddc337229a8313b81bde4682dc2345b0157880b7af62507392"
         },
         {
           "file": "storage-local-editor.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "1ee4f493a7783c24a68bc1d19081ce79a4de5acf7ea13e1673af85526591243e"
+          "sha256": "97b6221e79fed8b82b48e314c96c63fa9d37d15122bb3e40266fd18d5888504a"
         },
         {
           "file": "storage-s3-editor.png",
           "width": 1440,
           "height": 1000,
-          "sha256": "305eb0e849d9d553a7a6c7658b464810fc2b4ae1e646741c14267e9725a02d26"
+          "sha256": "7ec60094e8c6b8e0bc492a688abfd96cb4c8b6bb82f051d2c6ba0d5169b70ee1"
         },
         {
           "file": "admin-storage-mobile.png",
           "width": 390,
           "height": 1487,
-          "sha256": "0984260d64f978bc82e1fea52c48166462eb7dd2c3a5939613c156ed224b7752"
+          "sha256": "df49b1d21525ed2b087e58579a9318d0cf7d9e5cddfb9d1bd21b0ed269bf0475"
         }
       ]
     },
@@ -2337,13 +2337,13 @@
           "file": "profile-expanded.png",
           "width": 1512,
           "height": 3179,
-          "sha256": "61c24016130ec935871371bcebae639a3535d5090d6d83e9282dd428eb9397ca"
+          "sha256": "661538b2ac4c9cf18fd8d062d6fb738bcd5516c35b94ebf1de21406b82836392"
         },
         {
           "file": "keyboard-settings.png",
           "width": 1512,
           "height": 3047,
-          "sha256": "76a21de4f1d85f47c098dd58ec26c5a0da30f3c73a98f1b5f6edcc30a2596e08"
+          "sha256": "3a50e1a53a7a56fd001e9a9109758d4b4e731f9cb2202bcabac7a56c69b88b67"
         },
         {
           "file": "profile-dark.png",
@@ -2355,7 +2355,7 @@
           "file": "mobile-profile-expanded.png",
           "width": 390,
           "height": 4421,
-          "sha256": "e61d4dde85bde44eb437d40f4c9aea122e67b4c58020b2e34d0e57328d43554d"
+          "sha256": "702c6601be71c504e18482459c872427b62f19e0d345820e08ff4476fe6ddc85"
         },
         {
           "file": "profile-navigation-mobile.png",
@@ -2421,7 +2421,7 @@
           "file": "api-keys.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "bbb1bbb71cd6e46b11557cd366a04fac7b58805f594bea09f489c0a60232250d"
+          "sha256": "ec0afc9cb81680f812ce554f2a92dc30aa399019278e8c2624e0822dec1112a3"
         }
       ]
     },
@@ -2433,13 +2433,13 @@
           "file": "admin-dashboard.png",
           "width": 1512,
           "height": 1297,
-          "sha256": "a6a84e7dc8e3247f151896b2f753fa410bb3401ff44f300f56c247a3f6f3e21f"
+          "sha256": "9649456d169a7b4f3a1a6d2c7c1d6af589c3e6502bc7b4842d80b73d4de97675"
         },
         {
           "file": "mobile-admin.png",
           "width": 390,
           "height": 1959,
-          "sha256": "b0b938b0256bfc8979b2e8428cb8bd687ba9adb1003a4eeab17821434efe5783"
+          "sha256": "0c7abacd185a3b4b397903b7b4ec77750151268bc7e86342c06a2a649266f49d"
         }
       ]
     },
@@ -2451,7 +2451,7 @@
           "file": "admin-users.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "8f4d3484e681226336fc8c939f6f675b77203eaa5a0e36c2ba63583192c62182"
+          "sha256": "d04766e24e468a4458d7110fc19a3a8022bfcc66fc4e696c8d971250b6edb369"
         }
       ]
     },
@@ -2493,13 +2493,13 @@
           "file": "admin-settings-storage.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "acec79fb811f8b00bfd6f1b08d2e8ab41af72ce780e5fcd11b863f1dfb7385b6"
+          "sha256": "ad4caf130b4c2ceeec2800f74d2c7916eb115eb4837c708106af581df12b4049"
         },
         {
           "file": "admin-settings-history.png",
           "width": 1512,
           "height": 1080,
-          "sha256": "247b7c45aee207cd9c6bc61d596fbed8aec1a43082b21c5aaa95f9661057d4b9"
+          "sha256": "dd9e5ac35e46df9ac4533979327295cfae8c03ef67b8a1eb3e4abacbdb00a5fe"
         }
       ]
     },
@@ -2510,8 +2510,8 @@
         {
           "file": "admin-audit.png",
           "width": 1512,
-          "height": 9407,
-          "sha256": "d42c509c90ee16b11df5898846e52cc98c306aec7853e430a1c5c3c417bf9478"
+          "height": 8538,
+          "sha256": "8ec4aefdd6c54468ffefa212310525a612441a4c53308f722e8ca36f03c33061"
         }
       ]
     },

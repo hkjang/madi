@@ -11,6 +11,7 @@ const owner = await browser.newContext({
 });
 const page = await owner.newPage(),
   errors = [];
+const releaseResponses = [];
 let diagnosticPage = page;
 page.on("pageerror", (error) => errors.push(error.message));
 if (process.env.MADI_DOC_SAVE_TRACE) {
@@ -76,6 +77,7 @@ function gate() {
   const promise = new Promise((resolve) => {
     release = resolve;
   });
+  releaseResponses.push(release);
   return { promise, release };
 }
 try {
@@ -223,6 +225,12 @@ try {
         console.log("SAVE_HEADERS", kind, Date.now());
       await page.unroute(requestPath, holdMetadata);
       await expect(page.locator(".save-state")).toHaveText("저장됨");
+      if (process.env.MADI_DOC_SAVE_TRACE)
+        console.log(
+          "SAVE_PHASE_JSON",
+          kind,
+          JSON.stringify(await page.evaluate(() => window.__saveHTTPTrace)),
+        );
     }
     await page.reload();
     await expect(page.getByLabel("문서 제목", { exact: true })).toHaveValue(
@@ -233,6 +241,198 @@ try {
       .waitFor();
     console.log(
       "PASS actual CRDT ACK barrier preserves later title/tags, explicit server save state, body and reload",
+    );
+  }
+  if (!raceCase || raceCase === "refresh") {
+    const doc = await api(owner, "/documents", "POST", {
+      workspace_id: ws.id,
+      title: "목록 갱신과 분리된 저장",
+      markdown: "# 정본 저장 확인\n",
+      visibility: "private",
+    });
+    const path = `${base}/api/v1/documents/${doc.id}`;
+    const workspacePath = `${base}/api/v1/workspaces`;
+    await page.goto(`${base}/app/documents/${doc.id}?mode=source`);
+    await expect(page.locator(".document-main")).toHaveAttribute(
+      "data-document-id",
+      doc.id,
+    );
+    const firstRefresh = gate(),
+      firstRefreshDone = gate();
+    let refreshStarted = false;
+    const holdRefresh = async (route) => {
+      if (refreshStarted) return route.continue();
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      refreshStarted = true;
+      await firstRefresh.promise;
+      await route.fulfill({ response });
+      firstRefreshDone.release();
+    };
+    await page.route(workspacePath, holdRefresh);
+    const firstSave = page.waitForResponse(
+      (r) => r.url() === path && r.request().method() === "PUT",
+    );
+    await page
+      .getByLabel("문서 제목", { exact: true })
+      .fill("정본 저장 완료 후 목록 대기");
+    await page.getByRole("button", { name: "저장", exact: true }).click();
+    assert.equal(
+      (await (await firstSave).json()).title,
+      "정본 저장 완료 후 목록 대기",
+    );
+    await expect.poll(() => refreshStarted).toBe(true);
+    await expect(page.locator(".save-state")).toHaveText("저장됨");
+    // The old refresh may finish while a subsequent canonical PUT is pending.
+    // It must neither keep save disabled nor release the newer save's state.
+    const secondReply = gate();
+    let secondCommitted = false;
+    const holdSecond = async (route) => {
+      if (route.request().method() !== "PUT") return route.continue();
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      secondCommitted = true;
+      await secondReply.promise;
+      await route.fulfill({ response });
+    };
+    await page.route(path, holdSecond);
+    const secondSave = page.waitForResponse(
+      (r) => r.url() === path && r.request().method() === "PUT",
+    );
+    await page
+      .getByLabel("문서 제목", { exact: true })
+      .fill("이전 목록 갱신 중 새 정본 저장");
+    await expect(
+      page.getByRole("button", { name: "저장", exact: true }),
+    ).toBeEnabled();
+    await page.getByRole("button", { name: "저장", exact: true }).click();
+    await expect.poll(() => secondCommitted).toBe(true);
+    await expect(page.locator(".save-state")).toContainText("저장 중");
+    const oldList = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/api/v1/documents" &&
+        r.request().method() === "GET",
+    );
+    firstRefresh.release();
+    await firstRefreshDone.promise;
+    await (await oldList).finished();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await expect(page.locator(".save-state")).toContainText("저장 중");
+    await expect(
+      page.getByRole("button", { name: "저장", exact: true }),
+    ).toBeDisabled();
+    const nextList = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/api/v1/documents" &&
+        r.request().method() === "GET",
+    );
+    secondReply.release();
+    assert.equal(
+      (await (await secondSave).json()).title,
+      "이전 목록 갱신 중 새 정본 저장",
+    );
+    await expect(page.locator(".save-state")).toHaveText("저장됨");
+    await (await nextList).finished();
+    await page.unroute(path, holdSecond);
+    await page.unroute(workspacePath, holdRefresh);
+    // A failed background refresh is a separate warning, never a failed save.
+    const rejectedRefresh = gate();
+    let rejectionPending = false;
+    const rejectRefresh = async (route) => {
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      rejectionPending = true;
+      await rejectedRefresh.promise;
+      await route.fulfill({
+        status: 503,
+        json: { error: "목록 갱신 시험 오류" },
+      });
+    };
+    await page.route(workspacePath, rejectRefresh);
+    const thirdSave = page.waitForResponse(
+      (r) => r.url() === path && r.request().method() === "PUT",
+    );
+    await page
+      .getByLabel("문서 제목", { exact: true })
+      .fill("목록 오류에도 보존된 정본");
+    await page.getByRole("button", { name: "저장", exact: true }).click();
+    assert.equal(
+      (await (await thirdSave).json()).title,
+      "목록 오류에도 보존된 정본",
+    );
+    await expect.poll(() => rejectionPending).toBe(true);
+    await expect(page.locator(".save-state")).toHaveText("저장됨");
+    rejectedRefresh.release();
+    await expect(
+      page.getByRole("status").filter({
+        hasText: "문서 목록을 새로 읽지 못했습니다.",
+      }),
+    ).toBeVisible();
+    await expect(page.locator(".save-state")).toHaveText("저장됨");
+    await expect(page.locator(".document-page .recovery-notice")).toHaveCount(
+      0,
+    );
+    assert.equal(
+      (await api(owner, `/documents/${doc.id}`)).title,
+      "목록 오류에도 보존된 정본",
+    );
+    await page.unroute(workspacePath, rejectRefresh);
+    await page.getByRole("button", { name: "알림 닫기", exact: true }).click();
+    const lateRefresh = gate(),
+      lateDone = gate();
+    let latePending = false;
+    const rejectAfterNavigation = async (route) => {
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      latePending = true;
+      await lateRefresh.promise;
+      await route.fulfill({
+        status: 503,
+        json: { error: "이전 문서의 목록 갱신 시험 오류" },
+      });
+      lateDone.release();
+    };
+    await page.route(workspacePath, rejectAfterNavigation);
+    const fourthSave = page.waitForResponse(
+      (r) => r.url() === path && r.request().method() === "PUT",
+    );
+    await page
+      .getByLabel("문서 제목", { exact: true })
+      .fill("이동 전에 저장된 정본");
+    await page.getByRole("button", { name: "저장", exact: true }).click();
+    assert.equal(
+      (await (await fourthSave).json()).title,
+      "이동 전에 저장된 정본",
+    );
+    await expect.poll(() => latePending).toBe(true);
+    await expect(page.locator(".save-state")).toHaveText("저장됨");
+    await page
+      .locator(".document-actionbar")
+      .getByRole("link", { name: "문서", exact: true })
+      .click();
+    await page.waitForURL("**/app/documents");
+    await expect(page.locator(".document-main")).toHaveCount(0);
+    lateRefresh.release();
+    await lateDone.promise;
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await expect(
+      page.getByRole("status").filter({
+        hasText: "문서 목록을 새로 읽지 못했습니다.",
+      }),
+    ).toHaveCount(0);
+    await page.unroute(workspacePath, rejectAfterNavigation);
+    console.log(
+      "PASS canonical save is independent of held/failed list refresh; old refresh cannot unlock a newer save or warn after navigation",
     );
   }
   if (!raceCase || raceCase === "preview") {
@@ -538,10 +738,13 @@ try {
     .catch(() => {});
   throw error;
 } finally {
+  for (const release of releaseResponses) release();
   if (process.env.MADI_DOC_SAVE_TRACE)
     console.log(
       "SAVE_JSON",
-      await page.evaluate(() => window.__saveHTTPTrace).catch(() => []),
+      JSON.stringify(
+        await page.evaluate(() => window.__saveHTTPTrace).catch(() => []),
+      ),
     );
   await browser.close();
 }

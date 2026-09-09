@@ -102,11 +102,66 @@ try {
     )
     .toBe(10);
   await cell(1, "상태").press("Enter");
-  await page.getByLabel("상태 셀 입력", { exact: true }).selectOption("완료");
+  const stateInput = page.getByLabel("상태 셀 입력", { exact: true });
+  await stateInput.selectOption("완료");
+  const stateSaved = page.waitForResponse(
+    (response) =>
+      response.url() === `${base}/api/v1/databases/${db.id}/rows/${first.id}` &&
+      response.request().method() === "PUT",
+  );
   await page.getByRole("button", { name: "셀 저장", exact: true }).click();
-  await expect(cell(1, "상태")).toContainText("완료");
+  if (process.env.MADI_DATABASE_EDITING_ACK_GATE === "1") {
+    try {
+      await expect
+        .poll(async () => {
+          const response = await context.request.get(
+            base + "/__test/database-editing/ack",
+          );
+          assert.equal(response.status(), 200);
+          return (await response.json()).committed;
+        })
+        .toBe(true);
+      // The real CAS write has committed, but no ACK has reached the UI.
+      // Native option text already includes "완료": cell text alone is NOT
+      // a save-completion condition. Editing another cell is still rejected.
+      await expect(stateInput).toBeDisabled();
+      await expect(stateInput).toHaveValue("완료");
+      await expect(cell(1, "상태")).toContainText("완료");
+      await expect(
+        cell(1, "상태").getByRole("button", { name: "완료", exact: true }),
+      ).toHaveCount(0);
+      await cell(1, "수량").press("Enter");
+      await expect(page.getByLabel("수량 셀 입력", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("alert")).toContainText(
+        "편집 중인 셀을 저장하거나 취소한 뒤",
+      );
+    } finally {
+      const released = await context.request.post(
+        base + "/__test/database-editing/ack",
+      );
+      assert.equal(released.status(), 200);
+    }
+  }
+  const stateResponse = await stateSaved;
+  assert.equal(stateResponse.status(), 200, await stateResponse.text());
+  const savedState = await stateResponse.json();
+  assert.equal(savedState.version, first.version + 2);
+  assert.equal(savedState.values.state, "완료");
+  // Wait for both the old editor to close and the refreshed read-only cell
+  // and focus to appear. save() restores focus only after onChanged resolves.
+  await expect(stateInput).toHaveCount(0);
+  await expect(
+    cell(1, "상태").getByRole("button", { name: "완료", exact: true }),
+  ).toBeVisible();
+  await expect(cell(1, "상태")).toBeFocused();
+  const confirmed = (await api(`/databases/${db.id}/rows`)).find(
+    (row) => row.id === first.id,
+  );
+  assert.equal(confirmed.version, savedState.version);
+  assert.equal(confirmed.values.state, "완료");
   await cell(1, "수량").press("Enter");
   input = page.getByLabel("수량 셀 입력", { exact: true });
+  await expect(input).toBeEnabled();
   await input.fill("20");
   let latest = (await api(`/databases/${db.id}/rows`)).find(
     (r) => r.id === first.id,
@@ -271,6 +326,7 @@ try {
     JSON.stringify({
       ok: true,
       inlineKeyboard: true,
+      heldCommitAck: process.env.MADI_DATABASE_EDITING_ACK_GATE === "1",
       cellCAS: true,
       typedAtomicPaste: true,
       rowPanel: true,
