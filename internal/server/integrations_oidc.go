@@ -68,6 +68,11 @@ func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 503, err.Error())
 		return
 	}
+	// prompt=none asks the provider to answer from an existing session only and
+	// never renders a login screen. It is honoured only when the administrator
+	// enabled auto login, so a query parameter alone cannot change the flow.
+	silent := r.URL.Query().Get("prompt") == "none" && settingBool(settings, "oidc_auto_login")
+	returnTo := oidcReturnTo(r.URL.Query().Get("return_to"))
 	state, browser, nonce := integrationSecret(), integrationSecret(), integrationSecret()
 	verifier := oauth2.GenerateVerifier()
 	sealedVerifier, err := s.encrypt(verifier)
@@ -80,13 +85,34 @@ func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 500, "SSO 요청을 준비할 수 없습니다.")
 		return
 	}
-	_, err = s.DB.Exec(ctx, `INSERT INTO oidc_attempts(state_hash,browser_hash,nonce,verifier,issuer,client_id,redirect_uri,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()+interval '10 minutes')`, integrationHash(state), integrationHash(browser), nonce, sealedVerifier, settingString(settings, "oidc_issuer"), config.ClientID, config.RedirectURL)
+	_, err = s.DB.Exec(ctx, `INSERT INTO oidc_attempts(state_hash,browser_hash,nonce,verifier,issuer,client_id,redirect_uri,silent,return_to,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+interval '10 minutes')`, integrationHash(state), integrationHash(browser), nonce, sealedVerifier, settingString(settings, "oidc_issuer"), config.ClientID, config.RedirectURL, silent, returnTo)
 	if err != nil {
 		apiError(w, 500, "SSO 요청을 저장할 수 없습니다.")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: oidcCookieName, Value: browser, Path: "/api/v1/auth/oidc", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: strings.HasPrefix(config.RedirectURL, "https://"), MaxAge: 600})
-	http.Redirect(w, r, config.AuthCodeURL(state, oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), http.StatusFound)
+	options := []oauth2.AuthCodeOption{oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)}
+	if silent {
+		options = append(options, oauth2.SetAuthURLParam("prompt", "none"))
+	}
+	http.Redirect(w, r, config.AuthCodeURL(state, options...), http.StatusFound)
+}
+
+// oidcSilentRefusalPath is where a refused prompt=none attempt lands. The query
+// marker tells the browser not to try again even if its storage was cleared.
+const oidcSilentRefusalPath = "/login?sso=none"
+
+// oidcReturnTo accepts only a same-origin path so the login flow cannot be used
+// as an open redirect: it must start with "/" and must not start with "//".
+func oidcReturnTo(value string) string {
+	if value == "" || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") || strings.ContainsAny(value, "\\\r\n") || len(value) > 2048 {
+		return "/app"
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" {
+		return "/app"
+	}
+	return value
 }
 
 func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
@@ -105,13 +131,21 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, "SSO 로그인 요청이 유효하지 않습니다. 다시 로그인하세요.")
 		return
 	}
-	var nonce, sealedVerifier, issuer, clientID, redirectURI string
-	err = s.DB.QueryRow(ctx, `DELETE FROM oidc_attempts WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,issuer,client_id,redirect_uri`, integrationHash(state), integrationHash(cookie.Value)).Scan(&nonce, &sealedVerifier, &issuer, &clientID, &redirectURI)
+	var nonce, sealedVerifier, issuer, clientID, redirectURI, returnTo string
+	var silent bool
+	err = s.DB.QueryRow(ctx, `DELETE FROM oidc_attempts WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,issuer,client_id,redirect_uri,silent,return_to`, integrationHash(state), integrationHash(cookie.Value)).Scan(&nonce, &sealedVerifier, &issuer, &clientID, &redirectURI, &silent, &returnTo)
 	if err != nil {
 		apiError(w, 400, "SSO 요청이 만료되었거나 이미 사용되었습니다. 다시 로그인하세요.")
 		return
 	}
 	if r.URL.Query().Get("error") != "" || r.URL.Query().Get("code") == "" {
+		if silent {
+			// Without a provider session prompt=none answers login_required.
+			// That is an ordinary outcome, not a failure: show the login screen
+			// with the marker that stops the browser from retrying in a loop.
+			http.Redirect(w, r, oidcSilentRefusalPath, http.StatusFound)
+			return
+		}
 		apiError(w, 401, "SSO 인증이 취소되었거나 실패했습니다.")
 		return
 	}
@@ -199,8 +233,9 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 500, "로그인 세션을 생성할 수 없습니다.")
 		return
 	}
-	s.audit(r, "LOGIN", userID, map[string]any{"provider": "oidc", "issuer": issuer, "email_verified": claims.EmailVerified})
-	http.Redirect(w, r, "/app", http.StatusFound)
+	s.audit(r, "LOGIN", userID, map[string]any{"provider": "oidc", "issuer": issuer, "email_verified": claims.EmailVerified, "silent": silent})
+	// A deep link that triggered a silent sign-in lands back where it started.
+	http.Redirect(w, r, oidcReturnTo(returnTo), http.StatusFound)
 }
 
 func idTokenNonce(token *oidc.IDToken) string {

@@ -45,6 +45,7 @@ Keycloak은 별도로 운영하는 IdP입니다. madi는 관리자 설정에 입
 | Client secret | Keycloak에서 발급한 비밀 |
 | 자동 계정 생성 | 조직 정책에 맞게 설정 |
 | SSO 이메일 검증 필수 | `oidc_require_verified_email`, 기본 꺼짐 (`false`) |
+| 자동 로그인 (silent SSO) | `oidc_auto_login`, 기본 꺼짐 (`false`) |
 
 Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard flow를 사용합니다. 유효한 리디렉션 URI는 `https://madi.example.internal/api/v1/auth/oidc/callback`으로 지정합니다. 서비스와 사용자 브라우저가 모두 Keycloak에 접근할 수 있어야 합니다. 서비스 URL·issuer·리디렉션 URI의 스킴, 호스트, 경로가 정확히 일치하는지 확인하세요.
 
@@ -53,6 +54,21 @@ Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard
 어느 설정에서도 유효한 이메일·subject와 토큰 서명·issuer·audience·nonce·state·PKCE·만료 검증은 필요합니다. 실제 이메일 검증 값은 계정 연결 정책에 그대로 사용하므로 **미검증 이메일로 기존 로컬 일반 사용자·관리자를 자동 연결하지 않습니다**. 신규 생성은 별도 OIDC 자동 등록 설정에 따릅니다. 동일 이메일 충돌이 남으면 기업 계정 연동(`/admin/identity`)에서 사용자·제공자·issuer·불변 `sub`를 확인하여 명시적으로 연결하세요. 자세한 처리 조건은 [OIDC 이메일 검증과 계정 보호](identity-guide.md#이메일-검증-요구와-기존-계정-보호)에 있습니다.
 
 이는 madi 설정의 변경이며, 외부에서 운영하는 Keycloak의 이메일 검증 정책을 자동 수정하지 않습니다. 실제 운영 서버에 대한 설정 변경·배포·수용 시험은 관리자가 별도로 수행해야 합니다.
+
+### 자동 로그인 (silent SSO)
+
+같은 SSO 탭의 **자동 로그인 (silent SSO)** (`oidc_auto_login`)을 켜면 Keycloak에 이미 로그인한 사용자는 madi를 열 때 로그인 화면을 거치지 않고 바로 본 화면으로 들어갑니다. 기본값은 꺼짐이며, 꺼진 설치에서는 아무것도 달라지지 않습니다. `oidc_enabled`가 함께 켜져 있어야 동작합니다.
+
+동작 방식은 OIDC `prompt=none`입니다. 브라우저가 세션 없이 `/app` 등 화면 경로를 열면 숨은 iframe이 아니라 최상위 이동으로 `/api/v1/auth/oidc/start?prompt=none&return_to=<원래 경로>`를 거쳐 Keycloak에 "기존 세션으로만 답하라"고 요청합니다. Keycloak 세션이 있으면 인가 코드가 곧바로 돌아와 평소처럼 로그인되고 원래 열려던 경로로 돌아갑니다. 세션이 없으면 Keycloak이 `error=login_required`로 답하는데, 이는 실패가 아니라 평범한 결과이며 madi는 `/login?sso=none`으로 보내 로그인 화면을 보여 줍니다. 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 설정과 무관합니다.
+
+무한 리다이렉트를 막기 위해 조용한 시도는 다음 조건에서 하지 않습니다.
+
+- 같은 탭 세션에서 이미 한 번 시도한 경우(`sessionStorage` 표시). 새 탭에서는 다시 시도하고, 거절된 뒤 새로고침해도 반복하지 않습니다. 브라우저 저장소를 읽을 수 없는 사생활 보호 모드에서는 "이미 시도했다"로 간주합니다.
+- 사용자가 스스로 로그아웃한 직후. 다시 로그인하면 억제가 풀립니다.
+- 주소에 `?sso=none` 또는 `?sso=error` 표시가 있는 경우.
+- `/login`, OIDC 콜백, `/api`, `/mcp`, `/healthz`, `/readyz`, 공개 공유 경로. 브라우저 화면 이동에만 해당합니다.
+
+서버는 `oidc_auto_login`이 꺼져 있으면 `?prompt=none`이 붙은 요청도 평범한 로그인으로 처리하므로 주소만으로 흐름을 바꿀 수 없습니다. `return_to`는 `/`로 시작하고 `//`로 시작하지 않는 같은 출처 경로만 받고, 그 밖의 값은 `/app`으로 대체합니다. Keycloak 클라이언트 설정은 그대로이며, 별도의 리디렉션 URI를 추가할 필요가 없습니다.
 
 SSO 연동 비밀은 DB에 암호화해 저장하며 설정 조회 시 원문을 다시 보여주지 않습니다. 서비스 관리자 로컬 계정을 보관하여 SSO 설정 오류 시 복구 경로로 사용하세요. SAML·LDAP·SCIM과 그룹 매핑의 구성 및 지원 경계는 [인증·계정 연동 가이드](identity-guide.md)를 참고하세요.
 

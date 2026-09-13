@@ -26,3 +26,5 @@ CREATE TABLE IF NOT EXISTS oidc_attempts (
  redirect_uri text NOT NULL,
  expires_at timestamptz NOT NULL
 );
+ALTER TABLE oidc_attempts ADD COLUMN IF NOT EXISTS silent boolean NOT NULL DEFAULT false;
+ALTER TABLE oidc_attempts ADD COLUMN IF NOT EXISTS return_to text NOT NULL DEFAULT '/app';

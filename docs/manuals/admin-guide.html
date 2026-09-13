@@ -4,7 +4,7 @@
 <meta property="og:type" content="website"><meta property="og:locale" content="ko_KR"><meta property="og:site_name" content="madi"><meta property="og:title" content="madi 관리자 가이드 — madi"><meta property="og:description" content="madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다."><meta property="og:url" content="https://hkjang.github.io/madi/manuals/admin-guide.html"><meta property="og:image" content="https://hkjang.github.io/madi/screenshots/workspace.png"><meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"madi 관리자 가이드","description":"madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.","inLanguage":"ko","url":"https://hkjang.github.io/madi/manuals/admin-guide.html","isPartOf":{"@type":"WebSite","name":"madi","url":"https://hkjang.github.io/madi/"}}</script></head>
 <body><a class="skip" href="#main">본문으로 바로가기</a><header class="site-header"><div class="container header-inner"><a class="brand" href="../index.html" aria-label="madi 홈"><img src="../assets/logo.svg" alt="madi" width="113" height="40"></a><button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="navigation" aria-label="탐색 메뉴 열기">☰</button><nav class="nav" id="navigation" aria-label="주 탐색"><a href="../index.html#features">기능</a><a href="../screenshots.html">화면 둘러보기</a><a href="../guide.html">시작 가이드</a><a href="../manuals.html">전체 매뉴얼</a><a href="../api.html">API · MCP</a><a href="https://github.com/hkjang/madi">GitHub ↗</a></nav></div></header>
-<main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../admin-guide.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#초기-구성">초기 구성</a><a href="#운영-고도화-설정">운영 고도화 설정</a><a href="#계정과-역할">계정과 역할</a><a href="#keycloak-oidc">Keycloak OIDC</a><a href="#ai-연결">AI 연결</a><a href="#api-키-정책">API 키 정책</a><a href="#검토승인-정책">검토·승인 정책</a><a href="#외부-지식-연결">외부 지식 연결</a><a href="#설정-이력-감사와-상태-점검">설정 이력, 감사와 상태 점검</a><a href="#파일-저장소와-백업">파일 저장소와 백업</a></aside><article class="prose manual-prose"><h1 id="madi-관리자-가이드">madi 관리자 가이드</h1>
+<main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../admin-guide.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#초기-구성">초기 구성</a><a href="#운영-고도화-설정">운영 고도화 설정</a><a href="#계정과-역할">계정과 역할</a><a href="#keycloak-oidc">Keycloak OIDC</a><a href="#자동-로그인-silent-sso">자동 로그인 (silent SSO)</a><a href="#ai-연결">AI 연결</a><a href="#api-키-정책">API 키 정책</a><a href="#검토승인-정책">검토·승인 정책</a><a href="#외부-지식-연결">외부 지식 연결</a><a href="#설정-이력-감사와-상태-점검">설정 이력, 감사와 상태 점검</a><a href="#파일-저장소와-백업">파일 저장소와 백업</a></aside><article class="prose manual-prose"><h1 id="madi-관리자-가이드">madi 관리자 가이드</h1>
 <h2 id="초기-구성">초기 구성</h2>
 <p>자료 이동과 결과 보관 정책은 <a href="transfer-guide.html">가져오기·내보내기 가이드</a>, 고정 원격 저장소 연동은 <a href="git-sync-guide.html">Git 동기화 가이드</a>를 참고하세요. 운영·브랜딩·기능 공개는 <a href="operations-guide.html">운영 확장 가이드</a>, 읽기 전용 지원 진단은 <a href="support-guide.html">지원 진단 가이드</a>에 있습니다.</p>
 <p>네 필수 환경변수로 서비스를 처음 시작하면 초기 관리자 계정이 생성됩니다. 로그인한 뒤 <code>/admin</code>에서 서비스 설정을 관리합니다. 서비스 관리자는 전역 운영 설정과 사용자 관리를 담당하고, 워크스페이스 역할은 해당 공간의 문서 권한을 담당합니다.</p>
@@ -102,11 +102,26 @@
 <td>SSO 이메일 검증 필수</td>
 <td><code>oidc_require_verified_email</code>, 기본 꺼짐 (<code>false</code>)</td>
 </tr>
+<tr>
+<td>자동 로그인 (silent SSO)</td>
+<td><code>oidc_auto_login</code>, 기본 꺼짐 (<code>false</code>)</td>
+</tr>
 </tbody></table></div>
 <p>Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard flow를 사용합니다. 유효한 리디렉션 URI는 <code>https://madi.example.internal/api/v1/auth/oidc/callback</code>으로 지정합니다. 서비스와 사용자 브라우저가 모두 Keycloak에 접근할 수 있어야 합니다. 서비스 URL·issuer·리디렉션 URI의 스킴, 호스트, 경로가 정확히 일치하는지 확인하세요.</p>
 <p>시스템 설정의 SSO 탭(<code>/admin/settings?tab=auth</code>)에서 <strong>SSO 이메일 검증 필수</strong>를 선택합니다. v0.2.0 업데이트 후 기본값은 <code>false</code>이며, 기존 저장 설정에 항목이 없는 경우도 같습니다. 꺼져 있으면 <code>email_verified=false</code> 또는 claim 누락만으로 로그인 절차를 거부하지 않습니다. 켜져 있으면 <code>email_verified=true</code>가 필요합니다. 이메일 검증을 필수로 운영할 조직은 업그레이드 시 명시적으로 켜세요. 변경 사항을 저장한 뒤 회사 계정 로그인을 다시 시작합니다.</p>
 <p>어느 설정에서도 유효한 이메일·subject와 토큰 서명·issuer·audience·nonce·state·PKCE·만료 검증은 필요합니다. 실제 이메일 검증 값은 계정 연결 정책에 그대로 사용하므로 <strong>미검증 이메일로 기존 로컬 일반 사용자·관리자를 자동 연결하지 않습니다</strong>. 신규 생성은 별도 OIDC 자동 등록 설정에 따릅니다. 동일 이메일 충돌이 남으면 기업 계정 연동(<code>/admin/identity</code>)에서 사용자·제공자·issuer·불변 <code>sub</code>를 확인하여 명시적으로 연결하세요. 자세한 처리 조건은 <a href="identity-guide.html#%EC%9D%B4%EB%A9%94%EC%9D%BC-%EA%B2%80%EC%A6%9D-%EC%9A%94%EA%B5%AC%EC%99%80-%EA%B8%B0%EC%A1%B4-%EA%B3%84%EC%A0%95-%EB%B3%B4%ED%98%B8">OIDC 이메일 검증과 계정 보호</a>에 있습니다.</p>
 <p>이는 madi 설정의 변경이며, 외부에서 운영하는 Keycloak의 이메일 검증 정책을 자동 수정하지 않습니다. 실제 운영 서버에 대한 설정 변경·배포·수용 시험은 관리자가 별도로 수행해야 합니다.</p>
+<h3 id="자동-로그인-silent-sso">자동 로그인 (silent SSO)</h3>
+<p>같은 SSO 탭의 <strong>자동 로그인 (silent SSO)</strong> (<code>oidc_auto_login</code>)을 켜면 Keycloak에 이미 로그인한 사용자는 madi를 열 때 로그인 화면을 거치지 않고 바로 본 화면으로 들어갑니다. 기본값은 꺼짐이며, 꺼진 설치에서는 아무것도 달라지지 않습니다. <code>oidc_enabled</code>가 함께 켜져 있어야 동작합니다.</p>
+<p>동작 방식은 OIDC <code>prompt=none</code>입니다. 브라우저가 세션 없이 <code>/app</code> 등 화면 경로를 열면 숨은 iframe이 아니라 최상위 이동으로 <code>/api/v1/auth/oidc/start?prompt=none&amp;return_to=&lt;원래 경로&gt;</code>를 거쳐 Keycloak에 &quot;기존 세션으로만 답하라&quot;고 요청합니다. Keycloak 세션이 있으면 인가 코드가 곧바로 돌아와 평소처럼 로그인되고 원래 열려던 경로로 돌아갑니다. 세션이 없으면 Keycloak이 <code>error=login_required</code>로 답하는데, 이는 실패가 아니라 평범한 결과이며 madi는 <code>/login?sso=none</code>으로 보내 로그인 화면을 보여 줍니다. 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 설정과 무관합니다.</p>
+<p>무한 리다이렉트를 막기 위해 조용한 시도는 다음 조건에서 하지 않습니다.</p>
+<ul>
+<li>같은 탭 세션에서 이미 한 번 시도한 경우(<code>sessionStorage</code> 표시). 새 탭에서는 다시 시도하고, 거절된 뒤 새로고침해도 반복하지 않습니다. 브라우저 저장소를 읽을 수 없는 사생활 보호 모드에서는 &quot;이미 시도했다&quot;로 간주합니다.</li>
+<li>사용자가 스스로 로그아웃한 직후. 다시 로그인하면 억제가 풀립니다.</li>
+<li>주소에 <code>?sso=none</code> 또는 <code>?sso=error</code> 표시가 있는 경우.</li>
+<li><code>/login</code>, OIDC 콜백, <code>/api</code>, <code>/mcp</code>, <code>/healthz</code>, <code>/readyz</code>, 공개 공유 경로. 브라우저 화면 이동에만 해당합니다.</li>
+</ul>
+<p>서버는 <code>oidc_auto_login</code>이 꺼져 있으면 <code>?prompt=none</code>이 붙은 요청도 평범한 로그인으로 처리하므로 주소만으로 흐름을 바꿀 수 없습니다. <code>return_to</code>는 <code>/</code>로 시작하고 <code>//</code>로 시작하지 않는 같은 출처 경로만 받고, 그 밖의 값은 <code>/app</code>으로 대체합니다. Keycloak 클라이언트 설정은 그대로이며, 별도의 리디렉션 URI를 추가할 필요가 없습니다.</p>
 <p>SSO 연동 비밀은 DB에 암호화해 저장하며 설정 조회 시 원문을 다시 보여주지 않습니다. 서비스 관리자 로컬 계정을 보관하여 SSO 설정 오류 시 복구 경로로 사용하세요. SAML·LDAP·SCIM과 그룹 매핑의 구성 및 지원 경계는 <a href="identity-guide.html">인증·계정 연동 가이드</a>를 참고하세요.</p>
 <h2 id="ai-연결">AI 연결</h2>
 <p>AI 설정에서 내부 또는 외부 OpenAI 호환 API의 기본 URL, 모델 ID, API 키, 최대 출력 토큰과 시스템 지시문을 지정합니다. 최대 출력 토큰은 1~262,144 범위이며 실제 요청 가능량은 모델과 제공자 한도에 의해 제한됩니다. 256K 설정은 모든 모델이 256K를 생성한다는 보장이 아닙니다.</p>

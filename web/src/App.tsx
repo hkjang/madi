@@ -7,6 +7,12 @@ import {
   useNavigationMemory,
 } from "./navigation/NavigationMemory";
 import MobileActions from "./navigation/MobileActions";
+import {
+  beginSilentSso,
+  clearSilentSsoState,
+  markSignedOut,
+  shouldAttemptSilentSso,
+} from "./auth/silentSso";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
@@ -856,6 +862,8 @@ function Shell() {
                     try {
                       lockOfflineVault();
                       await api("/auth/logout", "POST");
+                      // A deliberate sign-out must not be undone by silent SSO.
+                      markSignedOut();
                       window.location.assign("/login");
                     } catch (e) {
                       notify((e as Error).message, "error");
@@ -1496,18 +1504,40 @@ function AuthenticatedApp() {
   }, []);
   useEffect(() => {
     Promise.all([
-      api("/public").then(setInfo),
-      api<User>("/auth/me")
-        .then(setUser)
+      api<Record<string, any>>("/public").then((v) => {
+        setInfo(v);
+        return v;
+      }),
+      api<User | null>("/auth/me")
+        .then((u) => {
+          setUser(u);
+          return u;
+        })
         .catch((e) => {
           if (!(e instanceof ApiError && e.status === 401)) throw e;
+          return null;
         }),
     ])
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then(([publicInfo, me]) => {
+        // No session yet: try the provider silently once, before the login
+        // screen can flash. The rule module guarantees this never repeats.
+        if (!me && shouldAttemptSilentSso(publicInfo)) {
+          beginSilentSso(
+            window.location.pathname + window.location.search,
+          );
+          return;
+        }
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e.message);
+        setLoading(false);
+      });
   }, []);
   useEffect(() => {
     if (!user) return;
+    // A live session lifts the sign-out suppression for the next visit.
+    clearSilentSsoState();
     document.documentElement.dataset.theme =
       user.preferences?.theme === "dark" ? "dark" : "light";
     document.documentElement.style.fontSize = `${user.preferences?.font_size || 16}px`;

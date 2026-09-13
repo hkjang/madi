@@ -27,7 +27,7 @@ func (s *Server) registerCore() {
 			respond(w, nil, e)
 			return
 		}
-		jsonResponse(w, 200, map[string]any{"name": cfg["site_name"], "version": s.Version, "oidc_enabled": cfg["oidc_enabled"], "ldap_enabled": boolean(cfg, "ldap_enabled"), "saml_enabled": boolean(cfg, "saml_enabled"), "signup_enabled": cfg["signup_enabled"], "approval_enabled": cfg["approval_enabled"], "reviewer_role": cfg["reviewer_role"], "runbook_enabled": runbookEnabled})
+		jsonResponse(w, 200, map[string]any{"name": cfg["site_name"], "version": s.Version, "oidc_enabled": cfg["oidc_enabled"], "oidc_auto_login": boolean(cfg, "oidc_enabled") && boolean(cfg, "oidc_auto_login"), "ldap_enabled": boolean(cfg, "ldap_enabled"), "saml_enabled": boolean(cfg, "saml_enabled"), "signup_enabled": cfg["signup_enabled"], "approval_enabled": cfg["approval_enabled"], "reviewer_role": cfg["reviewer_role"], "runbook_enabled": runbookEnabled})
 	})
 	s.mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	s.handle("POST /api/v1/auth/logout", func(w http.ResponseWriter, r *http.Request) {

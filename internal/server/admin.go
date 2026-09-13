@@ -27,6 +27,9 @@ func defaultSettings() map[string]any {
 	// Directory-managed Keycloak accounts may not assert email_verified. This
 	// affects OIDC admission only, never email-based linking to existing users.
 	out["oidc_require_verified_email"] = false
+	// Silent SSO (prompt=none) is opt-in so a default installation never
+	// redirects a visitor to the identity provider on its own.
+	out["oidc_auto_login"] = false
 	for key, value := range defaultRAGSettings() {
 		out[key] = value
 	}
@@ -183,7 +186,7 @@ func validateSettings(cfg map[string]any) error {
 			return fmt.Errorf("%s는 정수여야 합니다", key)
 		}
 	}
-	for _, key := range []string{"signup_enabled", "approval_enabled", "oidc_enabled", "oidc_auto_register", "oidc_require_verified_email", "ai_enabled"} {
+	for _, key := range []string{"signup_enabled", "approval_enabled", "oidc_enabled", "oidc_auto_register", "oidc_require_verified_email", "oidc_auto_login", "ai_enabled"} {
 		if _, ok := cfg[key].(bool); !ok {
 			return fmt.Errorf("%s 값은 true/false여야 합니다", key)
 		}
