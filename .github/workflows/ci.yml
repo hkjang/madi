@@ -50,7 +50,7 @@ jobs:
       - name: Build and verify responsive Korean documentation
         run: node scripts/build-docs.mjs && node tests/docs.mjs
       - name: Verify Korean date parsing and explicit usability-study tools
-        run: node --test tests/natural-date.mjs tests/usability/model.test.mjs tests/usability/recorder.test.mjs tests/pdf-font-sources.mjs tests/publish-verified-screenshots.test.mjs
+        run: node --test tests/natural-date.mjs tests/silent-sso.mjs tests/usability/model.test.mjs tests/usability/recorder.test.mjs tests/pdf-font-sources.mjs tests/publish-verified-screenshots.test.mjs
       - name: Verify PostgreSQL, protocols and isolated browser modules
         env:
           MADI_BROWSER_APPROVAL: '1'

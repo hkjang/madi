@@ -251,3 +251,145 @@ func TestPostgresOIDCCodePKCENonceAndVerifiedIdentity(t *testing.T) {
 	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_auto_register": false}, 200)
 	reject(403)
 }
+
+func TestOIDCReturnTo(t *testing.T) {
+	for value, want := range map[string]string{
+		"": "/app", "/": "/", "/app/documents/abc?x=1": "/app/documents/abc?x=1", "/admin": "/admin",
+		"//evil.example/x": "/app", "https://evil.example/x": "/app", "app": "/app", "/\\evil.example": "/app", "/x\r\nSet-Cookie: a=b": "/app",
+	} {
+		if got := oidcReturnTo(value); got != want {
+			t.Errorf("oidcReturnTo(%q)=%q want %q", value, got, want)
+		}
+	}
+}
+
+// Silent SSO: prompt=none is forwarded only when auto login is enabled, a
+// refusal lands on the login page with the no-retry marker, and a successful
+// silent sign-in returns to the deep link it started from.
+func TestPostgresOIDCSilentLogin(t *testing.T) {
+	_, server := integrationTestServer(t)
+	admin := newIntegrationTestClient(t, server.URL)
+	admin.request("POST", "/api/v1/auth/login", map[string]any{"email": "admin@example.test", "password": "Integration-Test-Password-2026!"}, 200)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var issuer string
+	var mu sync.Mutex
+	var nonce string
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			_ = json.NewEncoder(w).Encode(map[string]any{"issuer": issuer, "authorization_endpoint": issuer + "/authorize", "token_endpoint": issuer + "/token", "jwks_uri": issuer + "/jwks", "response_types_supported": []string{"code"}, "subject_types_supported": []string{"public"}, "id_token_signing_alg_values_supported": []string{"RS256"}})
+		case "/jwks":
+			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]any{{"kty": "RSA", "kid": "madi-test-key", "use": "sig", "alg": "RS256", "n": base64.RawURLEncoding.EncodeToString(key.N.Bytes()), "e": "AQAB"}}})
+		case "/token":
+			mu.Lock()
+			tokenNonce := nonce
+			mu.Unlock()
+			claims := map[string]any{"iss": issuer, "sub": "silent-subject", "aud": "madi-client", "exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Unix(), "nonce": tokenNonce, "email": "silent@example.test", "email_verified": true, "name": "조용한 사용자"}
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "provider-access-token", "token_type": "Bearer", "expires_in": 60, "id_token": signedOIDCTestToken(t, key, claims)})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer provider.Close()
+	issuer = provider.URL
+	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"site_url": server.URL, "oidc_enabled": true, "oidc_issuer": issuer, "oidc_client_id": "madi-client", "oidc_client_secret": "madi-client-secret", "oidc_auto_register": true}, 200)
+	cfg := testJSONObject(t, admin.request("GET", "/api/v1/admin/settings", nil, 200))
+	if value, ok := cfg["oidc_auto_login"].(bool); !ok || value {
+		t.Fatalf("auto login must default to boolean false: %v", cfg["oidc_auto_login"])
+	}
+	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_auto_login": "true"}, 400)
+	public := testJSONObject(t, admin.request("GET", "/api/v1/public", nil, 200))
+	if boolean(public, "oidc_auto_login") {
+		t.Fatal("public metadata advertised auto login while it is off")
+	}
+	browser := newIntegrationTestClient(t, server.URL)
+	browser.client.CheckRedirect = func(r *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }
+	start := func(query string) (authorize url.Values, state string) {
+		t.Helper()
+		response, err := browser.client.Get(server.URL + "/api/v1/auth/oidc/start" + query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != 302 {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("OIDC start: %d %s", response.StatusCode, body)
+		}
+		location, err := url.Parse(response.Header.Get("Location"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := location.Query()
+		mu.Lock()
+		nonce = q.Get("nonce")
+		mu.Unlock()
+		return q, q.Get("state")
+	}
+	callback := func(params url.Values) *http.Response {
+		t.Helper()
+		response, err := browser.client.Get(server.URL + "/api/v1/auth/oidc/callback?" + params.Encode())
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		return response
+	}
+	// Off (default): the query parameter alone cannot switch to a silent flow,
+	// and a provider refusal is the ordinary visible error.
+	q, state := start("?prompt=none&return_to=%2Fapp%2Fdocuments%2Fdeep")
+	if q.Get("prompt") != "" {
+		t.Fatalf("prompt=none forwarded while auto login is off: %v", q)
+	}
+	if response := callback(url.Values{"state": {state}, "error": {"login_required"}}); response.StatusCode != 401 {
+		t.Fatalf("non-silent refusal: %d", response.StatusCode)
+	}
+	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_auto_login": true}, 200)
+	public = testJSONObject(t, admin.request("GET", "/api/v1/public", nil, 200))
+	if !boolean(public, "oidc_auto_login") {
+		t.Fatal("public metadata must advertise auto login once enabled")
+	}
+	// On, without a provider session: login_required sends the browser to the
+	// login page carrying the marker that stops another silent attempt.
+	q, state = start("?prompt=none&return_to=%2Fapp%2Fdocuments%2Fdeep")
+	if q.Get("prompt") != "none" {
+		t.Fatalf("prompt=none missing from authorization request: %v", q)
+	}
+	response := callback(url.Values{"state": {state}, "error": {"login_required"}})
+	if response.StatusCode != 302 || response.Header.Get("Location") != "/login?sso=none" {
+		t.Fatalf("silent refusal: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	browser.request("GET", "/api/v1/auth/me", nil, 401)
+	// The consumed state cannot be replayed into another redirect.
+	if response = callback(url.Values{"state": {state}, "error": {"login_required"}}); response.StatusCode != 400 {
+		t.Fatalf("replayed refusal: %d", response.StatusCode)
+	}
+	// A normal (non-silent) start is unchanged even with auto login on.
+	q, _ = start("")
+	if q.Get("prompt") != "" {
+		t.Fatalf("plain start must not request prompt=none: %v", q)
+	}
+	// On, with a provider session: the code comes back and the deep link is restored.
+	_, state = start("?prompt=none&return_to=%2Fapp%2Fdocuments%2Fdeep%3Ftab%3Dhistory")
+	response = callback(url.Values{"state": {state}, "code": {"test-code"}})
+	if response.StatusCode != 302 || response.Header.Get("Location") != "/app/documents/deep?tab=history" {
+		t.Fatalf("silent success: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	me := testJSONObject(t, browser.request("GET", "/api/v1/auth/me", nil, 200))
+	if str(me, "email") != "silent@example.test" {
+		t.Fatalf("unexpected silent SSO user: %v", me)
+	}
+	browser.request("POST", "/api/v1/auth/logout", nil, 200)
+	// Off-origin return targets fall back to the application root.
+	for _, unsafe := range []string{"//evil.example/x", "https://evil.example/x", "app"} {
+		_, state = start("?return_to=" + url.QueryEscape(unsafe))
+		response = callback(url.Values{"state": {state}, "code": {"test-code"}})
+		if response.StatusCode != 302 || response.Header.Get("Location") != "/app" {
+			t.Fatalf("return_to %q: %d %q", unsafe, response.StatusCode, response.Header.Get("Location"))
+		}
+		browser.request("POST", "/api/v1/auth/logout", nil, 200)
+	}
+}

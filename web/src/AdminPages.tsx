@@ -696,6 +696,12 @@ export function AdminSettings() {
                       label="처음 로그인한 사용자 자동 등록"
                       description="SSO 인증을 마친 신규 계정으로 madi 사용자를 생성합니다. 같은 이메일의 기존 계정은 별도 연결 정책을 따릅니다."
                     />
+                    <Toggle
+                      checked={v("oidc_auto_login", false)}
+                      onChange={(x) => set("oidc_auto_login", x)}
+                      label="자동 로그인 (silent SSO)"
+                      description="기본은 꺼짐입니다. 켜면 Keycloak에 이미 로그인한 사용자는 로그인 화면 없이 바로 본 화면으로 들어갑니다. 세션이 없으면 로그인 화면을 보여 주고 같은 탭에서 다시 시도하지 않습니다."
+                    />
                     <Field label="Keycloak에 등록할 Redirect URI">
                       <div className="input-with-button">
                         <input
