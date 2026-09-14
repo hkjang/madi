@@ -4,7 +4,7 @@
 <meta property="og:type" content="website"><meta property="og:locale" content="ko_KR"><meta property="og:site_name" content="madi"><meta property="og:title" content="madi 관리자 가이드 — madi"><meta property="og:description" content="madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다."><meta property="og:url" content="https://hkjang.github.io/madi/manuals/admin-guide.html"><meta property="og:image" content="https://hkjang.github.io/madi/screenshots/workspace.png"><meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"madi 관리자 가이드","description":"madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.","inLanguage":"ko","url":"https://hkjang.github.io/madi/manuals/admin-guide.html","isPartOf":{"@type":"WebSite","name":"madi","url":"https://hkjang.github.io/madi/"}}</script></head>
 <body><a class="skip" href="#main">본문으로 바로가기</a><header class="site-header"><div class="container header-inner"><a class="brand" href="../index.html" aria-label="madi 홈"><img src="../assets/logo.svg" alt="madi" width="113" height="40"></a><button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="navigation" aria-label="탐색 메뉴 열기">☰</button><nav class="nav" id="navigation" aria-label="주 탐색"><a href="../index.html#features">기능</a><a href="../screenshots.html">화면 둘러보기</a><a href="../guide.html">시작 가이드</a><a href="../manuals.html">전체 매뉴얼</a><a href="../api.html">API · MCP</a><a href="https://github.com/hkjang/madi">GitHub ↗</a></nav></div></header>
-<main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../admin-guide.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#초기-구성">초기 구성</a><a href="#운영-고도화-설정">운영 고도화 설정</a><a href="#계정과-역할">계정과 역할</a><a href="#keycloak-oidc">Keycloak OIDC</a><a href="#자동-로그인-silent-sso">자동 로그인 (silent SSO)</a><a href="#ai-연결">AI 연결</a><a href="#api-키-정책">API 키 정책</a><a href="#검토승인-정책">검토·승인 정책</a><a href="#외부-지식-연결">외부 지식 연결</a><a href="#설정-이력-감사와-상태-점검">설정 이력, 감사와 상태 점검</a><a href="#파일-저장소와-백업">파일 저장소와 백업</a></aside><article class="prose manual-prose"><h1 id="madi-관리자-가이드">madi 관리자 가이드</h1>
+<main id="main" class="container"><div class="page-hero"><a class="crumb" href="../manuals.html">madi / 전체 매뉴얼</a><p>madi 관리자 가이드. madi의 실제 설정 방법, 사용자 권한, 기능 흐름과 운영상 주의점을 안내합니다.</p><a href="../admin-guide.md" download>Markdown 원문 내려받기</a></div><div class="guide-layout"><aside class="guide-sidebar" aria-label="문서 목차"><strong>이 문서의 내용</strong><a href="#초기-구성">초기 구성</a><a href="#운영-고도화-설정">운영 고도화 설정</a><a href="#계정과-역할">계정과 역할</a><a href="#keycloak-oidc">Keycloak OIDC</a><a href="#자동-로그인-silent-sso">자동 로그인 (silent SSO)</a><a href="#ai-연결">AI 연결</a><a href="#api-키-정책">API 키 정책</a><a href="#검토승인-정책">검토·승인 정책</a><a href="#외부-지식-연결">외부 지식 연결</a><a href="#다른-서비스로-문서-넘기기">다른 서비스로 문서 넘기기</a><a href="#설정-이력-감사와-상태-점검">설정 이력, 감사와 상태 점검</a><a href="#파일-저장소와-백업">파일 저장소와 백업</a></aside><article class="prose manual-prose"><h1 id="madi-관리자-가이드">madi 관리자 가이드</h1>
 <h2 id="초기-구성">초기 구성</h2>
 <p>자료 이동과 결과 보관 정책은 <a href="transfer-guide.html">가져오기·내보내기 가이드</a>, 고정 원격 저장소 연동은 <a href="git-sync-guide.html">Git 동기화 가이드</a>를 참고하세요. 운영·브랜딩·기능 공개는 <a href="operations-guide.html">운영 확장 가이드</a>, 읽기 전용 지원 진단은 <a href="support-guide.html">지원 진단 가이드</a>에 있습니다.</p>
 <p>네 필수 환경변수로 서비스를 처음 시작하면 초기 관리자 계정이 생성됩니다. 로그인한 뒤 <code>/admin</code>에서 서비스 설정을 관리합니다. 서비스 관리자는 전역 운영 설정과 사용자 관리를 담당하고, 워크스페이스 역할은 해당 공간의 문서 권한을 담당합니다.</p>
@@ -135,6 +135,31 @@
 <h2 id="외부-지식-연결">외부 지식 연결</h2>
 <p><a href="connector-guide.html">문서 커넥터 가이드</a>에서 GitLab·Jira·Confluence·Drive·SharePoint·GitHub·REST 자료의 미리보기, 가져오기, 체크포인트와 충돌 정책을 확인하세요. <a href="data-source-guide.html">데이터 소스·Text2SQL 가이드</a>는 외부 DB 읽기 전용 연결, 테이블 설명, 지식 소스 탐색, 엔터티와 확인·승인 기반 AI 조회 계획을 다룹니다.</p>
 <p><a href="notification-capture-guide.html">외부 알림·수집 가이드</a>는 SMTP·메시징 채널, 개인 선택, IMAP TLS 이메일 및 HMAC Webhook 비공개 수집의 정책·한도·복원 경계를 설명합니다.</p>
+<h2 id="다른-서비스로-문서-넘기기">다른 서비스로 문서 넘기기</h2>
+<p>madi는 사내 서비스 간 문서 넘기기 표준을 따라 Markdown 문서를 다른 서비스로 보내고, 다른 서비스가 보낸 Markdown을 받습니다. 서비스끼리 자격 증명을 공유하지 않습니다. 보내는 쪽이 문서 하나에 묶인 **5분짜리 1회용 표(claim)**를 발급하고, 받는 쪽이 그 표를 들고 원본 서비스에서 직접 본문을 받아 갑니다.</p>
+<p><strong>설정 위치</strong>: 관리자 화면 → 서비스 설정 → <strong>문서 넘기기</strong> 탭. 저장된 설정 키는 <code>handoff_allowed_origins</code>이며, 각 항목은 서비스 이름과 오리진으로 이루어집니다.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>서비스</td>
+<td><code>umm</code>, <code>muni</code>, <code>kanpic</code>, <code>ptium</code>, <code>weekly</code>, <code>madi</code> 중 하나</td>
+</tr>
+<tr>
+<td>오리진</td>
+<td><code>https://muni.intra</code>처럼 프로토콜과 호스트(필요하면 포트)만 적습니다. 경로·쿼리·인증정보가 있으면 저장되지 않습니다</td>
+</tr>
+</tbody></table></div>
+<p>기본값은 <strong>빈 목록</strong>입니다. 비어 있으면 문서 화면에 보내기 단추가 나타나지 않고, <code>/handoff</code>로 들어오는 어떤 출처도 받지 않으므로 새로 설치한 곳에서는 아무것도 달라지지 않습니다. 이 목록은 보내기와 받기 양쪽에 함께 쓰입니다.</p>
+<ul>
+<li><strong>보내기</strong>: 문서 화면의 도구 메뉴(⋯)에 목록의 서비스 가운데 Markdown을 받을 수 있는 곳(<code>muni</code>, <code>ptium</code>, <code>weekly</code>, 다른 <code>madi</code>)만 &quot;…로 보내기&quot;로 나타납니다. <code>umm</code>·<code>kanpic</code>은 Markdown을 받지 않으므로 단추가 생기지 않습니다. 고르면 문서를 읽을 수 있는 사용자 이름으로 표가 발급되고 새 창에서 받는 서비스의 <code>/handoff</code>가 열립니다. 발급에는 관리자 설정의 <strong>서비스 URL</strong>(<code>site_url</code>)이 출처로 쓰이므로 실제 주소로 맞춰 두세요. 표의 원문은 저장·기록되지 않고 해시만 남으며, 감사 로그에는 <code>HANDOFF_CLAIM</code>으로 문서 ID만 기록됩니다.</li>
+<li><strong>받기</strong>: <code>GET /handoff?source=&lt;오리진&gt;&amp;claim=&lt;표&gt;</code>로 들어오면 로그인한 사용자의 세션으로 처리합니다. <code>source</code>가 목록에 없으면 <strong>아무 요청도 보내지 않고</strong> 거절합니다. 목록에 있으면 원본의 <code>/api/v1/handoff/claims/{claim}</code>을 한 번만 호출하되 리다이렉트를 따르지 않고, 30초·4MB(madi 문서 최대 크기)를 넘기면 중단하며, 응답이 <code>text/markdown</code>이 아니면 버립니다. 받은 문서는 사용자가 쓸 수 있는 첫 워크스페이스(생성 순)에 <strong>개인 초안</strong>으로 만들어지고 <code>handoff</code> 태그와 함께 출처 오리진·파일 이름·받은 시각이 문서 메타데이터(<code>origin: handoff</code>)에 남습니다. 감사 로그에는 <code>HANDOFF_RECEIVE</code>로 남습니다. 실패하면 이유(표 만료·형식·크기)를 적은 화면을 보여 줍니다.</li>
+</ul>
+<p>사내 TLS 프록시 뒤에서는 두 서비스가 서로의 오리진에 서버 간 HTTPS로 도달할 수 있어야 하며, 목록의 오리진과 상대 서비스가 발급하는 <code>source</code> 값이 프로토콜·호스트·포트까지 정확히 같아야 합니다.</p>
 <h2 id="설정-이력-감사와-상태-점검">설정 이력, 감사와 상태 점검</h2>
 <p>정보보호 관리 <code>/admin/information-protection</code>에서 민감정보 경고·차단·마스킹·감사, 상속 등급별 화면·인쇄 워터마크와 공개 링크 정책을 설정합니다. 기본은 비활성화입니다. 실제 탐지·파일 검사 한계, 차단/마스킹 시 공동 편집 중지, 기존 자료 정리 범위는 <a href="information-protection-guide.html">정보보호·공개 공유 가이드</a>를 먼저 확인하세요.</p>
 <p>관리자 대시보드에서 사용자·워크스페이스·문서·데이터베이스·첨부 사용량과 제공되는 활동 지표를 확인합니다. 감사 기록에서 계정, 문서, 설정 및 연동 관련 활동을 추적할 수 있습니다. 이력에서 이전 설정을 복구할 때 OIDC·AI 주소와 활성화 상태도 함께 확인합니다.</p>
