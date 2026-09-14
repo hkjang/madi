@@ -88,6 +88,7 @@ jobs:
           MADI_BROWSER_SYSTEM_STATUS: '1'
           MADI_BROWSER_COLLABORATION_SOAK: '1'
           MADI_BROWSER_TASKS: '1'
+          MADI_BROWSER_TRACKING: '1'
         run: go test -race -failfast -count=1 -timeout 45m ./...
       - run: go vet ./...
       - name: Prepare isolated browser test database
