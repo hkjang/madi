@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -477,8 +478,18 @@ const settingTabs = [
   ["security", "보안 / API 키", ShieldCheck],
   ["workflow", "검토 / 승인", Workflow],
   ["storage", "저장소 / 보존", HardDrive],
+  ["handoff", "문서 넘기기", Send],
   ["history", "설정 변경 이력", History],
 ];
+const handoffServices = [
+  ["umm", "umm (캔버스) — 받지 않음"],
+  ["muni", "muni (문서) — markdown 받음"],
+  ["kanpic", "kanpic (표) — markdown 받지 않음"],
+  ["ptium", "ptium (슬라이드) — markdown 받음"],
+  ["weekly", "weekly (보고) — markdown 받음"],
+  ["madi", "madi (다른 설치) — markdown 받음"],
+];
+type HandoffPeer = { service: string; origin: string };
 export function AdminSettings() {
   const { notify, refreshPublic } = useApp();
   const [params, setParams] = useSearchParams();
@@ -970,6 +981,123 @@ export function AdminSettings() {
                       백업 관리로 이동
                       <ArrowRight size={17} />
                     </Link>
+                  </>
+                )}
+                {tab === "handoff" && (
+                  <>
+                    <div className="settings-section-title">
+                      <Send size={24} />
+                      <div>
+                        <h2>다른 서비스로 문서 넘기기</h2>
+                        <p>
+                          문서를 주고받을 사내 서비스의 오리진 허용 목록입니다.
+                          비어 있으면 보내기 단추가 보이지 않고 어떤 출처도 받지
+                          않습니다.
+                        </p>
+                      </div>
+                    </div>
+                    <p className="muted">
+                      madi는 markdown만 보내고 받습니다. 보내기 단추는
+                      markdown을 받을 수 있는 서비스에만 나타나며, 받을 때는
+                      목록에 있는 오리진의 표(claim)만 가져옵니다. 오리진은{" "}
+                      <code>https://muni.intra</code>처럼 프로토콜과 호스트만
+                      적습니다.
+                    </p>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>서비스</th>
+                          <th>오리진</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          v("handoff_allowed_origins", []) as HandoffPeer[]
+                        ).map((peer, index) => {
+                          const peers = v(
+                            "handoff_allowed_origins",
+                            [],
+                          ) as HandoffPeer[];
+                          const edit = (
+                            key: keyof HandoffPeer,
+                            value: string,
+                          ) =>
+                            set(
+                              "handoff_allowed_origins",
+                              peers.map((p, i) =>
+                                i === index ? { ...p, [key]: value } : p,
+                              ),
+                            );
+                          return (
+                            <tr key={index}>
+                              <td>
+                                <select
+                                  aria-label={`허용 ${index + 1} 서비스`}
+                                  value={peer.service}
+                                  onChange={(e) =>
+                                    edit("service", e.target.value)
+                                  }
+                                >
+                                  {handoffServices.map(([id, label]) => (
+                                    <option key={id} value={id}>
+                                      {label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  aria-label={`허용 ${index + 1} 오리진`}
+                                  value={peer.origin}
+                                  placeholder="https://muni.intra"
+                                  onChange={(e) =>
+                                    edit("origin", e.target.value)
+                                  }
+                                  required
+                                />
+                              </td>
+                              <td>
+                                <Button
+                                  type="button"
+                                  onClick={() =>
+                                    set(
+                                      "handoff_allowed_origins",
+                                      peers.filter((_, i) => i !== index),
+                                    )
+                                  }
+                                >
+                                  삭제
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        set("handoff_allowed_origins", [
+                          ...(v(
+                            "handoff_allowed_origins",
+                            [],
+                          ) as HandoffPeer[]),
+                          { service: "muni", origin: "" },
+                        ])
+                      }
+                    >
+                      <Plus size={17} /> 서비스 추가
+                    </Button>
+                    <div className="notice subtle">
+                      <ShieldCheck size={19} />
+                      <span>
+                        받는 쪽은 목록에 없는 출처에는 아무 요청도 보내지 않고,
+                        리다이렉트를 따르지 않으며, 본문 4MB·30초를 넘기면
+                        중단합니다. 받은 문서는 개인 초안으로 만들어지고 출처가
+                        기록됩니다.
+                      </span>
+                    </div>
                   </>
                 )}
               </section>

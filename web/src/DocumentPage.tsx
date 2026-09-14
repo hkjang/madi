@@ -1,7 +1,10 @@
 import CollaborationSaveStatus from "./collaboration/SaveStatus";
 import { TagChips } from "./review/TagChips";
 import { DocumentStates } from "./review/DocumentStates";
-import { DocumentModeControls } from "./review/DocumentModeControls";
+import {
+  DocumentModeControls,
+  type HandoffTarget,
+} from "./review/DocumentModeControls";
 import { selectedMarkdown, type MarkdownSelection } from "./review/selection";
 import { applyMarkdownProposal } from "./review/documentMutation";
 import { ApiError } from "./api";
@@ -711,6 +714,7 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
   const [reviewServer, setReviewServer] = useState<Doc | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [moveDoc, setMoveDoc] = useState<Doc | null>(null);
+  const [handoffTargets, setHandoffTargets] = useState<HandoffTarget[]>([]);
   const [ragIndexOpen, setRAGIndexOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
@@ -764,6 +768,39 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
     window.addEventListener("madi:document-ai", open);
     return () => window.removeEventListener("madi:document-ai", open);
   }, [user.id]);
+  useEffect(() => {
+    // Send targets come from the admin allow list; an empty list hides the
+    // menu entirely, so a fresh installation looks exactly as before.
+    let active = true;
+    api<HandoffTarget[]>("/handoff/targets")
+      .then((targets) => active && setHandoffTargets(targets || []))
+      .catch(() => active && setHandoffTargets([]));
+    return () => {
+      active = false;
+    };
+  }, [user.id]);
+  const sendHandoff = async (target: HandoffTarget) => {
+    if (!doc) return;
+    // Open the window synchronously so the browser treats it as a user click,
+    // then point it at the receiver once the single-use claim exists.
+    const opened = window.open("", "_blank");
+    if (opened) opened.opener = null;
+    try {
+      if (dirty && !(await save(true))) throw new Error("먼저 저장하세요.");
+      const claim = await api<{ claim: string; source: string }>(
+        "/handoff/claims",
+        "POST",
+        { resource: doc.id, format: "markdown" },
+      );
+      const url = `${target.origin}/handoff?source=${encodeURIComponent(claim.source)}&claim=${encodeURIComponent(claim.claim)}`;
+      if (opened) opened.location.href = url;
+      else window.open(url, "_blank", "noopener");
+      notify(`${target.service}(으)로 보냈습니다. 새 창에서 이어집니다.`);
+    } catch (e) {
+      opened?.close();
+      notify((e as Error).message, "error");
+    }
+  };
   useEffect(() => {
     if (modeParams.get("comment")) inspector.change("comments");
   }, [id, modeParams.get("comment")]);
@@ -1811,6 +1848,8 @@ export default function DocumentPage({ onAI }: { onAI: () => void }) {
               }
               onAttach={() => fileInput.current?.click()}
               onAI={() => inspector.change("ai")}
+              handoffTargets={handoffTargets}
+              onHandoff={(target) => void sendHandoff(target)}
               onSplit={() => {
                 if (
                   dirty ||

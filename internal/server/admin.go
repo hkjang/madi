@@ -36,6 +36,9 @@ func defaultSettings() map[string]any {
 	for key, value := range defaultOperationsSettings() {
 		out[key] = value
 	}
+	// Cross-service handoff peers; empty by default so a fresh installation
+	// shows no send button and accepts no source.
+	out["handoff_allowed_origins"] = []any{}
 	out["support_enabled"] = false
 	out["support_operator_ids"] = []string{}
 	out["support_max_minutes"] = 30
@@ -148,6 +151,9 @@ func validateSettings(cfg map[string]any) error {
 		seenOperators[id] = true
 	}
 	if e := validateRAGSettings(cfg); e != nil {
+		return e
+	}
+	if e := validateHandoffSettings(cfg); e != nil {
 		return e
 	}
 	for key, initial := range defaultSettings() {

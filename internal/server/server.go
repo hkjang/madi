@@ -308,6 +308,9 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if err = s.migrateWorkspaceAudit(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateHandoff(ctx); err != nil {
+		return nil, err
+	}
 	if err = s.installCollaborationNotifications(ctx); err != nil {
 		return nil, err
 	}
@@ -419,6 +422,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	s.registerGraphAI()
 	s.registerWorkspaceAudit()
 	s.registerEnterprise()
+	s.registerHandoff()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, 200, map[string]any{"status": "ok", "version": version})
 	})
@@ -611,14 +615,12 @@ func (s *Server) auth(next http.Handler) http.Handler {
 				return
 			}
 		} else {
-			cookie, e := r.Cookie("madi_session")
-			if e != nil {
+			if _, e := r.Cookie("madi_session"); e != nil {
 				apiError(w, 401, "로그인이 필요합니다")
 				return
 			}
-			p = &Principal{}
-			e = s.DB.QueryRow(r.Context(), "SELECT u.id,u.email,u.name,u.role,u.kind FROM sessions t JOIN users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now() AND NOT u.disabled AND u.kind='user'", digest(cookie.Value)).Scan(&p.ID, &p.Email, &p.Name, &p.Role, &p.Kind)
-			if e != nil {
+			var e error
+			if p, e = s.sessionPrincipal(r); e != nil {
 				apiError(w, 401, "세션이 만료되었습니다. 다시 로그인하세요")
 				return
 			}
@@ -635,6 +637,20 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey, p)))
 	})
+}
+
+// sessionPrincipal resolves the browser session cookie to a live user.
+func (s *Server) sessionPrincipal(r *http.Request) (*Principal, error) {
+	cookie, e := r.Cookie("madi_session")
+	if e != nil {
+		return nil, e
+	}
+	p := &Principal{}
+	e = s.DB.QueryRow(r.Context(), "SELECT u.id,u.email,u.name,u.role,u.kind FROM sessions t JOIN users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now() AND NOT u.disabled AND u.kind='user'", digest(cookie.Value)).Scan(&p.ID, &p.Email, &p.Name, &p.Role, &p.Kind)
+	if e != nil {
+		return nil, e
+	}
+	return p, nil
 }
 func (s *Server) sameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
