@@ -9,11 +9,11 @@
 <p>madi 서비스 이미지에는 Go 실행 파일과 React 정적 자산이 포함됩니다. 실행 시 npm, Go 모듈, 외부 폰트 또는 CDN을 내려받지 않습니다. 서비스와 연결하는 PostgreSQL, Keycloak, AI API, 컨테이너 런타임 및 TLS 인증서는 해당 망에 별도로 준비합니다. Keycloak과 AI는 선택 사항입니다.</p>
 <p>기본 릴리즈 아키텍처는 <code>linux/amd64</code>입니다. 다른 CPU 아키텍처는 해당 환경에서 이미지를 별도로 빌드하고 검증해야 합니다. 단일 서비스 복제본과 로컬 파일 볼륨을 기본으로 합니다. 대규모 동시 사용자 수나 수백만 문서 규모의 성능 보장은 부하 시험 전에는 제공하지 않습니다.</p>
 <p>운영 이미지는 UID/GID <code>10001:10001</code>로 실행하는 Go 단일 바이너리와 React·한국어 폰트, CA 인증서, 시간대 데이터만 포함합니다. Git 동기화와 외부 실행기는 Go/HTTP 기반이므로 <code>git</code>, SSH 클라이언트, Node.js, Python 또는 컨테이너 내부 <code>pg_dump</code> 설치가 필요 없습니다. 네이티브 PostgreSQL 백업 스크립트의 클라이언트 도구는 <strong>운영 호스트</strong>에 준비합니다.</p>
-<p>연결망에서 GitHub Release의 <code>madi-v0.2.0.tar.gz</code>를 내려받아 반입합니다. 배포 편의를 위해 저장소의 <code>compose.yaml</code>과 <code>.env.example</code>, 운영 가이드도 따로 반입합니다. 릴리즈 파일은 서비스 이미지 하나이며 PostgreSQL 이미지는 포함되지 않습니다. 전송 전후 SHA-256 값을 비교하여 파일 동일성을 확인하세요.</p>
-<pre><code class="language-sh">sha256sum madi-v0.2.0.tar.gz
-gzip -t madi-v0.2.0.tar.gz
-gzip -dc madi-v0.2.0.tar.gz | docker load
-docker image inspect madi:v0.2.0
+<p>연결망에서 GitHub Release의 <code>madi-v0.3.0.tar.gz</code>를 내려받아 반입합니다. 배포 편의를 위해 저장소의 <code>compose.yaml</code>과 <code>.env.example</code>, 운영 가이드도 따로 반입합니다. 릴리즈 파일은 서비스 이미지 하나이며 PostgreSQL 이미지는 포함되지 않습니다. 전송 전후 SHA-256 값을 비교하여 파일 동일성을 확인하세요.</p>
+<pre><code class="language-sh">sha256sum madi-v0.3.0.tar.gz
+gzip -t madi-v0.3.0.tar.gz
+gzip -dc madi-v0.3.0.tar.gz | docker load
+docker image inspect madi:v0.3.0
 </code></pre>
 <h2 id="2-postgresql-준비">2. PostgreSQL 준비</h2>
 <p>서비스 전용 데이터베이스와 계정을 생성합니다. madi는 시작 시 스키마를 준비하므로 해당 데이터베이스에서 테이블·인덱스 생성 권한이 필요합니다. 조직의 백업·인증서·접근통제 기준을 적용하세요.</p>
@@ -40,7 +40,7 @@ curl --fail http://127.0.0.1:8080/readyz
 <p>브라우저에서 로그인한 뒤 관리자 시스템 설정의 서비스 URL을 실제 HTTPS 주소로 지정합니다. 프록시에서 원래 호스트를 전달하고 SSE 버퍼링을 끄세요. Keycloak과 AI URL은 서비스가 접근할 수 있는 내부 주소로 설정합니다. 폐쇄망에서는 인터넷 호스트를 지정하지 않습니다.</p>
 <h2 id="5-오프라인-동작-점검">5. 오프라인 동작 점검</h2>
 <p>브라우저 개발자 도구의 네트워크 탭에서 외부 CDN·폰트·분석 서비스 호출이 없는지 확인합니다. 외부 인터넷 연결을 끊은 상태에서 로그인, 문서 작성·저장·재조회, 검색, 파일 업로드·다운로드, 새로고침, 프로필과 관리자 설정을 확인하세요. SSO와 AI를 켠 경우 내부 서버만 호출하는지도 확인합니다.</p>
-<p>소스 환경에서는 <code>bash scripts/verify-image.sh madi:v0.2.0</code>로 외부 egress가 차단된 Docker 네트워크 기동 검사를 할 수 있습니다. 이 스크립트는 테스트용 PostgreSQL 이미지를 먼저 가져오므로 연결망의 릴리즈 검증용입니다. 실제 반입망의 DNS, TLS, 프록시 및 볼륨 접근 검사는 운영 환경에서 추가로 수행해야 합니다.</p>
+<p>소스 환경에서는 <code>bash scripts/verify-image.sh madi:v0.3.0</code>로 외부 egress가 차단된 Docker 네트워크 기동 검사를 할 수 있습니다. 이 스크립트는 테스트용 PostgreSQL 이미지를 먼저 가져오므로 연결망의 릴리즈 검증용입니다. 실제 반입망의 DNS, TLS, 프록시 및 볼륨 접근 검사는 운영 환경에서 추가로 수행해야 합니다.</p>
 <h2 id="6-업데이트">6. 업데이트</h2>
 <ol>
 <li>현재 버전과 데이터베이스·첨부파일을 백업하고 복원 가능 여부를 확인합니다.</li>
@@ -139,5 +139,5 @@ bash scripts/restore-postgres.sh \
 </tbody></table></div>
 <p>서버 로그는 요청 ID를 기준으로 추적합니다. 로그 수집 전에 비밀과 문서 내용이 포함되었는지 확인하고 필요한 정보만 공유하세요.</p>
 </article></div></main>
-<footer class="site-footer"><div class="container"><div class="footer-top"><a class="brand" href="../index.html"><img src="../assets/logo.svg" alt="madi" width="90" height="32"></a><div class="footer-links"><a href="../manuals.html">사용자·관리자 매뉴얼</a><a href="../screenshots.html">실제 화면</a><a href="https://github.com/hkjang/madi">소스 저장소 ↗</a></div></div><p class="footer-bottom">madi v0.2.0 · 우리 조직의 지식이 연결되는 공간.</p></div></footer>
+<footer class="site-footer"><div class="container"><div class="footer-top"><a class="brand" href="../index.html"><img src="../assets/logo.svg" alt="madi" width="90" height="32"></a><div class="footer-links"><a href="../manuals.html">사용자·관리자 매뉴얼</a><a href="../screenshots.html">실제 화면</a><a href="https://github.com/hkjang/madi">소스 저장소 ↗</a></div></div><p class="footer-bottom">madi v0.3.0 · 우리 조직의 지식이 연결되는 공간.</p></div></footer>
 <dialog class="lightbox" aria-label="서비스 화면 확대"><img alt=""><div class="lightbox-caption"><span data-caption></span><button class="lightbox-close" type="button">닫기 ×</button></div></dialog><script src="../assets/site.js" defer></script></body></html>

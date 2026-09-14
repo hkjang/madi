@@ -2,8 +2,8 @@
   "inputs": {
     "go.mod": "fd3a3e0103c3d56355b7ebc0c757061a81231de5cf373a0221376501f3d9f08d",
     "go.sum": "2453e1cb2adbd56693fd7e972e3f9543497da7f6ee42cd73b290c2018b93ff44",
-    "web/package.json": "01d6009e1a4ac7ddbef78092d8fbf2e768eacbecc105b7e82261068e7b5c9609",
-    "web/package-lock.json": "67d5f070dbac2e7ae1565305228d8ecaf3dbf23be384a212b46389ac7f14e4fd"
+    "web/package.json": "ef1d65b7f241fea2ec64d2c81065fec5fe3e2031989664f1d2352bb98f98cc5c",
+    "web/package-lock.json": "a94ab4c4183def358f381b52c099ea2e066f391919ddc797ed187f0c5246afdd"
   },
   "components": [
     {

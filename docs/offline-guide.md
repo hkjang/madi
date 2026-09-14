@@ -8,13 +8,13 @@ madi 서비스 이미지에는 Go 실행 파일과 React 정적 자산이 포함
 
 운영 이미지는 UID/GID `10001:10001`로 실행하는 Go 단일 바이너리와 React·한국어 폰트, CA 인증서, 시간대 데이터만 포함합니다. Git 동기화와 외부 실행기는 Go/HTTP 기반이므로 `git`, SSH 클라이언트, Node.js, Python 또는 컨테이너 내부 `pg_dump` 설치가 필요 없습니다. 네이티브 PostgreSQL 백업 스크립트의 클라이언트 도구는 **운영 호스트**에 준비합니다.
 
-연결망에서 GitHub Release의 `madi-v0.2.0.tar.gz`를 내려받아 반입합니다. 배포 편의를 위해 저장소의 `compose.yaml`과 `.env.example`, 운영 가이드도 따로 반입합니다. 릴리즈 파일은 서비스 이미지 하나이며 PostgreSQL 이미지는 포함되지 않습니다. 전송 전후 SHA-256 값을 비교하여 파일 동일성을 확인하세요.
+연결망에서 GitHub Release의 `madi-v0.3.0.tar.gz`를 내려받아 반입합니다. 배포 편의를 위해 저장소의 `compose.yaml`과 `.env.example`, 운영 가이드도 따로 반입합니다. 릴리즈 파일은 서비스 이미지 하나이며 PostgreSQL 이미지는 포함되지 않습니다. 전송 전후 SHA-256 값을 비교하여 파일 동일성을 확인하세요.
 
 ```sh
-sha256sum madi-v0.2.0.tar.gz
-gzip -t madi-v0.2.0.tar.gz
-gzip -dc madi-v0.2.0.tar.gz | docker load
-docker image inspect madi:v0.2.0
+sha256sum madi-v0.3.0.tar.gz
+gzip -t madi-v0.3.0.tar.gz
+gzip -dc madi-v0.3.0.tar.gz | docker load
+docker image inspect madi:v0.3.0
 ```
 
 ## 2. PostgreSQL 준비
@@ -60,7 +60,7 @@ Compose는 `pull_policy: never`를 사용하므로 외부 레지스트리에서 
 
 브라우저 개발자 도구의 네트워크 탭에서 외부 CDN·폰트·분석 서비스 호출이 없는지 확인합니다. 외부 인터넷 연결을 끊은 상태에서 로그인, 문서 작성·저장·재조회, 검색, 파일 업로드·다운로드, 새로고침, 프로필과 관리자 설정을 확인하세요. SSO와 AI를 켠 경우 내부 서버만 호출하는지도 확인합니다.
 
-소스 환경에서는 `bash scripts/verify-image.sh madi:v0.2.0`로 외부 egress가 차단된 Docker 네트워크 기동 검사를 할 수 있습니다. 이 스크립트는 테스트용 PostgreSQL 이미지를 먼저 가져오므로 연결망의 릴리즈 검증용입니다. 실제 반입망의 DNS, TLS, 프록시 및 볼륨 접근 검사는 운영 환경에서 추가로 수행해야 합니다.
+소스 환경에서는 `bash scripts/verify-image.sh madi:v0.3.0`로 외부 egress가 차단된 Docker 네트워크 기동 검사를 할 수 있습니다. 이 스크립트는 테스트용 PostgreSQL 이미지를 먼저 가져오므로 연결망의 릴리즈 검증용입니다. 실제 반입망의 DNS, TLS, 프록시 및 볼륨 접근 검사는 운영 환경에서 추가로 수행해야 합니다.
 
 ## 6. 업데이트
 
