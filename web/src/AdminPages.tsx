@@ -18,10 +18,12 @@ import {
   History,
   KeyRound,
   LockKeyhole,
+  Mail,
   Plus,
   RefreshCw,
   Save,
   Search,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -66,6 +68,7 @@ const actionNames: Record<string, string> = {
   USER_UPDATE: "사용자 변경",
   SETTINGS_UPDATE: "시스템 설정 변경",
   SETTINGS_RESTORE: "시스템 설정 복원",
+  MAIL_TEST: "메일 시험 발송",
   FILE_UPLOAD: "파일 업로드",
   FILE_DOWNLOAD: "파일 다운로드",
   DATABASE_CREATE: "데이터베이스 생성",
@@ -477,8 +480,220 @@ const settingTabs = [
   ["security", "보안 / API 키", ShieldCheck],
   ["workflow", "검토 / 승인", Workflow],
   ["storage", "저장소 / 보존", HardDrive],
+  ["mail", "메일 알림", Mail],
   ["history", "설정 변경 이력", History],
 ];
+const mailEventSwitches: [string, string, string][] = [
+  [
+    "mail.notify_approval_request",
+    "검토 요청 도착",
+    "내 차례가 된 검토자에게 보냅니다.",
+  ],
+  [
+    "mail.notify_approval_decision",
+    "검토 결과",
+    "승인·반려 결과를 요청자와 소유자에게 보냅니다.",
+  ],
+  [
+    "mail.notify_access_request",
+    "문서 접근 권한 요청·처리",
+    "소유자에게 요청 도착을, 요청자에게 처리 결과를 보냅니다.",
+  ],
+  [
+    "mail.notify_task_assigned",
+    "할 일 담당 지정",
+    "담당자로 지정된 사람에게 보냅니다.",
+  ],
+  [
+    "mail.notify_runbook",
+    "격리 작업 완료·실패",
+    "오래 걸리는 격리 실행이 끝났을 때 실행한 사람에게 보냅니다.",
+  ],
+  [
+    "mail.notify_review_due",
+    "문서 검토 주기 경과",
+    "검토 기한이 지난 문서를 담당자에게 묶어서 보냅니다.",
+  ],
+];
+const mailEventNames: Record<string, string> = {
+  "approval.requested": "검토 요청",
+  "approval.decided": "검토 결과",
+  "access_request.created": "접근 요청 도착",
+  "access_request.decided": "접근 요청 처리",
+  "task.assigned": "할 일 지정",
+  "runbook.finished": "격리 작업 종료",
+  "document.review_due": "검토 주기 경과",
+  test: "시험 발송",
+};
+const mailStatusNames: Record<string, [string, string]> = {
+  queued: ["대기", "light"],
+  sent: ["보냄", "green"],
+  failed: ["실패", "red"],
+};
+
+function MailDeliveryPanel({ settings }: { settings: SettingsType }) {
+  const { notify } = useApp();
+  const [recipient, setRecipient] = useState(""),
+    [sending, setSending] = useState(false),
+    [result, setResult] = useState<{ ok: boolean; text: string } | null>(null),
+    [page, setPage] = useState<{ items: any[]; summary: any } | null>(null),
+    [error, setError] = useState("");
+  const load = () =>
+    api<{ items: any[]; summary: any }>("/admin/mail/deliveries?limit=50")
+      .then(setPage)
+      .catch((e) => setError(e.message));
+  useEffect(() => {
+    load();
+  }, []);
+  const status = page?.summary?.status || {};
+  return (
+    <>
+      <section className="panel padded">
+        <div className="settings-section-title">
+          <Send size={24} />
+          <div>
+            <h2>시험 발송</h2>
+            <p>
+              저장된 설정으로 실제 한 통을 보내고 릴레이의 응답을 바로
+              확인합니다. 메일 알림이 꺼져 있어도 시험은 보낼 수 있습니다.
+            </p>
+          </div>
+        </div>
+        {!settings["mail.smtp_host"] && (
+          <div className="notice subtle">
+            <Mail size={19} />
+            <span>먼저 릴레이 주소를 입력하고 설정을 저장하세요.</span>
+          </div>
+        )}
+        <Field
+          label="받는 주소"
+          hint="비워 두면 현재 관리자 계정의 이메일로 보냅니다."
+        >
+          <div className="input-with-button">
+            <input
+              type="email"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="ops@company.internal"
+            />
+            <Button
+              type="button"
+              variant="primary"
+              disabled={sending || !settings["mail.smtp_host"]}
+              onClick={async () => {
+                setSending(true);
+                setResult(null);
+                try {
+                  const v = await api<{ sent: boolean; recipient: string }>(
+                    "/admin/mail/test",
+                    "POST",
+                    { recipient },
+                  );
+                  setResult({
+                    ok: true,
+                    text: `${v.recipient} 로 보냈습니다. 받은편지함을 확인하세요.`,
+                  });
+                } catch (e) {
+                  setResult({ ok: false, text: (e as Error).message });
+                } finally {
+                  setSending(false);
+                  load();
+                }
+              }}
+            >
+              <Send size={16} /> {sending ? "보내는 중…" : "시험 발송"}
+            </Button>
+          </div>
+        </Field>
+        {result && (
+          <div className={result.ok ? "notice" : "notice error"}>
+            {result.ok ? <CheckCircle2 size={19} /> : <Mail size={19} />}
+            <span>{result.text}</span>
+          </div>
+        )}
+      </section>
+      <section className="panel padded">
+        <div className="settings-section-title">
+          <History size={24} />
+          <div>
+            <h2>발송 기록</h2>
+            <p>
+              언제 어떤 이벤트로 누구에게 무엇을 보냈고 되었는지 남깁니다.
+              본문은 기록하지 않습니다.
+            </p>
+          </div>
+        </div>
+        <div className="filter-bar">
+          <Badge tone="green">보냄 {status.sent || 0}</Badge>
+          <Badge tone="red">실패 {status.failed || 0}</Badge>
+          <Badge tone="light">대기 {status.queued || 0}</Badge>
+          <Button
+            type="button"
+            onClick={() => {
+              load();
+              notify("발송 기록을 새로고침했습니다.");
+            }}
+          >
+            <RefreshCw size={16} /> 새로고침
+          </Button>
+        </div>
+        <ErrorBox error={error} />
+        {page && page.items.length ? (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>시각</th>
+                  <th>이벤트</th>
+                  <th>받는 사람</th>
+                  <th>제목</th>
+                  <th>상태</th>
+                  <th>오류</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.items.map((d) => (
+                  <tr key={d.id}>
+                    <td>{datetime(d.created_at)}</td>
+                    <td>
+                      <Badge>{mailEventNames[d.event] || d.event}</Badge>
+                    </td>
+                    <td>
+                      <code>{d.recipient}</code>
+                    </td>
+                    <td>
+                      {d.subject}
+                      {d.notifications > 1 && (
+                        <small className="muted">
+                          {" "}
+                          · 알림 {d.notifications}건 묶음
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      <Badge tone={(mailStatusNames[d.status] || ["", ""])[1]}>
+                        {(mailStatusNames[d.status] || [d.status])[0]}
+                        {d.attempts > 1 ? ` (${d.attempts}회)` : ""}
+                      </Badge>
+                    </td>
+                    <td>
+                      <small>{d.error_message || "—"}</small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty
+            title="발송 기록이 없습니다"
+            text="메일 알림을 켜고 이벤트가 발생하거나 시험 발송을 하면 이곳에 남습니다."
+          />
+        )}
+      </section>
+    </>
+  );
+}
 export function AdminSettings() {
   const { notify, refreshPublic } = useApp();
   const [params, setParams] = useSearchParams();
@@ -972,6 +1187,133 @@ export function AdminSettings() {
                     </Link>
                   </>
                 )}
+                {tab === "mail" && (
+                  <>
+                    <div className="settings-section-title">
+                      <Mail size={24} />
+                      <div>
+                        <h2>메일 알림 (SMTP 릴레이)</h2>
+                        <p>
+                          사람이 기다리는 일만 사내 릴레이로 보냅니다. 기본은
+                          꺼짐이며, 포트 25·인증 없음·TLS 없음 릴레이가
+                          기본값입니다.
+                        </p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={v("mail.enabled", false)}
+                      onChange={(x) => set("mail.enabled", x)}
+                      label="메일 알림 사용"
+                      description="켜면 아래 이벤트가 생길 때 배경에서 메일을 보냅니다. 릴레이가 응답하지 않아도 사용자의 요청은 평소처럼 처리됩니다."
+                    />
+                    {input(
+                      "mail.smtp_host",
+                      "릴레이 주소 (mail.smtp_host)",
+                      "text",
+                      "예: relay.company.internal 또는 postra 주소. 포트는 아래에 따로 입력합니다.",
+                    )}
+                    <div className="form-grid">
+                      {input(
+                        "mail.smtp_port",
+                        "포트 (mail.smtp_port)",
+                        "number",
+                      )}
+                      <Field
+                        label="보안 (mail.security)"
+                        hint="auto는 서버가 STARTTLS를 알리면 사용하고, 아니면 평문으로 보냅니다."
+                      >
+                        <select
+                          value={v("mail.security", "auto")}
+                          onChange={(e) => set("mail.security", e.target.value)}
+                        >
+                          <option value="auto">auto (서버에 맞춤)</option>
+                          <option value="none">none (평문)</option>
+                          <option value="starttls">starttls</option>
+                          <option value="tls">
+                            tls (암묵적 TLS, 보통 465)
+                          </option>
+                        </select>
+                      </Field>
+                    </div>
+                    <Toggle
+                      checked={v("mail.skip_tls_verify", false)}
+                      onChange={(x) => set("mail.skip_tls_verify", x)}
+                      label="TLS 인증서 검증 생략 (mail.skip_tls_verify)"
+                      description="사내 사설 인증서를 쓰는 릴레이에서만 켜세요."
+                    />
+                    <div className="form-grid">
+                      {input(
+                        "mail.username",
+                        "사용자 이름 (mail.username)",
+                        "text",
+                        "인증 없는 릴레이는 비워 둡니다.",
+                      )}
+                      {input(
+                        "mail.password",
+                        "비밀번호 (mail.password)",
+                        "password",
+                        "저장 뒤에는 '설정됨'만 표시되고 되읽히지 않습니다.",
+                      )}
+                    </div>
+                    <div className="form-grid">
+                      {input(
+                        "mail.from_address",
+                        "보내는 주소 (mail.from_address)",
+                        "text",
+                        "비우면 madi@<릴레이 주소>를 씁니다.",
+                      )}
+                      {input(
+                        "mail.from_name",
+                        "보내는 이름 (mail.from_name)",
+                        "text",
+                        "비우면 서비스 이름을 씁니다.",
+                      )}
+                    </div>
+                    {input(
+                      "mail.base_url",
+                      "메일 링크 주소 (mail.base_url)",
+                      "text",
+                      "메일 속 링크가 가리킬 이 서비스의 주소. 비우면 서비스 URL을 씁니다.",
+                    )}
+                    <Field label="제한 시간 (mail.timeout_seconds)">
+                      <input
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={v("mail.timeout_seconds", 10)}
+                        onChange={(e) =>
+                          set("mail.timeout_seconds", Number(e.target.value))
+                        }
+                      />
+                    </Field>
+                    <div className="settings-section-title">
+                      <Send size={24} />
+                      <div>
+                        <h2>보낼 이벤트</h2>
+                        <p>
+                          자기가 한 일은 자기에게 보내지 않고, 한 사람에게 같은
+                          종류가 여러 건 생기면 한 통으로 묶습니다.
+                        </p>
+                      </div>
+                    </div>
+                    {mailEventSwitches.map(([key, label, description]) => (
+                      <Toggle
+                        key={key}
+                        checked={v(key, true)}
+                        onChange={(x) => set(key, x)}
+                        label={label}
+                        description={description}
+                      />
+                    ))}
+                    <div className="notice">
+                      <Mail size={20} />
+                      <span>
+                        저장한 뒤 아래 시험 발송으로 릴레이 응답을 확인하세요.
+                        기존 알림 채널(개인 선택형)과 별개로 동작합니다.
+                      </span>
+                    </div>
+                  </>
+                )}
               </section>
               <div className="settings-save">
                 <span>
@@ -988,6 +1330,9 @@ export function AdminSettings() {
                 </Button>
               </div>
             </form>
+          )}
+          {settings && tab === "mail" && (
+            <MailDeliveryPanel settings={settings} />
           )}
         </div>
       </div>

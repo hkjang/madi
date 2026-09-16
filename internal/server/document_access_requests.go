@@ -106,7 +106,7 @@ func (s *Server) createDocumentAccessRequest(w http.ResponseWriter, r *http.Requ
 	}
 	tag, e := tx.Exec(r.Context(), `INSERT INTO document_access_requests(id,document_id,requested_document_id,workspace_id,requester_id,permission,reason_ciphertext) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(workspace_id,requested_document_id,requester_id) WHERE status='pending' DO NOTHING`, newID(), target, r.PathValue("id"), in.WorkspaceID, p.ID, in.Permission, sealed)
 	if e == nil && tag.RowsAffected() == 1 && target != nil {
-		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title,document_id) VALUES($1,$2,'문서 접근 권한 요청이 도착했습니다. 접근 요청 메뉴에서 확인하세요.',$3)", newID(), owner, r.PathValue("id"))
+		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title,document_id,mail_event,actor_id) VALUES($1,$2,'문서 접근 권한 요청이 도착했습니다. 접근 요청 메뉴에서 확인하세요.',$3,$4,$5)", newID(), owner, r.PathValue("id"), mailEventAccessRequested, p.ID)
 	}
 	if e == nil {
 		e = tx.Commit(r.Context())

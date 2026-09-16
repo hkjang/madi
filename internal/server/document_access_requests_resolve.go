@@ -136,7 +136,7 @@ func (s *Server) resolveDocumentAccessRequest(w http.ResponseWriter, r *http.Req
 	}
 	_, e = tx.Exec(r.Context(), "UPDATE document_access_requests SET status=$2,revision=revision+1,updated_at=now(),resolved_by=$3 WHERE id=$1", id, state, p.ID)
 	if e == nil {
-		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title) VALUES($1,$2,'문서 접근 권한 요청이 처리되었습니다. 접근 요청 메뉴에서 결과를 확인하세요.')", newID(), requester)
+		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title,mail_event,actor_id) VALUES($1,$2,'문서 접근 권한 요청이 처리되었습니다. 접근 요청 메뉴에서 결과를 확인하세요.',$3,$4)", newID(), requester, mailEventAccessDecided, p.ID)
 	}
 	if e == nil {
 		e = tx.Commit(r.Context())

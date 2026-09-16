@@ -133,7 +133,7 @@ func (s *Server) runWorkspaceLifecycle(ctx context.Context, wid string) (int, er
 			return 0, e
 		}
 		for _, uid := range ids {
-			_, e = tx.Exec(ctx, "INSERT INTO notifications(id,user_id,title,document_id) VALUES($1,$2,$3,$4)", newID(), uid, "문서 검토 주기가 지났습니다: "+d.title, d.id)
+			_, e = tx.Exec(ctx, "INSERT INTO notifications(id,user_id,title,document_id,mail_event) VALUES($1,$2,$3,$4,$5)", newID(), uid, "문서 검토 주기가 지났습니다: "+d.title, d.id, mailEventReviewDue)
 			if e != nil {
 				return 0, e
 			}

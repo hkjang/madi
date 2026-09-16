@@ -322,15 +322,19 @@ func (s *Server) StartApprovalTx(ctx context.Context, tx pgx.Tx, p *Principal, k
 			}
 		}
 	}
-	if e = approvalNotifyStageTx(ctx, tx, out); e != nil {
+	if e = approvalNotifyStageTx(ctx, tx, out, p.ID); e != nil {
 		return out, e
 	}
 	return out, nil
 }
 
-func approvalNotifyStageTx(ctx context.Context, tx pgx.Tx, request approvalRequest) error {
-	_, e := tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id)
- SELECT gen_random_uuid(),a.user_id,$3,NULLIF($4,'')::uuid FROM approval_assignments a WHERE a.request_id=$1 AND a.stage_index=$2 GROUP BY a.user_id`, request.ID, request.CurrentStage, request.Policy.Name+" · "+request.Policy.Stages[request.CurrentStage].Name+" 검토 요청", request.DocumentID)
+// approvalNotifyStageTx tells the reviewers of the current stage that it is
+// their turn. actorID is whoever caused the stage to open (the requester or the
+// previous approver) so the mail dispatcher never mails people about their
+// own action.
+func approvalNotifyStageTx(ctx context.Context, tx pgx.Tx, request approvalRequest, actorID string) error {
+	_, e := tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id,mail_event,actor_id)
+ SELECT gen_random_uuid(),a.user_id,$3,NULLIF($4,'')::uuid,$5,NULLIF($6,'')::uuid FROM approval_assignments a WHERE a.request_id=$1 AND a.stage_index=$2 GROUP BY a.user_id`, request.ID, request.CurrentStage, request.Policy.Name+" · "+request.Policy.Stages[request.CurrentStage].Name+" 검토 요청", request.DocumentID, mailEventApprovalRequested, actorID)
 	return e
 }
 
@@ -446,7 +450,7 @@ func (s *Server) decideApprovalTx(ctx context.Context, tx pgx.Tx, p *Principal, 
 				out.Status = "approved"
 			} else {
 				out.CurrentStage++
-				if e = approvalNotifyStageTx(ctx, tx, out); e != nil {
+				if e = approvalNotifyStageTx(ctx, tx, out, p.ID); e != nil {
 					return out, e
 				}
 			}
@@ -462,7 +466,7 @@ func (s *Server) decideApprovalTx(ctx context.Context, tx pgx.Tx, p *Principal, 
 			title = out.Policy.Name + " 검토가 반려되었습니다"
 		}
 		for _, uid := range slices.Compact([]string{out.RequesterID, out.OwnerID}) {
-			if _, e = tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id) VALUES($1,$2,$3,NULLIF($4,'')::uuid)`, newID(), uid, title, out.DocumentID); e != nil {
+			if _, e = tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id,mail_event,actor_id) VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5,$6)`, newID(), uid, title, out.DocumentID, mailEventApprovalDecided, p.ID); e != nil {
 				return out, e
 			}
 		}

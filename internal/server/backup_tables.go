@@ -25,7 +25,7 @@ var backupTables = []string{
 	"task_details",
 	"calendar_events",
 	"approval_policy_clock", "approval_policies", "approval_requests", "approval_assignments", "approval_decisions",
-	"notification_settings", "notification_channels", "notification_preferences", "notification_deliveries",
+	"notification_settings", "notification_channels", "notification_preferences", "notification_deliveries", "mail_deliveries",
 	"inbound_capture_settings", "inbound_capture_channels", "inbound_capture_messages",
 	"runbook_settings", "runbook_runners", "runbook_runner_versions", "runbook_documents", "runbook_executions", "runbook_execution_steps", "runbook_events",
 	"protection_settings", "protection_settings_history", "protection_events",
@@ -58,4 +58,4 @@ var backupTables = []string{
 	"graph_ai_runs", "graph_ai_sources", "graph_ai_actions", "graph_ai_annotations",
 }
 
-var ephemeralTables = []string{"sessions", "oidc_attempts", "collaboration_presence", "saml_authn_requests", "saml_assertion_replays", "notification_outbox", "search_chunks", "search_fragments", "search_folded_documents", "search_folded_fragments", "search_index_documents", "search_index_queue", "public_share_access", "public_share_rate_limits", "rag_vector_indexes", "rag_vector_chunks", "rag_reindex_queue", "operations_http_errors", "export_artifact_blobs", "knowledge_distribution_artifacts", "attachment_extraction_fragments", "attachment_extraction_heads"}
+var ephemeralTables = []string{"sessions", "oidc_attempts", "collaboration_presence", "saml_authn_requests", "saml_assertion_replays", "notification_outbox", "mail_outbox", "search_chunks", "search_fragments", "search_folded_documents", "search_folded_fragments", "search_index_documents", "search_index_queue", "public_share_access", "public_share_rate_limits", "rag_vector_indexes", "rag_vector_chunks", "rag_reindex_queue", "operations_http_errors", "export_artifact_blobs", "knowledge_distribution_artifacts", "attachment_extraction_fragments", "attachment_extraction_heads"}
