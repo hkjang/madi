@@ -339,13 +339,28 @@ func TestPostgresOIDCSilentLogin(t *testing.T) {
 		return response
 	}
 	// Off (default): the query parameter alone cannot switch to a silent flow,
-	// and a provider refusal is the ordinary visible error.
+	// and a provider refusal lands on the login screen with the error marker
+	// rather than a JSON body in the browser tab.
 	q, state := start("?prompt=none&return_to=%2Fapp%2Fdocuments%2Fdeep")
 	if q.Get("prompt") != "" {
 		t.Fatalf("prompt=none forwarded while auto login is off: %v", q)
 	}
-	if response := callback(url.Values{"state": {state}, "error": {"login_required"}}); response.StatusCode != 401 {
-		t.Fatalf("non-silent refusal: %d", response.StatusCode)
+	if response := callback(url.Values{"state": {state}, "error": {"login_required"}}); response.StatusCode != 302 || response.Header.Get("Location") != "/login?sso=error" {
+		t.Fatalf("non-silent refusal: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	browser.request("GET", "/api/v1/auth/me", nil, 401)
+	// A cancelled visible sign-in (access_denied, or no code at all) goes the
+	// same way, and its state is consumed like any other outcome.
+	_, state = start("")
+	if response := callback(url.Values{"state": {state}, "error": {"access_denied"}}); response.StatusCode != 302 || response.Header.Get("Location") != "/login?sso=error" {
+		t.Fatalf("cancelled sign-in: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	if response := callback(url.Values{"state": {state}, "error": {"access_denied"}}); response.StatusCode != 400 {
+		t.Fatalf("replayed cancellation: %d", response.StatusCode)
+	}
+	_, state = start("")
+	if response := callback(url.Values{"state": {state}}); response.StatusCode != 302 || response.Header.Get("Location") != "/login?sso=error" {
+		t.Fatalf("callback without code: %d %q", response.StatusCode, response.Header.Get("Location"))
 	}
 	admin.request("PUT", "/api/v1/admin/settings", map[string]any{"oidc_auto_login": true}, 200)
 	public = testJSONObject(t, admin.request("GET", "/api/v1/public", nil, 200))

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   clearSilentSsoState,
+  loginSsoNotice,
   markSignedOut,
   safeReturnTo,
   shouldAttemptSilentSso,
@@ -55,6 +56,16 @@ assert.equal(shouldAttemptSilentSso(enabled, env()), true);
 assert.equal(shouldAttemptSilentSso(enabled, env({ search: "?sso=none" })), false);
 assert.equal(shouldAttemptSilentSso(enabled, env({ search: "?sso=error" })), false);
 assert.equal(shouldAttemptSilentSso(enabled, env({ search: "?sso=none", pathname: "/app" })), false);
+
+// The login screen explains the marker it arrived with: a refused silent
+// attempt is a quiet notice, a refused or cancelled visible sign-in is an error.
+assert.equal(loginSsoNotice(""), null);
+assert.equal(loginSsoNotice("?error=x"), null);
+assert.equal(loginSsoNotice("?sso=other"), null);
+assert.equal(loginSsoNotice("?sso=none")?.kind, "none");
+assert.equal(loginSsoNotice("?a=1&sso=error")?.kind, "error");
+assert.match(loginSsoNotice("?sso=none")?.message ?? "", /세션이 없어/);
+assert.match(loginSsoNotice("?sso=error")?.message ?? "", /취소되었거나/);
 
 // A deliberate sign-out suppresses auto login until a session exists again.
 {

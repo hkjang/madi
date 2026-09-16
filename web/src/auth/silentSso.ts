@@ -84,6 +84,34 @@ export function shouldAttemptSilentSso(
   return true;
 }
 
+export type LoginSsoNotice = { kind: "none" | "error"; message: string };
+
+/**
+ * What the login screen says when it was reached through an SSO outcome
+ * marker. "none" is the ordinary end of a refused silent attempt and only
+ * deserves a quiet explanation; "error" is a visible sign-in that the provider
+ * refused or the user cancelled, which the callback can no longer explain in
+ * JSON because the browser navigated there directly.
+ */
+export function loginSsoNotice(search: string): LoginSsoNotice | null {
+  switch (new URLSearchParams(search).get("sso")) {
+    case "none":
+      return {
+        kind: "none",
+        message:
+          "회사 계정 세션이 없어 로그인 화면을 표시합니다. 회사 계정으로 로그인하거나 다른 계정을 사용하세요.",
+      };
+    case "error":
+      return {
+        kind: "error",
+        message:
+          "회사 계정 로그인이 취소되었거나 완료되지 않았습니다. 다시 시도하거나 다른 계정으로 로그인하세요.",
+      };
+    default:
+      return null;
+  }
+}
+
 /** Only same-origin paths may be used as a return target. */
 export function safeReturnTo(value: string): string {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/app";
