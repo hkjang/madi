@@ -10,6 +10,7 @@ import MobileActions from "./navigation/MobileActions";
 import {
   beginSilentSso,
   clearSilentSsoState,
+  loginSsoNotice,
   markSignedOut,
   shouldAttemptSilentSso,
 } from "./auth/silentSso";
@@ -295,6 +296,9 @@ function Login({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const location = useLocation();
+  // The OIDC callback lands here with ?sso=none (silent attempt refused: an
+  // ordinary outcome) or ?sso=error (visible sign-in refused or cancelled).
+  const ssoNotice = loginSsoNotice(location.search);
   return (
     <div className="login-page">
       <div className="login-story">
@@ -350,8 +354,18 @@ function Login({
           <h2>다시 만나 반가워요</h2>
           <p className="muted">계정에 로그인하고 생각을 이어가세요.</p>
           <ErrorBox
-            error={error || new URLSearchParams(location.search).get("error")}
+            error={
+              error ||
+              new URLSearchParams(location.search).get("error") ||
+              (ssoNotice?.kind === "error" ? ssoNotice.message : "")
+            }
           />
+          {ssoNotice?.kind === "none" && (
+            <div role="status" className="notice subtle">
+              <ShieldCheck size={18} />
+              <span>{ssoNotice.message}</span>
+            </div>
+          )}
           <form
             onSubmit={async (e) => {
               e.preventDefault();
