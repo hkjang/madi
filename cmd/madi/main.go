@@ -62,6 +62,7 @@ func main() {
 	app.StartImports(ctx)
 	app.StartConnectors(ctx)
 	app.StartNotificationDelivery(ctx)
+	app.StartMail(ctx)
 	app.StartSearchIndex(ctx)
 	app.StartRAGIndex(ctx)
 	app.StartInboundCaptures(ctx)

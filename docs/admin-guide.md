@@ -96,6 +96,34 @@ AI 응답은 스트리밍을 기본으로 처리합니다. 프록시에서 SSE �
 
 [외부 알림·수집 가이드](notification-capture-guide.md)는 SMTP·메시징 채널, 개인 선택, IMAP TLS 이메일 및 HMAC Webhook 비공개 수집의 정책·한도·복원 경계를 설명합니다.
 
+## 메일 알림 (사내 SMTP 릴레이)
+
+관리자 설정의 **메일 알림** 탭에서 사내 SMTP 릴레이로 이벤트 알림을 보냅니다. 기본은 꺼짐이며, 새로 설치한 곳에서는 아무것도 달라지지 않습니다. 메일은 요청과 분리된 배경 작업이 보내므로 릴레이가 느리거나 죽어 있어도 검토 요청·접근 요청 같은 사용자의 요청은 평소처럼 끝납니다. 설정 키 이름은 사내 표준(kanpic 과 동일)을 그대로 씁니다.
+
+| 키 | 기본값 | 뜻 |
+| --- | --- | --- |
+| `mail.enabled` | `false` | 꺼짐이 기본. 관리자가 켭니다 |
+| `mail.smtp_host` | — | 사내 릴레이 주소(포트·경로 없이). 폐쇄망에서는 `postra` 를 권장합니다 |
+| `mail.smtp_port` | `25` | 사내 릴레이는 대개 25 |
+| `mail.security` | `auto` | `auto` · `none` · `starttls` · `tls`. `auto` 는 서버가 STARTTLS 를 알리면 쓰고 아니면 평문, 포트 465 면 `tls` 로 봅니다 |
+| `mail.skip_tls_verify` | `false` | 사내 사설 인증서일 때만 |
+| `mail.username` · `mail.password` | 빈 값 | 인증 없는 릴레이가 흔하므로 **선택 사항**. 비밀번호는 저장 뒤 `설정됨`만 표시되고 API 로 되읽히지 않습니다 |
+| `mail.from_address` · `mail.from_name` | 빈 값 | 보내는 사람. 비우면 `madi@<릴레이 주소>` 와 서비스 이름을 씁니다 |
+| `mail.base_url` | 빈 값 | 메일 속 링크가 가리킬 주소. 비우면 서비스 URL 을 씁니다 |
+| `mail.timeout_seconds` | `10` | 연결·전송 제한 시간(1~120) |
+| `mail.notify_approval_request` | `true` | 검토 요청 도착(내 차례가 된 검토자) |
+| `mail.notify_approval_decision` | `true` | 검토 승인·반려 결과(요청자·소유자) |
+| `mail.notify_access_request` | `true` | 문서 접근 권한 요청 도착(소유자)과 처리 결과(요청자) |
+| `mail.notify_task_assigned` | `true` | 할 일 담당 지정 |
+| `mail.notify_runbook` | `true` | 격리 실행 완료·실패·확인 필요 |
+| `mail.notify_review_due` | `true` | 문서 검토 주기 경과(담당자별로 묶어 한 통) |
+
+보내는 이벤트는 "이 메일이 오지 않으면 누군가 손해를 보거나 화면을 계속 새로고침하는 일"만 골랐습니다. 댓글·언급·자동화 규칙 같은 단순 변경은 개인 알림함에만 남습니다. 자기가 한 일은 자기에게 보내지 않고, 한 사람에게 같은 종류의 알림이 한 번에 여러 건 생기면 한 통으로 묶습니다. 이미 읽은 알림, 비활성 계정, 서비스 계정, 문서 접근 권한이 사라진 알림은 보내지 않습니다. 개인이 채널을 고르는 기존 [외부 알림 채널](notification-capture-guide.md)과는 별개로 동작합니다.
+
+**시험 발송**: 릴레이 주소를 입력해 저장한 뒤 같은 탭의 시험 발송에서 받는 주소(비우면 관리자 본인)를 넣고 보냅니다. 저장된 설정으로 실제 한 통을 보내고 릴레이의 응답을 그 자리에서 보여 주며, `mail.enabled` 가 꺼져 있어도 시험은 보낼 수 있습니다. API 는 `POST /api/v1/admin/mail/test` (`{"recipient": "..."}`) 입니다.
+
+**발송 기록**: 같은 탭의 발송 기록(`GET /api/v1/admin/mail/deliveries?status=&limit=`)에 시각·이벤트·받는 사람·제목·상태(`queued`/`sent`/`failed`)·시도 횟수·오류를 남깁니다. 본문은 기록하지 않습니다. 실패는 2초 뒤 한 번 다시 시도하며 그 뒤에도 실패하면 기록에 남고 사용자의 요청에는 영향을 주지 않습니다. 기록은 백업에 포함되고, 미처리 대기열(`mail_outbox`)은 복원 시 비웁니다.
+
 ## 설정 이력, 감사와 상태 점검
 
 정보보호 관리 `/admin/information-protection`에서 민감정보 경고·차단·마스킹·감사, 상속 등급별 화면·인쇄 워터마크와 공개 링크 정책을 설정합니다. 기본은 비활성화입니다. 실제 탐지·파일 검사 한계, 차단/마스킹 시 공동 편집 중지, 기존 자료 정리 범위는 [정보보호·공개 공유 가이드](information-protection-guide.md)를 먼저 확인하세요.

@@ -62,7 +62,7 @@ func (s *Server) runbookFinish(id, status, message string, plan runbookPlan) err
 			return e
 		}
 	}
-	_, e = tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id) VALUES($1,$2,$3,NULLIF($4,'')::uuid)`, newID(), owner, "격리 "+runbookPhaseName(plan.Phase)+" 작업 상태: "+map[string]string{"succeeded": "완료", "failed": "실패", "cancelled": "취소", "unknown": "외부 실행 확인 필요"}[status], doc)
+	_, e = tx.Exec(ctx, `INSERT INTO notifications(id,user_id,title,document_id,mail_event) VALUES($1,$2,$3,NULLIF($4,'')::uuid,$5)`, newID(), owner, "격리 "+runbookPhaseName(plan.Phase)+" 작업 상태: "+map[string]string{"succeeded": "완료", "failed": "실패", "cancelled": "취소", "unknown": "외부 실행 확인 필요"}[status], doc, mailEventRunbookFinished)
 	if e == nil {
 		e = tx.Commit(ctx)
 	}

@@ -279,7 +279,7 @@ func (s *Server) saveTaskDetailsTx(r *http.Request, tx pgx.Tx, id, wid string) e
 	}
 	_, e = tx.Exec(r.Context(), `INSERT INTO task_details(document_id,task_id,assignee_id,due_date,status,priority,updated_by) VALUES($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::date,$5,$6,$7) ON CONFLICT(document_id,task_id) DO UPDATE SET assignee_id=excluded.assignee_id,due_date=excluded.due_date,status=excluded.status,priority=excluded.priority,updated_by=excluded.updated_by,updated_at=now()`, id, in.ID, in.Assignee, in.Due, in.Status, in.Priority, current(r).ID)
 	if e == nil && in.Assignee != "" && in.Assignee != previous {
-		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title,document_id) VALUES($1,$2,'담당할 할 일이 지정되었습니다.',$3)", newID(), in.Assignee, id)
+		_, e = tx.Exec(r.Context(), "INSERT INTO notifications(id,user_id,title,document_id,mail_event,actor_id) VALUES($1,$2,'담당할 할 일이 지정되었습니다.',$3,$4,$5)", newID(), in.Assignee, id, mailEventTaskAssigned, current(r).ID)
 	}
 	return e
 }

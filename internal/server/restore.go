@@ -327,7 +327,7 @@ func (s *Server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, e)
 		return
 	}
-	if _, e = tx.Exec(r.Context(), `UPDATE notification_settings SET enabled=false; UPDATE notification_channels SET enabled=false; UPDATE notification_outbox SET processed_at=now() WHERE processed_at IS NULL; UPDATE notification_deliveries SET status='skipped',message='백업 복원으로 전송을 중단했습니다',updated_at=now() WHERE status IN ('pending','sending','failed')`); e != nil {
+	if _, e = tx.Exec(r.Context(), `UPDATE notification_settings SET enabled=false; UPDATE notification_channels SET enabled=false; UPDATE notification_outbox SET processed_at=now() WHERE processed_at IS NULL; UPDATE mail_outbox SET processed_at=now() WHERE processed_at IS NULL; UPDATE notification_deliveries SET status='skipped',message='백업 복원으로 전송을 중단했습니다',updated_at=now() WHERE status IN ('pending','sending','failed')`); e != nil {
 		respond(w, nil, e)
 		return
 	}

@@ -52,6 +52,7 @@ type Server struct {
 	collaborationMu    sync.Mutex
 	collaboration      *collaborationRuntime
 	documentQuerySlots chan struct{}
+	mailSend           func(context.Context, mailConfig, mailMessage) error // Relay transport; tests substitute it.
 }
 type attempt struct {
 	count int
@@ -137,7 +138,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if len(key) != 32 {
 		return nil, errors.New("ENCRYPTION_KEY는 base64로 인코딩한 32바이트 키여야 합니다")
 	}
-	s := &Server{DB: db, EncryptionKey: key, Version: version, mux: http.NewServeMux(), attempts: map[string]attempt{}}
+	s := &Server{DB: db, EncryptionKey: key, Version: version, mux: http.NewServeMux(), attempts: map[string]attempt{}, mailSend: mailDeliver}
 	// Serialize startup migrations/bootstrap between replicas on a dedicated connection.
 	conn, err := db.Acquire(ctx)
 	if err != nil {
@@ -308,6 +309,9 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if err = s.migrateWorkspaceAudit(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateMail(ctx); err != nil {
+		return nil, err
+	}
 	if err = s.installCollaborationNotifications(ctx); err != nil {
 		return nil, err
 	}
@@ -418,6 +422,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	s.registerExports()
 	s.registerGraphAI()
 	s.registerWorkspaceAudit()
+	s.registerMail()
 	s.registerEnterprise()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, 200, map[string]any{"status": "ok", "version": version})
