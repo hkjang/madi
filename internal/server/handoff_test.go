@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -55,6 +56,37 @@ func TestHandoffOriginAndSettingsValidation(t *testing.T) {
 	}
 	if got := handoffFilename("../"); got != "문서.md" {
 		t.Fatalf("filename fallback: %q", got)
+	}
+}
+
+func TestHandoffContentDispositionRoundTripsReservedCharacters(t *testing.T) {
+	// url.PathEscape leaves `=` and `@` bare, which breaks RFC 5987 parsers.
+	if got := handoffContentDisposition("k=v.md"); got != "attachment; filename*=UTF-8''k%3Dv.md" {
+		t.Fatalf("encoder: %q", got)
+	}
+	if got := handoffContentDisposition("a b@c;d\"e'f(g)h*i,j/k:l?m[n]o.md"); strings.ContainsAny(strings.TrimPrefix(got, "attachment; filename*=UTF-8''"), " @;\"'()*,/:?[]") {
+		t.Fatalf("reserved characters must be percent-encoded: %q", got)
+	}
+	if got := handoffContentDisposition("ok!#$&+-.^_`|~.md"); got != "attachment; filename*=UTF-8''ok!#$&+-.^_`|~.md" {
+		t.Fatalf("attr-char must pass through: %q", got)
+	}
+	for _, title := range []string{"매출=이익 정리", "team@madi 공지=초안", "2026년 3분기 개편안", "a%b;c'd"} {
+		filename := handoffFilename(title)
+		header := handoffContentDisposition(filename)
+		_, params, err := mime.ParseMediaType(header)
+		if err != nil || params["filename"] != filename {
+			t.Fatalf("%q: header %q parsed to %v %v", title, header, params, err)
+		}
+		peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", handoffMIME)
+			w.Header().Set("Content-Disposition", header)
+			w.Write([]byte("# 본문\n"))
+		}))
+		got, body, err := handoffFetch(context.Background(), (&Server{}).handoffClient(), peer.URL, "claim")
+		peer.Close()
+		if err != nil || got != title || body != "# 본문\n" {
+			t.Fatalf("%q: round trip gave %q %q %v", title, got, body, err)
+		}
 	}
 }
 
@@ -138,6 +170,9 @@ func TestPostgresHandoffClaimsAndReceive(t *testing.T) {
 	body := readTestBody(t, res)
 	if res.StatusCode != 200 || res.Header.Get("Content-Type") != handoffMIME || !strings.Contains(res.Header.Get("Content-Disposition"), "filename*=UTF-8''") || body != "# 개편안\n\nHANDOFF_BODY\n" {
 		t.Fatalf("redeem: %d %v %q", res.StatusCode, res.Header, body)
+	}
+	if _, params, err := mime.ParseMediaType(res.Header.Get("Content-Disposition")); err != nil || params["filename"] != "3분기 개편안.md" {
+		t.Fatalf("redeem Content-Disposition must parse: %q %v %v", res.Header.Get("Content-Disposition"), params, err)
 	}
 	anonymous.request("GET", "/api/v1/handoff/claims/"+str(claim, "claim"), nil, 404)
 	expired := testJSONObject(t, admin.request("POST", "/api/v1/handoff/claims", map[string]any{"resource": did, "format": "markdown"}, 201))

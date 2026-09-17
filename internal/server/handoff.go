@@ -129,6 +129,31 @@ func handoffFilename(title string) string {
 	return name + ".md"
 }
 
+// handoffContentDisposition builds the RFC 6266/5987 header for a filename.
+// url.PathEscape is not suitable here: it leaves `=`, `@`, `:` and friends
+// bare, and a bare `=` inside the ext-value makes mime.ParseMediaType (and
+// stricter parsers on other services) reject the whole header. Only RFC 5987
+// attr-char bytes pass through; every other byte becomes %XX.
+func handoffContentDisposition(filename string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	b.WriteString("attachment; filename*=UTF-8''")
+	for i := 0; i < len(filename); i++ {
+		c := filename[i]
+		switch {
+		case 'A' <= c && c <= 'Z', 'a' <= c && c <= 'z', '0' <= c && c <= '9':
+			b.WriteByte(c)
+		case strings.IndexByte("!#$&+-.^_`|~", c) >= 0:
+			b.WriteByte(c)
+		default:
+			b.WriteByte('%')
+			b.WriteByte(hex[c>>4])
+			b.WriteByte(hex[c&0x0f])
+		}
+	}
+	return b.String()
+}
+
 func (s *Server) registerHandoff() {
 	s.handle("GET /api/v1/handoff/targets", s.handoffTargets)
 	s.handle("POST /api/v1/handoff/claims", s.issueHandoffClaim)
@@ -215,7 +240,7 @@ func (s *Server) redeemHandoffClaim(w http.ResponseWriter, r *http.Request) {
 		e = s.DB.QueryRow(r.Context(), "SELECT title,markdown FROM documents WHERE id=$1 AND deleted_at IS NULL", id).Scan(&title, &markdown)
 		if e == nil {
 			w.Header().Set("Content-Type", handoffMIME)
-			w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(filename))
+			w.Header().Set("Content-Disposition", handoffContentDisposition(filename))
 			w.WriteHeader(200)
 			_, _ = io.WriteString(w, markdown)
 			return
