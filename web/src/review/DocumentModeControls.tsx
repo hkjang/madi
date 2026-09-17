@@ -8,9 +8,11 @@ import {
   Printer,
   Focus,
   Paperclip,
+  Send,
   Sparkles,
   Split,
 } from "lucide-react";
+export type HandoffTarget = { service: string; origin: string };
 export function DocumentModeControls({
   mode,
   canWrite,
@@ -22,6 +24,8 @@ export function DocumentModeControls({
   onAI,
   onSelectionAI,
   onSplit,
+  handoffTargets = [],
+  onHandoff,
 }: {
   mode: string;
   canWrite: boolean;
@@ -33,6 +37,9 @@ export function DocumentModeControls({
   onAI: () => void;
   onSelectionAI: () => void;
   onSplit: () => void;
+  // Allow-listed services that accept Markdown; empty means no button at all.
+  handoffTargets?: HandoffTarget[];
+  onHandoff?: (target: HandoffTarget) => void;
 }) {
   return (
     <div className="editor-mode-bar">
@@ -125,6 +132,16 @@ export function DocumentModeControls({
                 <Printer size={17} />
                 인쇄 / PDF 저장
               </Menu.Item>
+              {handoffTargets.map((target) => (
+                <Menu.Item
+                  key={target.origin}
+                  className="dropdown-item"
+                  onSelect={() => onHandoff?.(target)}
+                >
+                  <Send size={17} />
+                  {target.service}(으)로 보내기
+                </Menu.Item>
+              ))}
             </Menu.Content>
           </Menu.Portal>
         </Menu.Root>
