@@ -52,6 +52,7 @@ type Server struct {
 	collaborationMu    sync.Mutex
 	collaboration      *collaborationRuntime
 	documentQuerySlots chan struct{}
+	mcpOAuth           mcpOAuthProviderCache
 }
 type attempt struct {
 	count int
@@ -63,6 +64,10 @@ type Principal struct {
 	WorkspaceID, TokenID        string
 	PluginID                    string
 	ScopeRestricted             bool // A capability-constrained session is not an unrestricted cookie principal.
+	// OAuthSubject is the Keycloak sub when /mcp was opened with an SSO access
+	// token instead of a key. Such a principal has no key row and no cookie:
+	// it is scope-restricted and re-verified from the bearer header.
+	OAuthSubject string
 }
 type contextKey string
 
@@ -592,6 +597,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if r.Header.Get("Authorization") != "" {
 			parts := strings.Fields(r.Header.Get("Authorization"))
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+				s.mcpChallenge(w, r, false)
 				apiError(w, 401, "Bearer API 키 인증 형식을 확인하세요")
 				return
 			}
@@ -599,9 +605,21 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			var err error
 			p, err = s.tokenPrincipal(r)
 			if err != nil || p == nil {
+				var refused *mcpOAuthError
+				if errors.As(err, &refused) {
+					// The client gets the actionable message; the log keeps which
+					// check failed (signature, issuer, expiry, nbf, audience, account).
+					slog.Warn("mcp oauth token refused", "request_id", r.Context().Value(requestKey), "route", r.URL.Path, "reason", refused.Reason, "cause", refused.Cause)
+					s.mcpChallenge(w, r, true)
+					apiError(w, 401, refused.Message)
+					return
+				}
 				status := integrationAuthStatus(err)
 				if status == 429 {
 					w.Header().Set("Retry-After", "60")
+				}
+				if status == 401 {
+					s.mcpChallenge(w, r, true)
 				}
 				apiError(w, status, "API 키가 유효하지 않거나 사용이 제한되었습니다")
 				return
@@ -613,6 +631,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		} else {
 			cookie, e := r.Cookie("madi_session")
 			if e != nil {
+				s.mcpChallenge(w, r, false)
 				apiError(w, 401, "로그인이 필요합니다")
 				return
 			}

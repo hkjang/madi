@@ -30,6 +30,12 @@ func defaultSettings() map[string]any {
 	// Silent SSO (prompt=none) is opt-in so a default installation never
 	// redirects a visitor to the identity provider on its own.
 	out["oidc_auto_login"] = false
+	// MCP over SSO (Keycloak access tokens on /mcp) is opt-in; the default
+	// scopes are the read-only vocabulary, cut further by allowed_key_scopes.
+	out["mcp_oauth_enabled"] = false
+	out["mcp_oauth_resource"] = ""
+	out["mcp_oauth_audience"] = ""
+	out["mcp_oauth_scopes"] = mcpOAuthDefaultScopes()
 	for key, value := range defaultRAGSettings() {
 		out[key] = value
 	}
@@ -223,6 +229,9 @@ func validateSettings(cfg map[string]any) error {
 		if !oneOf(scope, allowed...) {
 			return fmt.Errorf("지원하지 않는 API 키 권한: %s", scope)
 		}
+	}
+	if e := validateMCPOAuthSettings(cfg); e != nil {
+		return e
 	}
 	return validateIdentitySettings(cfg)
 }

@@ -98,9 +98,19 @@ data: [DONE]
 
 ## MCP
 
-접속 주소는 `https://madi.example.internal/mcp` 또는 `https://madi.example.internal/api/v1/mcp`입니다. Bearer 키가 필수이며 HTTP POST JSON-RPC의 상태 없는 JSON 응답 방식을 사용합니다. stdio 서버 또는 별도의 legacy SSE 세션 서버는 아닙니다. 클라이언트에서 원격 HTTP MCP와 Authorization 헤더를 설정하세요.
+접속 주소는 `https://madi.example.internal/mcp` 또는 `https://madi.example.internal/api/v1/mcp`입니다. Bearer 키(또는 관리자가 켠 경우 Keycloak 액세스 토큰)가 필수이며 HTTP POST JSON-RPC의 상태 없는 JSON 응답 방식을 사용합니다. stdio 서버 또는 별도의 legacy SSE 세션 서버는 아닙니다. 클라이언트에서 원격 HTTP MCP와 Authorization 헤더를 설정하세요.
 
 지원 프로토콜 버전은 `2025-11-25`, `2025-06-18`, `2025-03-26`입니다. `initialize`, `notifications/initialized`, `tools/list`, `tools/call`을 제공합니다. 클라이언트가 요구하는 인증·전송 방식과 호환되는지 연결 시험을 먼저 수행하세요.
+
+### 키 없이 SSO로 연결
+
+관리자가 **MCP SSO(OAuth) 인증**을 켠 서버에서는 개인 키 대신 Keycloak 액세스 토큰으로도 `/mcp`에 연결할 수 있습니다. OAuth를 지원하는 MCP 클라이언트(Claude, Cursor 등)에는 MCP 주소(`https://madi.example.internal/mcp`) 하나만 넣으면 됩니다. 클라이언트가 401의 `WWW-Authenticate` 헤더를 따라 `/.well-known/oauth-protected-resource/mcp`를 읽고, 회사 계정 로그인을 띄운 뒤 토큰을 받아 옵니다. 이미 Keycloak에 로그인한 사람은 화면을 거의 보지 않습니다. 개인 설정의 API 키 페이지에도 같은 주소가 "키 없이 SSO로 연결" 절에 표시됩니다.
+
+- 먼저 이 웹에 같은 회사 계정으로 한 번 로그인해 두어야 합니다. 토큰으로 계정이 만들어지지 않습니다.
+- 권한은 관리자가 SSO 토큰에 허용한 범위(기본은 읽기)를 따르며, 토큰의 role로 권한이 올라가지 않습니다. `tools/list`에는 허용된 도구만 보입니다.
+- SSO 연결은 워크스페이스에 묶이지 않으므로 도구 호출에 `workspace_id`를 지정하세요.
+- 토큰은 `/mcp`에서만 받습니다. REST 경로는 계속 키와 세션만 받습니다.
+- 키 없이 붙을 수 없는 자동화 스크립트나 폐쇄망 클라이언트는 지금처럼 개인 키를 씁니다.
 
 ```json
 {

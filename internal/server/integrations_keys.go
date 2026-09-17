@@ -102,7 +102,24 @@ func integrationIPAllowed(ip string, allowlist []string) bool {
 
 func (s *Server) tokenPrincipal(r *http.Request) (*Principal, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || !strings.HasPrefix(parts[1], "madi_") {
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return nil, errors.New("유효한 API 키가 필요합니다.")
+	}
+	if !strings.HasPrefix(parts[1], "madi_") {
+		// One header, two credentials: a madi_ key, or — on MCP paths only —
+		// a Keycloak access token. Anything else, and any JWT while the
+		// feature is off, stays "invalid key" so an installation without SSO
+		// says nothing new.
+		if mcpOAuthEligible(r) && looksLikeJWT(parts[1]) {
+			settings, err := s.settings(r.Context())
+			if err != nil {
+				return nil, err
+			}
+			if mcpOAuthConfig(settings).Enabled {
+				p, _, err := s.mcpOAuthPrincipal(r, settings, parts[1])
+				return p, err
+			}
+		}
 		return nil, errors.New("유효한 API 키가 필요합니다.")
 	}
 	var p Principal

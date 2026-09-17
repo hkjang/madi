@@ -125,7 +125,7 @@ func (s *Server) packagePrincipal(r *http.Request, wid string) (*Principal, erro
 	}
 	var p *Principal
 	var err error
-	if initial.TokenID != "" {
+	if initial.TokenID != "" || initial.OAuthSubject != "" {
 		p, err = s.tokenPrincipal(r.WithContext(context.WithValue(r.Context(), integrationCountedTokenKey{}, initial.TokenID)))
 	} else {
 		p, err = s.workerPrincipal(r.Context(), initial.ID, "", wid)

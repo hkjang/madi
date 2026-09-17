@@ -25,7 +25,7 @@ type documentQueryTicket struct {
 }
 
 func documentQuerySession(r *http.Request) string {
-	if current(r).TokenID != "" {
+	if current(r).TokenID != "" || current(r).OAuthSubject != "" {
 		return digest(r.Header.Get("Authorization"))
 	}
 	c, e := r.Cookie("madi_session")
