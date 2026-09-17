@@ -36,6 +36,11 @@ func defaultSettings() map[string]any {
 	for key, value := range defaultOperationsSettings() {
 		out[key] = value
 	}
+	// Visitor tracking is opt-in; a fresh installation serves no snippet and
+	// keeps the strict page policy.
+	for key, value := range defaultTrackingSettings() {
+		out[key] = value
+	}
 	out["support_enabled"] = false
 	out["support_operator_ids"] = []string{}
 	out["support_max_minutes"] = 30
@@ -113,6 +118,9 @@ func (s *Server) registerAdmin() {
 }
 func validateSettings(cfg map[string]any) error {
 	if e := validateOperationsSettings(cfg); e != nil {
+		return e
+	}
+	if e := validateTrackingSettings(cfg); e != nil {
 		return e
 	}
 	if _, ok := cfg["support_enabled"].(bool); !ok {
