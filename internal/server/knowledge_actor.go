@@ -35,7 +35,7 @@ func (s *Server) knowledgeActorTx(r *http.Request, tx pgx.Tx, wid string, scopes
 	if (slices.Contains(scopes, "document:write") || slices.Contains(scopes, "database:write")) && (role == "viewer" || !oneOf(member, "owner", "admin", "editor")) {
 		return changed
 	}
-	if p.TokenID == "" {
+	if p.TokenID == "" && p.OAuthSubject == "" {
 		cookie, e := r.Cookie("madi_session")
 		if e != nil {
 			return changed
@@ -43,6 +43,28 @@ func (s *Server) knowledgeActorTx(r *http.Request, tx pgx.Tx, wid string, scopes
 		if tx.QueryRow(r.Context(), `SELECT expires_at FROM sessions WHERE user_id=$1 AND token_hash=$2 AND expires_at>clock_timestamp() FOR SHARE`, p.ID, digest(cookie.Value)).Scan(&expires) != nil {
 			return changed
 		}
+	} else if p.TokenID == "" {
+		// An SSO subject is re-verified from the same bearer token against the
+		// settings locked in this transaction, exactly as a key is re-read.
+		parts := strings.Fields(r.Header.Get("Authorization"))
+		var raw []byte
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || tx.QueryRow(r.Context(), `SELECT data FROM settings WHERE id=1 FOR SHARE`).Scan(&raw) != nil {
+			return changed
+		}
+		cfg, e := s.decodeSettings(raw)
+		if e != nil {
+			return changed
+		}
+		fresh, until, e := s.mcpOAuthPrincipal(r, cfg, parts[1])
+		if e != nil || fresh.ID != p.ID || fresh.OAuthSubject != p.OAuthSubject {
+			return changed
+		}
+		for _, scope := range scopes {
+			if !hasIntegrationScope(fresh, scope) {
+				return changed
+			}
+		}
+		expires = until
 	} else {
 		parts := strings.Fields(r.Header.Get("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {

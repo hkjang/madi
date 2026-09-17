@@ -432,7 +432,7 @@ export const scopeNames: Record<string, string> = {
   "ai:execute": "AI 실행",
 };
 export function KeysPage() {
-  const { workspaces, workspace, user, notify } = useApp();
+  const { workspaces, workspace, user, notify, publicInfo } = useApp();
   const [params] = useSearchParams();
   const owner = user.role === "admin" ? params.get("user_id") || "" : "";
   const [items, setItems] = useState<any[]>([]),
@@ -612,6 +612,23 @@ export function KeysPage() {
             </div>
           </Field>
           <code>Authorization: Bearer YOUR_API_KEY</code>
+          {publicInfo?.mcp_oauth_enabled && publicInfo?.mcp_oauth_resource && (
+            <>
+              <h3>키 없이 SSO로 연결</h3>
+              <p className="muted">
+                OAuth를 지원하는 MCP 클라이언트(Claude, Cursor 등)에는 아래
+                주소만 넣으면 됩니다. 클라이언트가 회사 계정 로그인을 띄우고
+                토큰을 받아 옵니다. 먼저 이 웹에 회사 계정으로 한 번 로그인해
+                두어야 하며, 권한은 관리자가 SSO 토큰에 허용한 범위를 따릅니다.
+              </p>
+              <Field label="SSO MCP 서버 주소">
+                <div className="input-with-button">
+                  <input readOnly value={publicInfo.mcp_oauth_resource} />
+                  <CopyButton value={publicInfo.mcp_oauth_resource} />
+                </div>
+              </Field>
+            </>
+          )}
         </section>
       </div>
       <Modal

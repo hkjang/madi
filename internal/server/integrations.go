@@ -37,6 +37,7 @@ func (s *Server) registerIntegrations() {
 		w.Header().Set("Allow", "POST")
 		apiError(w, http.StatusMethodNotAllowed, "POST를 사용하세요.")
 	})
+	s.registerMCPOAuth()
 }
 
 func settingString(settings map[string]any, name string) string {

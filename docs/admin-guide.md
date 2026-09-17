@@ -72,6 +72,65 @@ Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard
 
 SSO 연동 비밀은 DB에 암호화해 저장하며 설정 조회 시 원문을 다시 보여주지 않습니다. 서비스 관리자 로컬 계정을 보관하여 SSO 설정 오류 시 복구 경로로 사용하세요. SAML·LDAP·SCIM과 그룹 매핑의 구성 및 지원 경계는 [인증·계정 연동 가이드](identity-guide.md)를 참고하세요.
 
+### MCP SSO(OAuth) 인증
+
+같은 SSO 탭의 **MCP SSO(OAuth) 인증** 카드를 켜면 개인 API 키 없이 Keycloak 액세스 토큰으로 `/mcp`에 연결할 수 있습니다. MCP 인가 규격(2025-06-18 이후)은 OAuth 2.1이므로 OAuth를 지원하는 MCP 클라이언트(Claude, Cursor 등)에는 MCP 주소 하나만 주면 클라이언트가 스스로 회사 계정 로그인을 띄우고 토큰을 받아 옵니다. madi는 **리소스 서버**입니다. 토큰을 검사만 하며 발급·클라이언트 등록·세션 전환은 하지 않고 Keycloak이 담당합니다. 개인 키 체계는 그대로 유지되며 기본값은 꺼짐이라 새로 설치한 곳에서는 아무것도 달라지지 않습니다.
+
+| 설정 | 키 | 기본값 | 뜻 |
+| --- | --- | --- | --- |
+| MCP SSO 토큰 허용 | `mcp_oauth_enabled` | `false` | 켜려면 `oidc_enabled`와 `oidc_issuer`가 있어야 하며 저장 시점에 검사합니다 |
+| 리소스 식별자 | `mcp_oauth_resource` | 빈 값 | 비우면 서비스 URL(`site_url`) + `/mcp`. 프록시 뒤라면 클라이언트가 실제로 접속하는 공개 HTTPS 주소를 적습니다. 요청의 `Host` 헤더로는 만들지 않습니다 |
+| 허용 대상 | `mcp_oauth_audience` | 빈 값 | 공백 구분. 토큰의 `aud` 또는 `azp`와 비교합니다 |
+| SSO 토큰에 줄 권한 | `mcp_oauth_scopes` | `document:read search:read database:read` | API 키 허용 권한(`allowed_key_scopes`) 밖의 항목은 무시합니다. 하나도 남지 않으면 토큰을 거부합니다 |
+| (재사용) | `oidc_issuer`, `oidc_client_id` | 웹 로그인 설정 | 새로 만들지 않습니다 |
+
+설정 키는 madi의 다른 설정과 같은 평면 이름(`mcp_oauth_*`)을 씁니다. 표준 문서의 `mcp.oauth.enabled` 등과 1:1로 대응합니다.
+
+동작은 세 가지입니다.
+
+1. `GET /.well-known/oauth-protected-resource`와 `GET /.well-known/oauth-protected-resource/mcp`에서 인증 없이 RFC 9728 메타데이터를 맨 JSON으로 냅니다(`resource`, `authorization_servers=[Keycloak issuer]`, `bearer_methods_supported=["header"]`, `scopes_supported`). `Access-Control-Allow-Origin: *`가 붙습니다. 꺼져 있으면 404입니다.
+2. `/mcp`·`/api/v1/mcp`의 401 응답에 `WWW-Authenticate: Bearer realm="madi", resource_metadata="…/.well-known/oauth-protected-resource/mcp"`를 붙입니다. 토큰이 있었는데 거부했으면 `error="invalid_token"`이 더해집니다. REST 401에는 붙지 않습니다.
+3. 같은 `Authorization: Bearer` 헤더에서 `madi_`로 시작하면 키, JWT 모양이면 Keycloak 토큰으로 검사합니다. 검사 항목: JWKS 서명(RS/ES/PS 계열만, `HS*`·`none` 거부), `iss`가 `oidc_issuer`와 같음, `exp`·`nbf`, `typ`이 `ID`면 거부(액세스 토큰만), `cnf`가 있으면 거부, `sub`가 있음, 그리고 대상 검사.
+
+**대상 검사**: `aud`에 리소스 식별자가 있거나, `aud` 또는 `azp`가 허용 대상 목록에 있어야 합니다. 실제 Keycloak 26은 매퍼 없이는 `aud`에 `account`만 싣고 클라이언트 ID는 `azp`에 담으므로, 허용 대상에 MCP 클라이언트 ID를 적는 것이 가장 간단한 경로입니다. 웹 로그인 클라이언트 ID는 자동으로 허용되지 않습니다.
+
+**계정은 만들지 않습니다.** 토큰의 `sub`로 `identity_links`(provider=oidc, 같은 issuer)에 이미 연결된 활성 사용자만 찾습니다. 없으면 "먼저 웹으로 한 번 로그인하세요"로 거부하고, 비활성 계정도 거부합니다. 토큰의 role은 권한으로 옮기지 않습니다. SSO로 들어온 주체는 그 사용자가 키로 들어왔을 때와 같은 범위 검사·경로 표를 타며, 권한은 관리자 설정 `mcp_oauth_scopes`가 정합니다. 토큰에 madi의 범위 어휘(`document:read` 등)가 `scope`로 실려 오면 교집합만 주고, 교집합이 비면 거부합니다. OAuth 토큰은 `/mcp`에서만 받습니다. REST·웹소켓·관리 API는 지금처럼 키와 세션만 받습니다. SSO 연결은 워크스페이스에 묶이지 않으므로 도구 호출에 `workspace_id`를 지정해야 합니다.
+
+토큰은 저장하지 않고 요청마다 검사합니다. introspection을 하지 않으므로 Keycloak에서 로그아웃해도 이미 발급된 액세스 토큰은 만료까지 유효합니다. 액세스 토큰 수명을 짧게(5분 안팎) 두세요.
+
+**Keycloak 쪽 설정**
+
+1. MCP 클라이언트용 **공개(public) 클라이언트**를 만듭니다. Standard Flow 켬, PKCE `S256`, Direct Access Grants·Implicit·Service accounts 끔. 웹 로그인 클라이언트(confidential)와 **다른** 클라이언트입니다.
+2. Valid Redirect URIs에 사용하는 MCP 클라이언트의 콜백만 정확히 적습니다. Claude는 `https://claude.ai/api/mcp/auth_callback`, 로컬 클라이언트는 `http://127.0.0.1:*/callback` 류입니다. `*` 하나로 다 여는 것은 금지입니다.
+3. 정식 경로: 그 클라이언트(또는 전용 client scope)에 **Audience 매퍼** — Included Custom Audience = 리소스 식별자(예: `https://madi.example.internal/mcp`), Add to access token 켬, Add to ID token 끔. 호환 경로: 매퍼 없이 madi의 허용 대상에 클라이언트 ID를 적습니다.
+4. 액세스 토큰 수명을 짧게 둡니다.
+
+**확인 방법**
+
+```bash
+# 메타데이터 (인증 없음, 맨 JSON)
+curl -s https://madi.example.internal/.well-known/oauth-protected-resource/mcp
+# 401 도전 헤더 (MCP 경로에서만)
+curl -si -X POST https://madi.example.internal/mcp -H 'Content-Type: application/json' -d '{}' | grep -i www-authenticate
+# Keycloak에서 받은 액세스 토큰으로 도구 목록
+curl -s -X POST https://madi.example.internal/mcp -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+**거부 메시지별 조치**
+
+| 메시지 | 조치 |
+| --- | --- |
+| `API 키가 유효하지 않거나 사용이 제한되었습니다` (JWT를 보냈는데) | MCP SSO가 꺼져 있거나 `/mcp`가 아닌 경로입니다. 관리자가 카드를 켜고 클라이언트가 `/mcp`에 연결하는지 확인하세요 |
+| `SSO 액세스 토큰이 유효하지 않습니다(서명·발급자·만료·nbf)` | 서버 로그의 `mcp oauth token refused` 항목 `cause`에 어느 검사가 실패했는지 남습니다. issuer가 `oidc_issuer`와 같은지, 토큰이 만료되지 않았는지, 시계가 맞는지 확인하세요 |
+| `typ=ID 토큰은 MCP 자격이 아닙니다` | 클라이언트가 ID 토큰을 보냈습니다. 액세스 토큰을 보내도록 설정하세요 |
+| `SSO 토큰이 이 서버를 위해 발급된 것이 아닙니다(aud=…, azp=…)` | 메시지에 적힌 `azp`(클라이언트 ID)를 허용 대상에 적거나, 메시지에 적힌 리소스 식별자를 Keycloak Audience 매퍼에 넣으세요 |
+| `이 SSO 계정은 madi에 등록되지 않았습니다` | 그 사용자가 같은 Keycloak 계정으로 웹에 먼저 로그인해야 합니다(자동 등록 또는 관리자 연결) |
+| `연결된 madi 사용자가 비활성 상태입니다` | 사용자 관리에서 계정을 확인하세요. 토큰으로 되살리지 않습니다 |
+| `토큰의 scope … 가 관리자가 허용한 MCP SSO 범위 … 와 겹치지 않습니다` | Keycloak client scope 설정을 바꾸거나 카드의 권한을 조정하세요 |
+| `mcp_oauth_scopes 에 … 범위가 없어` | API 키 허용 권한과 카드의 권한이 겹치도록 조정하세요 |
+| `Keycloak 발급자 정보를 읽지 못해` | 서버에서 issuer의 `/.well-known/openid-configuration`과 `jwks_uri`(같은 출처여야 함)에 접근할 수 있는지 확인하세요 |
+
 ## AI 연결
 
 AI 설정에서 내부 또는 외부 OpenAI 호환 API의 기본 URL, 모델 ID, API 키, 최대 출력 토큰과 시스템 지시문을 지정합니다. 최대 출력 토큰은 1~262,144 범위이며 실제 요청 가능량은 모델과 제공자 한도에 의해 제한됩니다. 256K 설정은 모든 모델이 256K를 생성한다는 보장이 아닙니다.

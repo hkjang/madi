@@ -54,6 +54,23 @@ import {
 } from "./ui";
 import { scopeNames } from "./PersonalPages";
 
+// Server defaults for mcp_oauth_scopes: the read-only vocabulary.
+const mcpOAuthDefaultScopes = ["document:read", "search:read", "database:read"];
+
+// RFC 9728 well-known location for the configured (or derived) MCP resource:
+// origin + /.well-known/oauth-protected-resource + path.
+function mcpOAuthMetadataURL(v: (key: string, fallback?: any) => any) {
+  const resource =
+    v("mcp_oauth_resource") ||
+    String(v("site_url") || window.location.origin).replace(/\/$/, "") + "/mcp";
+  try {
+    const u = new URL(resource);
+    return u.origin + "/.well-known/oauth-protected-resource" + u.pathname;
+  } catch {
+    return "";
+  }
+}
+
 const actionNames: Record<string, string> = {
   LOGIN: "로그인",
   LOGOUT: "로그아웃",
@@ -727,6 +744,115 @@ export function AdminSettings() {
                         Keycloak 클라이언트의 Client authentication과 Standard
                         flow를 활성화하세요. 설정 저장 후 회사 계정 로그인을
                         확인하세요.
+                      </span>
+                    </div>
+                    <div className="settings-section-title">
+                      <KeyRound size={24} />
+                      <div>
+                        <h2>MCP SSO(OAuth) 인증</h2>
+                        <p>
+                          개인 API 키 없이 Keycloak 액세스 토큰으로 /mcp에
+                          연결합니다. 키는 그대로 유지됩니다.
+                        </p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={v("mcp_oauth_enabled", false)}
+                      onChange={(x) => set("mcp_oauth_enabled", x)}
+                      label="MCP SSO 토큰 허용"
+                      description="기본은 꺼짐입니다. SSO 로그인이 켜져 있어야 하며, 웹으로 한 번 이상 로그인한 활성 계정의 토큰만 받습니다. REST·관리 API는 계속 키와 세션만 받습니다."
+                    />
+                    {input(
+                      "mcp_oauth_resource",
+                      "리소스 식별자",
+                      "url",
+                      "비우면 서비스 URL + /mcp 입니다. 프록시 뒤라면 클라이언트가 실제로 접속하는 공개 HTTPS 주소를 적으세요.",
+                    )}
+                    <Field label="클라이언트에 줄 MCP 주소">
+                      <div className="input-with-button">
+                        <input
+                          readOnly
+                          value={
+                            v("mcp_oauth_resource") ||
+                            String(
+                              v("site_url") || window.location.origin,
+                            ).replace(/\/$/, "") + "/mcp"
+                          }
+                        />
+                        <CopyButton
+                          value={
+                            v("mcp_oauth_resource") ||
+                            String(
+                              v("site_url") || window.location.origin,
+                            ).replace(/\/$/, "") + "/mcp"
+                          }
+                        />
+                      </div>
+                    </Field>
+                    <Field
+                      label="보호 리소스 메타데이터 주소"
+                      hint="401 응답의 WWW-Authenticate 헤더가 가리키는 문서입니다. curl로 열리는지 확인하세요."
+                    >
+                      <div className="input-with-button">
+                        <input readOnly value={mcpOAuthMetadataURL(v)} />
+                        <CopyButton value={mcpOAuthMetadataURL(v)} />
+                      </div>
+                    </Field>
+                    {input(
+                      "mcp_oauth_audience",
+                      "허용 대상 (aud 또는 azp)",
+                      "text",
+                      "공백으로 구분한 MCP 클라이언트 ID. Keycloak 26은 클라이언트 ID를 azp에 담으므로 Audience 매퍼 없이 여기에 적으면 됩니다. 예: claude-mcp cursor-mcp",
+                    )}
+                    <fieldset className="scope-fieldset">
+                      <legend>SSO 토큰에 줄 권한</legend>
+                      <p className="muted">
+                        토큰의 role은 권한으로 옮기지 않습니다. API 키 허용 권한
+                        밖의 항목은 무시되며, 하나도 남지 않으면 토큰을
+                        거부합니다.
+                      </p>
+                      <div className="scope-grid">
+                        {Object.entries(scopeNames).map(([scope, label]) => (
+                          <label key={scope}>
+                            <input
+                              type="checkbox"
+                              checked={v(
+                                "mcp_oauth_scopes",
+                                mcpOAuthDefaultScopes,
+                              ).includes(scope)}
+                              onChange={(e) =>
+                                set(
+                                  "mcp_oauth_scopes",
+                                  e.target.checked
+                                    ? [
+                                        ...v(
+                                          "mcp_oauth_scopes",
+                                          mcpOAuthDefaultScopes,
+                                        ),
+                                        scope,
+                                      ]
+                                    : v(
+                                        "mcp_oauth_scopes",
+                                        mcpOAuthDefaultScopes,
+                                      ).filter((s: string) => s !== scope),
+                                )
+                              }
+                            />
+                            <span>
+                              {label}
+                              <small>{scope}</small>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <div className="notice subtle">
+                      <ShieldCheck size={19} />
+                      <span>
+                        Keycloak에는 웹 로그인과 다른 공개(public) 클라이언트를
+                        PKCE S256으로 만들고, 클라이언트 ID를 허용 대상에 적거나
+                        Audience 매퍼에 리소스 식별자를 넣으세요. 이 서버는
+                        토큰을 검사만 하며 발급하지 않습니다.
                       </span>
                     </div>
                   </>

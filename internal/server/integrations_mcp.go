@@ -99,8 +99,10 @@ func mcpError(w http.ResponseWriter, id json.RawMessage, code int, message strin
 
 func (s *Server) mcp(w http.ResponseWriter, r *http.Request) {
 	p := current(r)
-	if p.TokenID == "" {
-		apiError(w, 401, "MCP 연결에는 범위가 지정된 API 키가 필요합니다.")
+	if p.TokenID == "" && p.OAuthSubject == "" {
+		// A cookie session reached /mcp: a browser, not an MCP client, so no
+		// OAuth challenge is offered here. Bearer refusals are challenged in auth.
+		apiError(w, 401, "MCP 연결에는 범위가 지정된 API 키 또는 SSO 액세스 토큰이 필요합니다.")
 		return
 	}
 	if !s.sameOrigin(r) {
@@ -157,7 +159,11 @@ func (s *Server) mcp(w http.ResponseWriter, r *http.Request) {
 		if !slices.Contains(mcpVersions, selected) {
 			selected = mcpVersions[0]
 		}
-		mcpResult(w, in.ID, map[string]any{"protocolVersion": selected, "capabilities": map[string]any{"tools": map[string]any{"listChanged": false}}, "serverInfo": map[string]any{"name": "madi", "version": s.Version}, "instructions": "모든 도구는 API 키의 권한, 워크스페이스, 사용자 문서 접근 권한을 적용합니다. 문서 수정 전에 최신 version을 조회하세요."})
+		instructions := "모든 도구는 API 키의 권한, 워크스페이스, 사용자 문서 접근 권한을 적용합니다. 문서 수정 전에 최신 version을 조회하세요."
+		if p.OAuthSubject != "" {
+			instructions = "모든 도구는 관리자가 SSO 토큰에 허용한 권한과 사용자 문서 접근 권한을 적용합니다. SSO 연결은 워크스페이스에 묶이지 않으므로 workspace_id를 지정하세요. 문서 수정 전에 최신 version을 조회하세요."
+		}
+		mcpResult(w, in.ID, map[string]any{"protocolVersion": selected, "capabilities": map[string]any{"tools": map[string]any{"listChanged": false}}, "serverInfo": map[string]any{"name": "madi", "version": s.Version}, "instructions": instructions})
 	case "ping":
 		mcpResult(w, in.ID, map[string]any{})
 	case "tools/list":
@@ -201,7 +207,13 @@ func (s *Server) mcp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		encoded, _ := json.Marshal(body)
-		internal, err := http.NewRequestWithContext(context.WithValue(r.Context(), integrationCountedTokenKey{}, p.TokenID), method, path, bytes.NewReader(encoded))
+		ctx := context.WithValue(r.Context(), integrationCountedTokenKey{}, p.TokenID)
+		if p.OAuthSubject != "" {
+			// The dispatched REST call re-verifies the same token; only this
+			// marker lets a JWT bearer through the REST authentication.
+			ctx = context.WithValue(ctx, mcpOAuthDispatchKey{}, true)
+		}
+		internal, err := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(encoded))
 		if err != nil {
 			mcpError(w, in.ID, -32603, "요청을 구성하지 못했습니다.")
 			return
