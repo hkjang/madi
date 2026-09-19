@@ -64,7 +64,7 @@ cd ..
 go run ./cmd/madi
 ```
 
-Go 바이너리에 `web/dist`를 임베드하므로 Go 빌드와 검사 전에 웹 빌드를 실행합니다.
+Go 바이너리에 `web/dist`를 임베드하므로 Go 빌드와 검사 전에 웹 빌드를 실행합니다. `web/dist/.gitkeep`은 웹 빌드 없이도 `go build ./...`가 컴파일되도록 둔 Go 임베드용 자리표시자이며 Vite 빌드가 다시 만들어 주므로 삭제하지 마세요.
 
 ```sh
 go test ./...
