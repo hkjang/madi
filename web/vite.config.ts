@@ -32,8 +32,19 @@ function offlineAssets(): Plugin {
     },
   };
 }
+// web/dist/.gitkeep is tracked so `go build ./...` works on a clean checkout:
+// `//go:embed all:dist` (web/embed.go) rejects a missing directory. Vite empties
+// dist/ before every build, so re-emit the placeholder to keep the tree clean.
+function keepDistPlaceholder(): Plugin {
+  return {
+    name: "madi-keep-dist-placeholder",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: ".gitkeep", source: "" });
+    },
+  };
+}
 export default defineConfig({
-  plugins: [react(), pdfjsAssets(), offlineAssets()],
+  plugins: [react(), pdfjsAssets(), offlineAssets(), keepDistPlaceholder()],
   server: {
     proxy: {
       "/api": "http://localhost:8080",
