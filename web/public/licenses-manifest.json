@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "go.mod": "fd3a3e0103c3d56355b7ebc0c757061a81231de5cf373a0221376501f3d9f08d",
-    "go.sum": "2453e1cb2adbd56693fd7e972e3f9543497da7f6ee42cd73b290c2018b93ff44",
+    "go.mod": "b667c8b5702a647ae8f1853ae0336eaa5bc586cf198b3897a0a8a33d10b43f46",
+    "go.sum": "285c0efe1846a7183a33cb327c1448c18c50560438338df32952aa60a2e077e5",
     "web/package.json": "ef1d65b7f241fea2ec64d2c81065fec5fe3e2031989664f1d2352bb98f98cc5c",
     "web/package-lock.json": "a94ab4c4183def358f381b52c099ea2e066f391919ddc797ed187f0c5246afdd"
   },
@@ -925,7 +925,7 @@
     {
       "ecosystem": "go",
       "name": "google.golang.org/grpc",
-      "version": "v1.82.1",
+      "version": "v1.83.1",
       "license": "See attribution",
       "files": [
         {
@@ -5167,5 +5167,5 @@
       ]
     }
   ],
-  "text_sha256": "b78bf6484d28ade6a12d1b884b1b522279c66646e11a3af29fe2fa50fc06690a"
+  "text_sha256": "b1b8d3cba972933b9a9d5515a83cbfcb20ba794ee56df0a37296618575b92ced"
 }
