@@ -383,6 +383,19 @@ func TestPostgresOIDCSilentLogin(t *testing.T) {
 		t.Fatalf("unexpected silent SSO user: %v", me)
 	}
 	browser.request("POST", "/api/v1/auth/logout", nil, 200)
+	// The visible login-screen link carries return_to without prompt=none: the
+	// path the client sends (same rule: leading "/", never "//") is where the
+	// callback lands.
+	q, state = start("?return_to=%2Fapp%2Fdocuments%2Fdeep")
+	if q.Get("prompt") != "" {
+		t.Fatalf("login link start must not request prompt=none: %v", q)
+	}
+	response = callback(url.Values{"state": {state}, "code": {"test-code"}})
+	if response.StatusCode != 302 || response.Header.Get("Location") != "/app/documents/deep" {
+		t.Fatalf("login link return: %d %q", response.StatusCode, response.Header.Get("Location"))
+	}
+	browser.request("GET", "/api/v1/auth/me", nil, 200)
+	browser.request("POST", "/api/v1/auth/logout", nil, 200)
 	// Off-origin return targets fall back to the application root.
 	for _, unsafe := range []string{"//evil.example/x", "https://evil.example/x", "app"} {
 		_, state = start("?return_to=" + url.QueryEscape(unsafe))

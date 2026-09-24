@@ -11,6 +11,7 @@ import {
   beginSilentSso,
   clearSilentSsoState,
   markSignedOut,
+  oidcLoginStartUrl,
   shouldAttemptSilentSso,
 } from "./auth/silentSso";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -283,6 +284,16 @@ import {
   JobsSettingsPage,
 } from "./AutomationPages";
 
+// The path remembered by the signed-in shell (see the madi.last_path effect
+// below); read defensively because blocked site data throws on access.
+function lastPath(): string | null {
+  try {
+    return localStorage.getItem("madi.last_path");
+  } catch {
+    return null;
+  }
+}
+
 function Login({
   info,
   onLogin,
@@ -399,7 +410,7 @@ function Login({
           {info.oidc_enabled && (
             <>
               <div className="divider-label">또는</div>
-              <a className="button full" href="/api/v1/auth/oidc/start">
+              <a className="button full" href={oidcLoginStartUrl(lastPath())}>
                 <ShieldCheck size={18} /> 회사 계정으로 로그인
               </a>
             </>
