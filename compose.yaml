@@ -1,6 +1,6 @@
 services:
   madi:
-    image: madi:v0.3.0
+    image: madi:v0.4.0
     pull_policy: never
     restart: unless-stopped
     ports:

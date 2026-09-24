@@ -10,14 +10,14 @@ madi는 Markdown 문서와 위키 링크, 문서 데이터베이스, 지식 그�
 - 전체 기능 범위와 운영 한계: [릴리즈 노트](RELEASE_NOTES.md), [P0~P3 범위](docs/roadmap.md), [상세 매뉴얼](https://hkjang.github.io/madi/manuals.html)
 - [UI 선택과 접근성](docs/ui-guide.md) · [포함된 오픈소스 고지](web/public/licenses.txt)
 
-현재 체크아웃은 **v0.3.0 게시 전 후보**입니다. 마지막으로 게시된 릴리즈는 [v0.2.0](https://github.com/hkjang/madi/releases/tag/v0.2.0)(태그 소스 `aff3ee1f6d48f895b0d1461dafdf2711638eb0ce`, 단일 자산 `madi-v0.2.0.tar.gz` 558,764,847바이트)이며 검증 범위는 [배포 검증 기록](docs/deployment-verification.md)에서 확인하세요. v0.3.0 태그의 릴리즈 워크플로가 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성, 이미지 저장·재반입·폐쇄망 실행을 통과한 뒤에만 새 이미지를 게시합니다. 아래 v0.3.0 설치 명령은 해당 릴리즈가 검증·게시된 뒤 사용하는 예시이며, 현재 게시된 파일은 GitHub Releases에서 확인하세요.
+현재 체크아웃은 **v0.4.0 게시 전 후보**입니다. 마지막으로 게시된 릴리즈는 [v0.2.0](https://github.com/hkjang/madi/releases/tag/v0.2.0)(태그 소스 `aff3ee1f6d48f895b0d1461dafdf2711638eb0ce`, 단일 자산 `madi-v0.2.0.tar.gz` 558,764,847바이트)이며 검증 범위는 [배포 검증 기록](docs/deployment-verification.md)에서 확인하세요. `v0.3.0` 태그는 릴리즈 워크플로의 취약점 검사와 서비스 이미지 빌드 관문에서 막혀 게시되지 않았으므로, 그 내용은 v0.4.0으로 다시 게시합니다. v0.4.0 태그의 릴리즈 워크플로가 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성, 이미지 저장·재반입·폐쇄망 실행을 통과한 뒤에만 새 이미지를 게시합니다. 아래 v0.4.0 설치 명령은 해당 릴리즈가 검증·게시된 뒤 사용하는 예시이며, 현재 게시된 파일은 GitHub Releases에서 확인하세요.
 
 ## 빠른 시작
 
-Docker와 별도 PostgreSQL 인스턴스를 준비합니다. 폐쇄망에서는 Docker 자체와 PostgreSQL 인프라도 미리 반입되어 있어야 합니다. v0.3.0 게시 시 서비스 릴리즈 파일은 `madi-v0.3.0.tar.gz` 하나입니다.
+Docker와 별도 PostgreSQL 인스턴스를 준비합니다. 폐쇄망에서는 Docker 자체와 PostgreSQL 인프라도 미리 반입되어 있어야 합니다. v0.4.0 게시 시 서비스 릴리즈 파일은 `madi-v0.4.0.tar.gz` 하나입니다.
 
 ```sh
-gzip -dc madi-v0.3.0.tar.gz | docker load
+gzip -dc madi-v0.4.0.tar.gz | docker load
 cp .env.example .env
 # .env의 네 값을 실제 운영 값으로 수정합니다.
 docker compose up -d
@@ -47,7 +47,7 @@ docker compose up -d
 
 v0.2.0에서는 공동 편집 기록·복구, 한국어 검색·색인 세대, 첨부 본문·선택 OCR, 재개 가능한 이관, AI 근거 보관·지식 패키지·변경 영향·서명 배포를 연결합니다. 운영 카드·문서 조회·공식 답변·모순 후보·DB 초안·역할별 지식 경로와 일상 작업 중심 UX도 함께 제공합니다. [운영 고도화 검증 장부](OPERATIONS_UPGRADE.md)는 로컬 구현·시험과 최종 게시 여부를 구분합니다.
 
-v0.3.0에서는 Keycloak에 이미 로그인한 사용자가 로그인 화면 없이 바로 들어오는 **자동 로그인(silent SSO, OIDC `prompt=none`)**을 관리자 SSO 설정 `oidc_auto_login`으로 제공합니다. 기본값은 꺼짐이며, 탭 세션당 한 번만 시도하고 거절되면 `/login?sso=none`으로 돌아가 재시도 루프를 막습니다. 자세한 조건은 [관리자 가이드](docs/admin-guide.md)를 참고하세요.
+v0.4.0에서는 Keycloak에 이미 로그인한 사용자가 로그인 화면 없이 바로 들어오는 **자동 로그인(silent SSO, OIDC `prompt=none`)**을 관리자 SSO 설정 `oidc_auto_login`으로 제공합니다. 기본값은 꺼짐이며, 탭 세션당 한 번만 시도하고 거절되면 `/login?sso=none`으로 돌아가 재시도 루프를 막습니다. 자세한 조건은 [관리자 가이드](docs/admin-guide.md)를 참고하세요. 같은 버전에서 도달 가능한 gRPC 취약점(GO-2026-6348)을 없애고 드리프트된 Alpine 런타임 고정 버전을 맞춰 이미지 빌드를 복구했습니다.
 
 업그레이드 전에 PostgreSQL·모든 첨부 저장소·ENCRYPTION_KEY와 기존 이미지를 함께 보관하고 복제 환경에서 시험하세요. 스키마 갱신 후 이전 바이너리만으로 되돌리지 마세요. PDF/OCR은 관리자 설정과 Linux Landlock ABI 3 이상·seccomp를 필요로 합니다. 사용하지 않을 때는 기본 비활성화 상태를 유지합니다.
 
@@ -70,7 +70,7 @@ Go 바이너리에 `web/dist`를 임베드하므로 Go 빌드와 검사 전에 �
 go test ./...
 go vet ./...
 bash scripts/release-image.sh
-bash scripts/verify-image.sh madi:v0.3.0
+bash scripts/verify-image.sh madi:v0.4.0
 ```
 
 `verify-image.sh`는 테스트용 PostgreSQL 이미지를 먼저 준비한 뒤 외부 통신이 차단된 Docker 네트워크에서 준비 상태·로그인·공개 메타데이터, 문서·첨부·내보내기 왕복, 실제 PDF·선택 OCR, 대응 소스 해시와 논리 백업·복원을 확인합니다. 이는 실행할 검증 항목 설명이며 새 후보의 통과를 뜻하지 않습니다. 테스트용 PostgreSQL은 릴리즈에 포함되지 않습니다.
@@ -79,6 +79,6 @@ bash scripts/verify-image.sh madi:v0.3.0
 
 ## 릴리즈
 
-`VERSION`의 값은 `0.3.0`, Git 태그는 `v0.3.0`, 이미지 태그는 `madi:v0.3.0`, 이미지 압축 파일은 `madi-v0.3.0.tar.gz` 형식입니다. 태그 push 시 릴리즈 워크플로가 빌드·검사·이미지 재반입·오프라인 기동 검증을 수행하고 서비스 이미지 압축 파일만 릴리즈 자산으로 첨부합니다. GitHub가 자동 제공하는 소스 코드 아카이브는 플랫폼 기본 항목입니다.
+`VERSION`의 값은 `0.4.0`, Git 태그는 `v0.4.0`, 이미지 태그는 `madi:v0.4.0`, 이미지 압축 파일은 `madi-v0.4.0.tar.gz` 형식입니다. 태그 push 시 릴리즈 워크플로가 빌드·검사·이미지 재반입·오프라인 기동 검증을 수행하고 서비스 이미지 압축 파일만 릴리즈 자산으로 첨부합니다. GitHub가 자동 제공하는 소스 코드 아카이브는 플랫폼 기본 항목입니다.
 
 `main`의 `docs/` 변경은 GitHub Pages 워크플로로 배포합니다. 저장소 Pages 소스는 GitHub Actions로 설정해야 합니다.

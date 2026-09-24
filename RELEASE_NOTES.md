@@ -1,8 +1,8 @@
-# madi v0.3.0
+# madi v0.4.0
 
 릴리즈는 전체 회귀와 새 서비스 이미지의 재반입·폐쇄망 검증을 통과한 뒤 게시합니다. 실제 검사·게시 상태는 [검증 장부](https://github.com/hkjang/madi/blob/main/OPERATIONS_UPGRADE.md)와 [배포 검증 기록](https://github.com/hkjang/madi/blob/main/docs/deployment-verification.md)에서 확인하세요. 게시 파일의 정확한 크기와 SHA-256은 릴리즈 워크플로가 이 본문 하단에 기록하며, 이 게시 정책 자체가 검사 통과나 게시 완료를 뜻하지는 않습니다.
 
-한국어 중심의 자체 호스팅 Knowledge & AI Workspace입니다. Go 서버가 React 화면을 함께 제공하며 외부 PostgreSQL과 영구 파일 볼륨을 사용합니다. 작성·검색·이관·AI 근거를 연결한 v0.2.0 이후, Keycloak 세션을 가진 사용자가 로그인 화면 없이 바로 들어오는 자동 로그인을 관리자가 선택해 켤 수 있게 한 업데이트입니다. 게시 워크플로의 빌드·검증·오프라인 실행 검사를 통과한 이미지만 첨부합니다.
+한국어 중심의 자체 호스팅 Knowledge & AI Workspace입니다. Go 서버가 React 화면을 함께 제공하며 외부 PostgreSQL과 영구 파일 볼륨을 사용합니다. 마지막으로 게시된 릴리즈는 v0.2.0이며, `v0.3.0` 태그는 릴리즈 워크플로의 취약점 검사와 서비스 이미지 빌드 관문에서 막혀 게시되지 않았습니다. 이번 v0.4.0은 그 관문을 막던 원인을 없애고, 관리자가 선택해 켜는 자동 로그인(silent SSO)을 v0.2.0 이후 처음으로 게시 가능한 상태로 묶은 업데이트입니다. 게시 워크플로의 빌드·검증·오프라인 실행 검사를 통과한 이미지만 첨부합니다.
 
 ## 이번 업데이트
 
@@ -10,14 +10,15 @@
 - **OIDC `prompt=none` 최상위 이동:** 숨은 iframe 대신 최상위 이동으로 `/api/v1/auth/oidc/start?prompt=none&return_to=<경로>`를 거쳐 기존 세션으로만 답하도록 요청합니다. 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 설정과 무관하며, Keycloak 클라이언트에 리디렉션 URI를 추가할 필요가 없습니다.
 - **재시도 루프 방지:** 조용한 시도는 탭 세션당 한 번만 하며(`sessionStorage` 표시, 저장소를 읽을 수 없으면 이미 시도한 것으로 간주) 사용자가 직접 로그아웃한 직후, 주소에 `?sso=none`·`?sso=error`가 있는 경우, `/login`·OIDC 콜백·`/api`·`/mcp`·`/healthz`·`/readyz`·공개 공유 경로에서는 시도하지 않습니다. Keycloak이 `error=login_required`로 답하면 `/login?sso=none`으로 보내 평소 로그인 화면을 보여 줍니다.
 - **서버 측 보호:** `oidc_auto_login`이 꺼져 있으면 `?prompt=none`이 붙은 요청도 평범한 로그인으로 처리하므로 주소만으로 흐름을 바꿀 수 없습니다. `return_to`는 `/`로 시작하고 `//`로 시작하지 않는 같은 출처 경로만 받으며 그 밖의 값은 `/app`으로 대체합니다. 서명·issuer·audience·nonce·state·PKCE·만료 검증과 기존 계정의 명시적 연결 보호는 그대로입니다.
+- **게시 관문 복구:** 도달 가능한 gRPC 취약점(GO-2026-6348, `google.golang.org/grpc` v1.82.1 → v1.83.1)을 없애고, Alpine 저장소에서 교체된 `ca-certificates`·`ca-certificates-bundle` 20260909-r0과 `tzdata` 2026d-r0으로 `deploy/runtime-apk.lock`의 정확한 고정 버전을 맞췄습니다. 설치 집합은 잠금 파일과 정확히 일치하고 대응 소스 목록은 69개 패키지·52개 origin을 유지합니다. 서비스 동작은 달라지지 않으며, `web/dist/.gitkeep`을 추적해 웹 빌드 전에도 `go build ./...`가 컴파일됩니다.
 
 관리자 설정 화면 SSO 탭과 [관리자 가이드](https://hkjang.github.io/madi/manuals/admin-guide.html)에 설정과 동작 조건을 기록했습니다. 상세 사용법과 한도는 [전체 매뉴얼](https://hkjang.github.io/madi/manuals.html), 검증 조건과 진행 기록은 저장소의 `OPERATIONS_UPGRADE.md`를 확인하세요. 자동 브라우저 시험은 실제 사람 사용성 관찰이나 운영체제 IME 시험을 대신하지 않습니다.
 
-v0.3.0 후보의 로컬 검증은 웹 빌드(tsc·Vite), `go build`·`go vet`·비DB `go test ./...`, 임시 PostgreSQL 17 컨테이너에서 OIDC 코드·PKCE·nonce, 조용한 로그인(`TestPostgresOIDCSilentLogin`)·`return_to`, 설정·키·백업·지원 통합 시험 11개, Node 검사 27개(silent SSO 루프 방지 포함)와 매뉴얼 54쪽 재생성·검증 통과를 확인했습니다. 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성, 새 이미지 저장·재반입·폐쇄망 실행은 태그 릴리즈 워크플로의 별도 관문이며 로컬 통과가 이를 대신하지 않습니다.
+v0.4.0 후보의 로컬 검증은 웹 빌드(tsc·Vite, 번들 `main-CpB02-uO.js`), `go build`·`go vet`·서식 검사·비DB `go test ./...`, 임시 PostgreSQL 17 컨테이너에서 `-race` OIDC 코드·PKCE·nonce와 조용한 로그인(`TestPostgresOIDCSilentLogin`), 설정·API 키·백업·지원 통합 시험 7개 통과(운영 호스트 도구가 필요한 `TestNativeBackupCurrentFullSchema` 1개는 건너뜀), Node 검사 27개(silent SSO 루프 방지 포함)와 매뉴얼 54쪽 재생성·검증 통과를 확인했습니다. 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성, 새 이미지 저장·재반입·폐쇄망 실행은 태그 릴리즈 워크플로의 별도 관문이며 로컬 통과가 이를 대신하지 않습니다.
 
 ## 업그레이드 주의
 
-기동 시 스키마를 자동 갱신하며, 이번 업데이트는 SSO 설정에 `oidc_auto_login` 항목을 추가합니다. 기존 저장 설정에 항목이 없으면 `false`로 취급하므로 업그레이드만으로 로그인 흐름이 바뀌지 않습니다. **교체 전에 PostgreSQL·모든 첨부 저장소·ENCRYPTION_KEY·기존 이미지를 같은 복구 계획으로 보관**하고, 복제한 환경에서 먼저 시험하세요. 변경된 DB에 예전 바이너리만 다시 올리는 방법을 롤백으로 사용하지 마세요. 복구에는 이전 버전과 그 버전의 백업을 함께 사용합니다.
+기동 시 스키마를 자동 갱신하며, 이번 업데이트는 SSO 설정에 `oidc_auto_login` 항목을 추가합니다. 기존 저장 설정에 항목이 없으면 `false`로 취급하므로 업그레이드만으로 로그인 흐름이 바뀌지 않습니다. **교체 전에 PostgreSQL·모든 첨부 저장소·ENCRYPTION_KEY·기존 이미지를 같은 복구 계획으로 보관**하고, 복제한 환경에서 먼저 시험하세요. 변경된 DB에 예전 바이너리만 다시 올리는 방법을 롤백으로 사용하지 마세요. 복구에는 이전 버전과 그 버전의 백업을 함께 사용합니다. 게시된 이전 버전은 v0.2.0이므로 롤백 대상도 v0.2.0 이미지와 그 시점의 백업입니다.
 
 자동 로그인을 켜기 전에 Keycloak 세션 수명과 조직의 공용 단말 정책을 확인하세요. 사용자가 madi에서 로그아웃해도 Keycloak 세션은 남으며, 같은 탭에서는 다시 로그인하기 전까지 조용한 시도를 억제하지만 새 탭에서는 한 번 다시 시도합니다. 운영 중인 Keycloak 서버를 이 변경으로 수정하거나 배포한 것은 아닙니다. `oidc_require_verified_email`을 비롯한 v0.2.0의 OIDC 동작과 백업·복원·첨부 추출·OCR 요구사항은 그대로입니다.
 
@@ -44,10 +45,10 @@ v0.3.0 후보의 로컬 검증은 웹 빌드(tsc·Vite), `go build`·`go vet`·�
 
 ## 배포
 
-검증 완료 후 게시할 릴리즈 자산은 `madi:v0.3.0` 이미지를 저장한 `madi-v0.3.0.tar.gz` 하나입니다. 기본 플랫폼은 Linux amd64입니다. PostgreSQL은 별도로 준비하며 릴리즈에 제3자 서비스 이미지는 포함하지 않습니다. PDF/OCR 도구·영어/한국어 모델·로컬 웹 자산·런타임 구성 요소의 대응 소스와 고지를 같은 이미지에 넣도록 빌드하며, 최종 이미지에서 다시 검증합니다. 소스·체크섬·PostgreSQL 파일을 추가 자산으로 올리지 않습니다.
+검증 완료 후 게시할 릴리즈 자산은 `madi:v0.4.0` 이미지를 저장한 `madi-v0.4.0.tar.gz` 하나입니다. 기본 플랫폼은 Linux amd64입니다. PostgreSQL은 별도로 준비하며 릴리즈에 제3자 서비스 이미지는 포함하지 않습니다. PDF/OCR 도구·영어/한국어 모델·로컬 웹 자산·런타임 구성 요소의 대응 소스와 고지를 같은 이미지에 넣도록 빌드하며, 최종 이미지에서 다시 검증합니다. 소스·체크섬·PostgreSQL 파일을 추가 자산으로 올리지 않습니다.
 
 ```sh
-gzip -dc madi-v0.3.0.tar.gz | docker load
+gzip -dc madi-v0.4.0.tar.gz | docker load
 ```
 
 서비스 실행에는 `POSTGRES_DSN`, `BOOTSTRAP_ADMIN`, `BOOTSTRAP_ADMIN_PASSWORD`, `ENCRYPTION_KEY` 네 환경변수가 필요합니다. 그 밖의 운영 설정은 관리자 화면에서 관리합니다. ENCRYPTION_KEY는 32바이트 무작위 값의 Base64 표현이며 별도 안전한 장소에 백업해야 합니다.
@@ -60,4 +61,4 @@ P0~P3 기능과 v0.2.0의 운영·UX 연결 위에 선택형 자동 로그인을
 
 릴리즈 워크플로는 웹·Go 빌드, Go 검사, 이미지 재반입 및 외부 통신이 차단된 Docker 네트워크에서 준비 상태·로그인 기동 검사를 통과한 뒤 이미지를 게시합니다. 실제 운영망의 TLS·DNS·프록시·IdP·AI 호환성은 운영 환경에서 추가로 확인하세요.
 
-2026-09-14 v0.3.0 후보(`fc79295d` 기준)의 로컬 검사에서 `govulncheck`는 Go 호출 경로 0건·가져오는 패키지 0건을 보고했고, 의존하는 모듈에는 애플리케이션에서 호출되지 않은 취약점 1건이 남아 있습니다. `go vet`·서식 검사, 라이선스 423개 검증도 통과했습니다. 이는 새 배포 이미지의 검사를 면제하지 않습니다. 2026-09-08에 별도로 검사한 데스크톱 Rust SDK에는 GTK 계열의 정보형 경고 17건이 남아 있으며, 해당 SDK는 서비스 Docker 런타임에 포함되지 않습니다. 현재 확인된 입력 경계와 경고의 한계는 [보안 검증 안내](https://hkjang.github.io/madi/manuals/security-verification.html)에 명시합니다.
+2026-09-24 v0.4.0 후보(`40fcb440` 기준)의 로컬 검사에서 `govulncheck` v1.7.0은 Go 호출 경로 0건을 보고했고, 가져오는 패키지에 1건·의존하는 모듈에 1건이 애플리케이션에서 호출되지 않은 상태로 남아 있습니다. v0.3.0 후보에서 도달 가능하던 gRPC 취약점 1건은 이번 의존성 갱신으로 해소했습니다. `go vet`·서식 검사, 라이선스 423개 검증도 통과했습니다. 이는 새 배포 이미지의 검사를 면제하지 않습니다. 2026-09-08에 별도로 검사한 데스크톱 Rust SDK에는 GTK 계열의 정보형 경고 17건이 남아 있으며, 해당 SDK는 서비스 Docker 런타임에 포함되지 않습니다. 현재 확인된 입력 경계와 경고의 한계는 [보안 검증 안내](https://hkjang.github.io/madi/manuals/security-verification.html)에 명시합니다.
