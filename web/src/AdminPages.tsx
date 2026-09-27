@@ -477,8 +477,36 @@ const settingTabs = [
   ["security", "보안 / API 키", ShieldCheck],
   ["workflow", "검토 / 승인", Workflow],
   ["storage", "저장소 / 보존", HardDrive],
+  ["tracking", "방문 추적", Activity],
   ["history", "설정 변경 이력", History],
 ];
+const trackingProviders: [string, string][] = [
+  ["none", "사용 안 함"],
+  ["momento", "Momento (사내 수집기)"],
+  ["ga4", "Google Analytics 4"],
+  ["gtm", "Google Tag Manager"],
+  ["matomo", "Matomo"],
+  ["custom", "직접 붙여넣기"],
+];
+type TrackingViolation = {
+  origin: string;
+  directive: string;
+  page: string;
+  count: number;
+  last_seen: string;
+  allowed: boolean;
+};
+// 허용 목록에 출처를 더한다. 이미 있으면 그대로 둔다 (서버의 trackingAddAllowedHost와 같은 규칙).
+function addAllowedHost(existing: string, origin: string) {
+  const clean = origin.trim().replace(/\/$/, "");
+  const hosts = existing
+    .split(/[\s,]+/)
+    .map((h) => h.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  if (hosts.some((h) => h.toLowerCase() === clean.toLowerCase()))
+    return existing;
+  return hosts.length ? existing.trim() + ", " + clean : clean;
+}
 export function AdminSettings() {
   const { notify, refreshPublic } = useApp();
   const [params, setParams] = useSearchParams();
@@ -487,13 +515,18 @@ export function AdminSettings() {
     [changes, setChanges] = useState<SettingsType>({}),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [history, setHistory] = useState<any[]>([]);
+    [history, setHistory] = useState<any[]>([]),
+    [violations, setViolations] = useState<TrackingViolation[]>([]);
   const load = () =>
     api<SettingsType>("/admin/settings")
       .then((v) => {
         setSettings(v);
         setChanges({});
       })
+      .catch((e) => setError(e.message));
+  const loadViolations = () =>
+    api<{ items: TrackingViolation[] }>("/admin/tracking/violations")
+      .then((v) => setViolations(v.items || []))
       .catch((e) => setError(e.message));
   useEffect(() => {
     load();
@@ -503,6 +536,7 @@ export function AdminSettings() {
       api<any[]>("/admin/settings/history")
         .then(setHistory)
         .catch((e) => setError(e.message));
+    if (tab === "tracking") loadViolations();
   }, [tab]);
   const v = (key: string, fallback: any = "") =>
     changes[key] ?? settings?.[key] ?? fallback;
@@ -620,6 +654,7 @@ export function AdminSettings() {
                   setSettings(updated);
                   setChanges({});
                   await refreshPublic();
+                  if (tab === "tracking") await loadViolations();
                   notify("서비스 설정을 저장했습니다.");
                 } catch (e) {
                   setError((e as Error).message);
@@ -970,6 +1005,197 @@ export function AdminSettings() {
                       백업 관리로 이동
                       <ArrowRight size={17} />
                     </Link>
+                  </>
+                )}
+                {tab === "tracking" && (
+                  <>
+                    <div className="settings-section-title">
+                      <Activity size={24} />
+                      <div>
+                        <h2>방문 추적 스크립트</h2>
+                        <p>
+                          어떤 화면이 실제로 쓰이는지 재는 수집기를 붙입니다.
+                          기본은 꺼짐이며, 켜기 전에는 아무것도 달라지지
+                          않습니다.
+                        </p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={v("tracking_enabled", false)}
+                      onChange={(x) => set("tracking_enabled", x)}
+                      label="방문 추적 사용"
+                      description="켜면 아래 제공자의 스니펫을 화면에 넣고, 요청마다 새 nonce를 콘텐츠 보안 정책(CSP)에 함께 보냅니다. 'unsafe-inline'으로 정책을 풀지 않습니다."
+                    />
+                    <Field label="제공자">
+                      <select
+                        value={v("tracking_provider", "none")}
+                        onChange={(e) => set("tracking_provider", e.target.value)}
+                      >
+                        {trackingProviders.map(([id, label]) => (
+                          <option key={id} value={id}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {v("tracking_provider", "none") === "momento" && (
+                      <>
+                        {input(
+                          "tracking_momento_url",
+                          "Momento 수집기 주소",
+                          "url",
+                          "사내 Momento 수집기의 기본 주소입니다. 예: https://momento.company.internal",
+                        )}
+                        {input("tracking_momento_site_id", "Momento 사이트 ID")}
+                        <Toggle
+                          checked={v("tracking_momento_proxy", true)}
+                          onChange={(x) => set("tracking_momento_proxy", x)}
+                          label="같은 오리진 프록시 사용 (권장)"
+                          description="madi가 /momento/* 를 수집기로 넘깁니다. 브라우저는 madi 주소로만 통신하므로 외부 출처가 CSP에 등장하지 않고, 세션 쿠키는 수집기로 보내지 않습니다."
+                        />
+                      </>
+                    )}
+                    {["ga4", "gtm"].includes(v("tracking_provider", "none")) &&
+                      input(
+                        "tracking_measurement_id",
+                        "측정 ID / 컨테이너 ID",
+                        "text",
+                        "GA4는 G-XXXX, GTM은 GTM-XXXX 형식입니다. googletagmanager.com과 google-analytics.com 출처가 정책에 자동으로 더해집니다.",
+                      )}
+                    {v("tracking_provider", "none") === "matomo" && (
+                      <>
+                        {input(
+                          "tracking_matomo_url",
+                          "Matomo 주소",
+                          "url",
+                          "예: https://matomo.company.internal",
+                        )}
+                        {input("tracking_matomo_site_id", "Matomo 사이트 ID")}
+                      </>
+                    )}
+                    {v("tracking_provider", "none") === "custom" && (
+                      <Field
+                        label="추적 코드"
+                        hint="수집 도구가 준 <script> 코드를 그대로 붙여넣으세요. 8KB까지 저장하며, 코드 안의 http(s) 주소를 읽어 CSP에 자동으로 더합니다."
+                      >
+                        <textarea
+                          rows={8}
+                          value={v("tracking_custom_snippet")}
+                          onChange={(e) =>
+                            set("tracking_custom_snippet", e.target.value)
+                          }
+                          spellCheck={false}
+                        />
+                      </Field>
+                    )}
+                    <Field
+                      label="추가 허용 출처"
+                      hint="스니펫에서 자동으로 읽지 못한 출처를 쉼표로 구분해 더합니다. 예: https://cdn.vendor.example"
+                    >
+                      <input
+                        type="text"
+                        value={v("tracking_allowed_hosts")}
+                        onChange={(e) =>
+                          set("tracking_allowed_hosts", e.target.value)
+                        }
+                      />
+                    </Field>
+                    <Toggle
+                      checked={v("tracking_include_admin", false)}
+                      onChange={(x) => set("tracking_include_admin", x)}
+                      label="관리 화면도 추적"
+                      description="기본은 꺼짐입니다. /admin 화면은 관리자만 보므로 대개 방문 자료가 아닙니다."
+                    />
+                    <Field label="삽입 위치">
+                      <select
+                        value={v("tracking_placement", "head")}
+                        onChange={(e) =>
+                          set("tracking_placement", e.target.value)
+                        }
+                      >
+                        <option value="head">head 끝</option>
+                        <option value="body">body 끝</option>
+                      </select>
+                    </Field>
+                    <div className="notice subtle">
+                      <ShieldCheck size={19} />
+                      <span>
+                        API·MCP·상태 점검 경로에는 스니펫을 넣지 않습니다.
+                        추적이 켜진 동안 브라우저가 정책에 막힌 출처를 아래에
+                        신고하며, 끄면 정책은 원래대로 좁아집니다.
+                      </span>
+                    </div>
+                    <div className="settings-section-title">
+                      <ShieldCheck size={24} />
+                      <div>
+                        <h2>정책에 막힌 출처</h2>
+                        <p>
+                          스니펫이 불러오려다 CSP에 막힌 주소입니다. 허용 목록에
+                          더한 뒤 저장하세요.
+                        </p>
+                      </div>
+                    </div>
+                    {violations.length ? (
+                      violations.map((item) => (
+                        <div
+                          className="history-setting"
+                          key={item.directive + " " + item.origin}
+                        >
+                          <div>
+                            <strong>{item.origin}</strong>
+                            <small>
+                              {item.directive} · {item.count}회 ·{" "}
+                              {datetime(item.last_seen)}
+                              {item.page ? " · " + item.page : ""}
+                            </small>
+                          </div>
+                          {item.allowed ? (
+                            <Badge>허용됨</Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              onClick={() =>
+                                set(
+                                  "tracking_allowed_hosts",
+                                  addAllowedHost(
+                                    String(v("tracking_allowed_hosts")),
+                                    item.origin,
+                                  ),
+                                )
+                              }
+                            >
+                              허용 목록에 추가
+                            </Button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <Empty
+                        title="막힌 출처가 없습니다"
+                        text="추적이 켜진 뒤 화면을 열면 차단된 주소가 여기에 나타납니다."
+                      />
+                    )}
+                    <div className="button-row">
+                      <span className="muted small-text">
+                        기록은 메모리에만 두며 재시작하면 사라집니다.
+                      </span>
+                      <Button type="button" onClick={loadViolations}>
+                        <RefreshCw size={17} /> 새로고침
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await api("/admin/tracking/violations", "DELETE");
+                            await loadViolations();
+                          } catch (e) {
+                            notify((e as Error).message, "error");
+                          }
+                        }}
+                      >
+                        기록 비우기
+                      </Button>
+                    </div>
                   </>
                 )}
               </section>

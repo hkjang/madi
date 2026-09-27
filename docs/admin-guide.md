@@ -96,6 +96,35 @@ AI 응답은 스트리밍을 기본으로 처리합니다. 프록시에서 SSE �
 
 [외부 알림·수집 가이드](notification-capture-guide.md)는 SMTP·메시징 채널, 개인 선택, IMAP TLS 이메일 및 HMAC Webhook 비공개 수집의 정책·한도·복원 경계를 설명합니다.
 
+## 방문 추적 스크립트
+
+서비스 설정의 **방문 추적** 탭에서 어떤 화면이 실제로 쓰이는지 재는 수집기 스니펫을 붙일 수 있습니다. 기본값은 꺼짐(`tracking_enabled: false`)이며, 새로 설치한 곳에서는 화면과 콘텐츠 보안 정책(CSP)이 전혀 달라지지 않습니다. 설정은 다른 운영 설정과 같이 데이터베이스에 저장되므로 다시 배포하지 않고 화면에서 바꿉니다.
+
+| 설정 | 뜻 |
+| --- | --- |
+| `tracking_enabled` | 꺼짐이 기본값입니다. 관리자가 켜야 스니펫이 붙습니다 |
+| `tracking_provider` | `none` · `momento` · `ga4` · `gtm` · `matomo` · `custom` |
+| `tracking_momento_url` · `tracking_momento_site_id` | 사내 Momento 수집기 주소와 사이트 ID |
+| `tracking_momento_proxy` | 기본 켜짐. madi가 `/momento/*`를 수집기로 넘겨 브라우저가 외부 출처와 직접 통신하지 않습니다 |
+| `tracking_measurement_id` | GA4(`G-…`) · GTM(`GTM-…`) ID |
+| `tracking_matomo_url` · `tracking_matomo_site_id` | Matomo 주소와 사이트 ID |
+| `tracking_custom_snippet` | 붙여넣은 `<script>` 코드. 8KB를 넘으면 저장되지 않습니다 |
+| `tracking_allowed_hosts` | 스니펫에서 자동으로 읽지 못한 출처를 쉼표로 더하는 자리 (`https://host` 형식) |
+| `tracking_include_admin` | `/admin` 화면에도 붙일지. 기본은 아니오 |
+| `tracking_placement` | `head`(기본) 또는 `body` |
+
+**Momento**는 사내 자체 호스팅 수집기이므로 데이터가 밖으로 나가지 않는 유일한 선택지이며 제공자 목록의 첫 자리에 있습니다. 같은 오리진 프록시(기본)를 켜 두면 스니펫은 `/momento/tracker.js`를 불러오고 `data-endpoint="/momento"`로 이벤트를 보내며, 서버가 이를 `tracking_momento_url`로 전달합니다. 이때 madi 세션 쿠키와 `Authorization` 헤더는 수집기로 보내지 않고, 수집기가 돌려주는 `Set-Cookie`도 브라우저에 전달하지 않습니다. 프록시를 끄면 스니펫이 수집기 주소를 직접 부르고 그 출처가 정책에 더해집니다. 추적을 끄면 `/momento/*`는 다시 404를 돌려줍니다.
+
+### CSP와 nonce
+
+madi의 화면은 `script-src 'self'`로 잠겨 있어 스니펫을 그냥 붙이면 브라우저가 조용히 차단하고 관리자는 이유를 알 수 없습니다. 그래서 추적이 켜진 화면에는 **요청마다 새 nonce**를 만들어 스니펫의 모든 `<script>` 태그에 붙이고, 같은 nonce를 `script-src`에 넣습니다. `'unsafe-inline'`으로 정책을 풀지 않습니다 — 한 번 풀면 앱의 모든 인라인 스크립트가 함께 허용되고 추적을 끈 뒤에도 느슨한 채 남기 때문입니다. 스니펫 안에 적힌 `http(s)` 주소는 자동으로 읽어 `script-src`·`connect-src`·`img-src`에 더하고, GA4·GTM·Matomo는 제공자가 필요로 하는 출처를 함께 더합니다.
+
+스니펫은 `/app`, `/login`, `/share/*`처럼 사람이 보는 화면에만 붙습니다. `/api/*`·`/mcp`·`/healthz`·`/readyz`·`/metrics`에는 붙지 않으며 정책은 원래대로 좁습니다. `/admin` 화면은 `tracking_include_admin`을 켰을 때만 대상입니다. 추적을 끄면 모든 화면의 정책이 즉시 원래 값으로 돌아갑니다.
+
+### 정책에 막힌 출처 확인
+
+추적이 켜진 동안에만 정책에 `report-uri /api/v1/tracking/csp-report`가 들어가고, 브라우저가 차단한 출처와 지시어를 서버가 메모리에 최대 100개까지 기억합니다(같은 출처는 횟수만 늘어나고, 재시작하면 사라집니다). 방문 추적 탭의 **정책에 막힌 출처** 목록에서 "허용 목록에 추가"를 누르면 `tracking_allowed_hosts`에 그 출처가 더해지며, 설정을 저장하면 다음 화면부터 허용됩니다. 이미 허용된 출처는 "허용됨"으로 표시됩니다. 스니펫을 고친 뒤에는 "기록 비우기"로 아직 막히는 것이 있는지 다시 확인하세요. 관리자 API는 `GET`/`DELETE /api/v1/admin/tracking/violations`입니다.
+
 ## 설정 이력, 감사와 상태 점검
 
 정보보호 관리 `/admin/information-protection`에서 민감정보 경고·차단·마스킹·감사, 상속 등급별 화면·인쇄 워터마크와 공개 링크 정책을 설정합니다. 기본은 비활성화입니다. 실제 탐지·파일 검사 한계, 차단/마스킹 시 공동 편집 중지, 기존 자료 정리 범위는 [정보보호·공개 공유 가이드](information-protection-guide.md)를 먼저 확인하세요.

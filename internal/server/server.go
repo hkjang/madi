@@ -52,6 +52,7 @@ type Server struct {
 	collaborationMu    sync.Mutex
 	collaboration      *collaborationRuntime
 	documentQuerySlots chan struct{}
+	trackingViolations *trackingRecorder // Blocked origins reported while the tracking snippet is on.
 }
 type attempt struct {
 	count int
@@ -137,7 +138,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	if len(key) != 32 {
 		return nil, errors.New("ENCRYPTION_KEY는 base64로 인코딩한 32바이트 키여야 합니다")
 	}
-	s := &Server{DB: db, EncryptionKey: key, Version: version, mux: http.NewServeMux(), attempts: map[string]attempt{}}
+	s := &Server{DB: db, EncryptionKey: key, Version: version, mux: http.NewServeMux(), attempts: map[string]attempt{}, trackingViolations: newTrackingRecorder()}
 	// Serialize startup migrations/bootstrap between replicas on a dedicated connection.
 	conn, err := db.Acquire(ctx)
 	if err != nil {
@@ -419,6 +420,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 	s.registerGraphAI()
 	s.registerWorkspaceAudit()
 	s.registerEnterprise()
+	s.registerTracking()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, 200, map[string]any{"status": "ok", "version": version})
 	})
@@ -488,8 +490,7 @@ func New(ctx context.Context, db *pgxpool.Pool, key []byte, version, admin, pass
 			apiError(w, 503, "웹 빌드가 필요합니다")
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(b)
+		s.servePage(w, r, b)
 	})
 	return s, nil
 }
@@ -538,7 +539,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
+	// Pages that carry the tracking snippet replace this with a nonce policy in
+	// servePage; everything else keeps the strict default.
+	w.Header().Set("Content-Security-Policy", basePagePolicy)
+	if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" || r.URL.Path == "/mcp" {
+		w.Header().Set("Content-Security-Policy", serviceOnlyPolicy)
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		w.Header().Set("Cache-Control", "no-store")
 	}
