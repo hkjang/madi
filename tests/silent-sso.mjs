@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   clearSilentSsoState,
   markSignedOut,
+  oidcLoginStartUrl,
   safeReturnTo,
   shouldAttemptSilentSso,
   silentSsoPathAllowed,
@@ -91,4 +92,20 @@ assert.equal(safeReturnTo("/app/documents/x"), "/app/documents/x");
 assert.equal(safeReturnTo("//evil.example/x"), "/app");
 assert.equal(safeReturnTo("https://evil.example/x"), "/app");
 assert.equal(safeReturnTo(""), "/app");
+
+// The login screen's "회사 계정으로 로그인" link carries the last /app path so a
+// visible SSO login lands back where the visitor was. It never asks for a silent
+// attempt, and it never sends a target the server would only replace with /app.
+assert.equal(
+  oidcLoginStartUrl("/app/documents/abc?x=1"),
+  "/api/v1/auth/oidc/start?return_to=%2Fapp%2Fdocuments%2Fabc%3Fx%3D1",
+);
+assert.equal(oidcLoginStartUrl("/app/"), "/api/v1/auth/oidc/start?return_to=%2Fapp%2F");
+assert.equal(oidcLoginStartUrl("/app?view=recent"), "/api/v1/auth/oidc/start?return_to=%2Fapp%3Fview%3Drecent");
+for (const last of [null, undefined, "", "/app", "/admin/settings", "//evil.test", "https://evil.test/app", "/login", "/apple"]) {
+  assert.equal(oidcLoginStartUrl(last), "/api/v1/auth/oidc/start", String(last));
+}
+for (const last of [null, "", "/app/documents/abc", "/admin/settings", "//evil.test", "https://evil.test/app"]) {
+  assert.ok(!oidcLoginStartUrl(last).includes("prompt=none"), `prompt=none for ${last}`);
+}
 console.log("silent-sso ok");

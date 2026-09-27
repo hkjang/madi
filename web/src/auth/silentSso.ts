@@ -89,6 +89,21 @@ export function safeReturnTo(value: string): string {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/app";
 }
 
+/**
+ * Builds the login screen's visible "회사 계정으로 로그인" link. Unlike the silent
+ * flow this never sends prompt=none and touches no storage: it only carries the
+ * last /app path so the callback lands where the visitor was. Anything the
+ * server would replace with /app anyway (other origins, /admin before the role
+ * is known, /app itself) is left off rather than sent as a no-op.
+ */
+export function oidcLoginStartUrl(lastPath: string | null | undefined): string {
+  const start = "/api/v1/auth/oidc/start";
+  if (!lastPath || safeReturnTo(lastPath) !== lastPath) return start;
+  if (!lastPath.startsWith("/app/") && !lastPath.startsWith("/app?"))
+    return start;
+  return `${start}?return_to=${encodeURIComponent(lastPath)}`;
+}
+
 /** Builds the top-level navigation target for one silent attempt and marks it as used. */
 export function silentSsoStartUrl(
   returnTo: string,
