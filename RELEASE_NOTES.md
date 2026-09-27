@@ -14,7 +14,7 @@
 
 관리자 설정 화면 SSO 탭과 [관리자 가이드](https://hkjang.github.io/madi/manuals/admin-guide.html)에 설정과 동작 조건을 기록했습니다. 상세 사용법과 한도는 [전체 매뉴얼](https://hkjang.github.io/madi/manuals.html), 검증 조건과 진행 기록은 저장소의 `OPERATIONS_UPGRADE.md`를 확인하세요. 자동 브라우저 시험은 실제 사람 사용성 관찰이나 운영체제 IME 시험을 대신하지 않습니다.
 
-v0.4.0 후보의 로컬 검증은 웹 빌드(tsc·Vite, 번들 `main-CpB02-uO.js`), `go build`·`go vet`·서식 검사·비DB `go test ./...`, 임시 PostgreSQL 17 컨테이너에서 `-race` OIDC 코드·PKCE·nonce와 조용한 로그인(`TestPostgresOIDCSilentLogin`), 설정·API 키·백업·지원 통합 시험 7개 통과(운영 호스트 도구가 필요한 `TestNativeBackupCurrentFullSchema` 1개는 건너뜀), Node 검사 27개(silent SSO 루프 방지 포함)와 매뉴얼 54쪽 재생성·검증 통과를 확인했습니다. 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성, 새 이미지 저장·재반입·폐쇄망 실행은 태그 릴리즈 워크플로의 별도 관문이며 로컬 통과가 이를 대신하지 않습니다.
+v0.4.0 후보 `852fa26c`(이 문서 갱신 직전 소스)에서 다시 확인한 로컬 검증은 웹 빌드(tsc·Vite, 번들 `main-CpB02-uO.js`), 라이선스 423개 검증, `go build`·`go vet`·서식 검사·비DB `go test ./...`, 임시 PostgreSQL 17 컨테이너에서 `-race` OIDC 코드·PKCE·nonce와 조용한 로그인(`TestPostgresOIDCSilentLogin`), 설정·API 키·지원 통합 시험 6개 통과(운영 호스트 도구가 필요한 `TestNativeBackupCurrentFullSchema` 1개는 건너뜀), Node 검사 27개(silent SSO 루프 방지 포함)와 매뉴얼 49개·54쪽 재생성·537링크 검증 통과입니다. 같은 기준에서 서비스 이미지 빌드와 `madi-v0.4.0.tar.gz` 저장·재반입, 외부 통신이 차단된 Docker 네트워크의 기동·대응 소스·PDF/OCR·백업 복구 검사도 로컬에서 통과해 v0.3.0을 막았던 빌드 관문의 원인이 남아 있지 않음을 확인했습니다. 전체 Go `-race`·독립 브라우저 옵션·PG17/18 호환성과 실제 게시 자산의 저장·재반입·폐쇄망 실행은 태그 릴리즈 워크플로의 별도 관문이며 로컬 통과가 이를 대신하지 않습니다.
 
 ## 업그레이드 주의
 
@@ -61,4 +61,4 @@ P0~P3 기능과 v0.2.0의 운영·UX 연결 위에 선택형 자동 로그인을
 
 릴리즈 워크플로는 웹·Go 빌드, Go 검사, 이미지 재반입 및 외부 통신이 차단된 Docker 네트워크에서 준비 상태·로그인 기동 검사를 통과한 뒤 이미지를 게시합니다. 실제 운영망의 TLS·DNS·프록시·IdP·AI 호환성은 운영 환경에서 추가로 확인하세요.
 
-2026-09-24 v0.4.0 후보(`40fcb440` 기준)의 로컬 검사에서 `govulncheck` v1.7.0은 Go 호출 경로 0건을 보고했고, 가져오는 패키지에 1건·의존하는 모듈에 1건이 애플리케이션에서 호출되지 않은 상태로 남아 있습니다. v0.3.0 후보에서 도달 가능하던 gRPC 취약점 1건은 이번 의존성 갱신으로 해소했습니다. `go vet`·서식 검사, 라이선스 423개 검증도 통과했습니다. 이는 새 배포 이미지의 검사를 면제하지 않습니다. 2026-09-08에 별도로 검사한 데스크톱 Rust SDK에는 GTK 계열의 정보형 경고 17건이 남아 있으며, 해당 SDK는 서비스 Docker 런타임에 포함되지 않습니다. 현재 확인된 입력 경계와 경고의 한계는 [보안 검증 안내](https://hkjang.github.io/madi/manuals/security-verification.html)에 명시합니다.
+2026-09-27 v0.4.0 후보(`852fa26c` 기준)의 로컬 검사에서 `govulncheck` v1.7.0은 Go 호출 경로 0건을 보고했고, 가져오는 패키지에 1건·의존하는 모듈에 1건이 애플리케이션에서 호출되지 않은 상태로 남아 있습니다. v0.3.0 후보에서 도달 가능하던 gRPC 취약점 1건은 이번 의존성 갱신으로 해소했습니다. `go vet`·서식 검사, 라이선스 423개 검증도 통과했습니다. 이는 새 배포 이미지의 검사를 면제하지 않습니다. 2026-09-08에 별도로 검사한 데스크톱 Rust SDK에는 GTK 계열의 정보형 경고 17건이 남아 있으며, 해당 SDK는 서비스 Docker 런타임에 포함되지 않습니다. 현재 확인된 입력 경계와 경고의 한계는 [보안 검증 안내](https://hkjang.github.io/madi/manuals/security-verification.html)에 명시합니다.
