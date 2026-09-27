@@ -59,7 +59,9 @@ Keycloak에서 confidential OpenID Connect 클라이언트를 만들고 Standard
 
 같은 SSO 탭의 **자동 로그인 (silent SSO)** (`oidc_auto_login`)을 켜면 Keycloak에 이미 로그인한 사용자는 madi를 열 때 로그인 화면을 거치지 않고 바로 본 화면으로 들어갑니다. 기본값은 꺼짐이며, 꺼진 설치에서는 아무것도 달라지지 않습니다. `oidc_enabled`가 함께 켜져 있어야 동작합니다.
 
-동작 방식은 OIDC `prompt=none`입니다. 브라우저가 세션 없이 `/app` 등 화면 경로를 열면 숨은 iframe이 아니라 최상위 이동으로 `/api/v1/auth/oidc/start?prompt=none&return_to=<원래 경로>`를 거쳐 Keycloak에 "기존 세션으로만 답하라"고 요청합니다. Keycloak 세션이 있으면 인가 코드가 곧바로 돌아와 평소처럼 로그인되고 원래 열려던 경로로 돌아갑니다. 세션이 없으면 Keycloak이 `error=login_required`로 답하는데, 이는 실패가 아니라 평범한 결과이며 madi는 `/login?sso=none`으로 보내 로그인 화면을 보여 줍니다. 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 설정과 무관합니다.
+동작 방식은 OIDC `prompt=none`입니다. 브라우저가 세션 없이 `/app` 등 화면 경로를 열면 숨은 iframe이 아니라 최상위 이동으로 `/api/v1/auth/oidc/start?prompt=none&return_to=<원래 경로>`를 거쳐 Keycloak에 "기존 세션으로만 답하라"고 요청합니다. Keycloak 세션이 있으면 인가 코드가 곧바로 돌아와 평소처럼 로그인되고 원래 열려던 경로로 돌아갑니다. 세션이 없으면 Keycloak이 `error=login_required`로 답하는데, 이는 실패가 아니라 평범한 결과이며 madi는 `/login?sso=none`으로 보내 로그인 화면에 "회사 계정 세션이 없어 로그인 화면을 표시합니다"라는 안내를 함께 보여 줍니다. 서드파티 쿠키가 막힌 브라우저에서도 동작하고 Keycloak의 프레임 허용 설정과 무관합니다.
+
+자동 로그인과 무관하게, 사용자가 "회사 계정으로 로그인" 버튼으로 시작한 평범한 SSO 로그인을 Keycloak에서 취소하거나 Keycloak이 오류로 답하면(`error=access_denied` 등, 또는 인가 코드 없이 돌아온 경우) madi는 `/login?sso=error`로 보내 로그인 화면에 "회사 계정 로그인이 취소되었거나 완료되지 않았습니다"라는 오류를 표시합니다. 콜백은 브라우저가 직접 이동하는 주소이므로 JSON 오류 본문을 그대로 보여 주지 않습니다. 상태 값 불일치·만료·토큰 검증 실패 같은 madi 쪽 검증 오류는 이전과 같이 상태 코드와 메시지로 응답합니다.
 
 무한 리다이렉트를 막기 위해 조용한 시도는 다음 조건에서 하지 않습니다.
 

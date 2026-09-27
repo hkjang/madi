@@ -102,6 +102,13 @@ func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 // marker tells the browser not to try again even if its storage was cleared.
 const oidcSilentRefusalPath = "/login?sso=none"
 
+// oidcProviderErrorPath is where a visible sign-in lands when the provider
+// answers with an error or without a code (the user cancelled, or Keycloak
+// refused). The callback is a top-level navigation, so a JSON body would be
+// shown verbatim; the login screen explains it instead. The same marker also
+// keeps the browser from starting a silent attempt on that page.
+const oidcProviderErrorPath = "/login?sso=error"
+
 // oidcReturnTo accepts only a same-origin path so the login flow cannot be used
 // as an open redirect: it must start with "/" and must not start with "//".
 func oidcReturnTo(value string) string {
@@ -146,7 +153,7 @@ func (s *Server) oidcCallback(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, oidcSilentRefusalPath, http.StatusFound)
 			return
 		}
-		apiError(w, 401, "SSO 인증이 취소되었거나 실패했습니다.")
+		http.Redirect(w, r, oidcProviderErrorPath, http.StatusFound)
 		return
 	}
 	provider, config, err := oidcConfiguration(ctx, settings)
